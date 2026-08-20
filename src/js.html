@@ -815,7 +815,10 @@
             '</div>' +
           '</div>' +
         '</div>' +
-        '<div><button class="btn btn-sm btn-outline-primary me-2" onclick="editCabang(\'' + c.kode + '\')"><i class="bi bi-pencil"></i></button></div>' +
+        '<div>
+      <button class="btn btn-sm btn-outline-primary me-2" onclick="editCabang(\'' + c.kode + '\')"><i class="bi bi-pencil"></i></button>
+      <button class="btn btn-sm btn-outline-danger" onclick="deleteCabang(\'' + c.kode + '\')"><i class="bi bi-trash"></i></button>
+    </div>' +
       '</div>'
     ).join('');
   }
@@ -862,6 +865,37 @@
     }).withFailureHandler(function(err) {
       showToast('Gagal menghapus: ' + err.message, 'error');
     }).deleteMasterKendaraan(vehicleId);
+  }
+
+
+  function deleteCabang(kode) {
+    if (!confirm('Hapus cabang ini?')) return;
+    google.script.run.withSuccessHandler(function(res) {
+      showToast(res.msg, 'success');
+      loadMasterData('cabang');
+    }).withFailureHandler(function(err) {
+      showToast('Gagal menghapus: ' + err.message, 'error');
+    }).deleteMasterCabang(kode);
+  }
+
+  function deleteSupir(id) {
+    if (!confirm('Hapus supir ini?')) return;
+    google.script.run.withSuccessHandler(function(res) {
+      showToast(res.msg, 'success');
+      loadMasterData('supir');
+    }).withFailureHandler(function(err) {
+      showToast('Gagal menghapus: ' + err.message, 'error');
+    }).deleteMasterSupir(id);
+  }
+
+  function deleteBBM(id) {
+    if (!confirm('Hapus BBM ini?')) return;
+    google.script.run.withSuccessHandler(function(res) {
+      showToast(res.msg, 'success');
+      loadMasterData('bbm');
+    }).withFailureHandler(function(err) {
+      showToast('Gagal menghapus: ' + err.message, 'error');
+    }).deleteMasterBBM(id);
   }
 
   function showToast(message, type) {

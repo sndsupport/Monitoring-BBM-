@@ -101,3 +101,7 @@ function updateMasterSupir(data) { return updateSupir(data); }
 function updateMasterBBM(data) { return updateBBM(data); }
 
 function saveMasterBBM(data) { return insertBBM(data); }
+
+function deleteMasterCabang(kode) { return deleteCabangById(kode); }
+function deleteMasterSupir(id) { return deleteSupirById(id); }
+function deleteMasterBBM(id) { return deleteBBMById(id); }

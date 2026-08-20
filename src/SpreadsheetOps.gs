@@ -58,8 +58,12 @@ function getActiveVehicles(role, userCabang) {
         vehicle_id: row[0],
         plat_nomor: row[1],
         nama: row[2],
+        jenis: row[3] || 'Mobil',
         merk: row[4],
         model: row[5],
+        kapasitas_tangki: row[6],
+        jumlah_bar: row[7],
+        standar_km_l: row[8],
         cabang: row[9]
       });
     }
@@ -266,4 +270,43 @@ function insertBBM(data) {
   let id = 'BBM-' + new Date().getTime();
   ss.getSheetByName('BBM').appendRow([id, data.jenis, data.harga]);
   return { msg: 'BBM Berhasil Ditambahkan' };
+}
+
+function deleteCabangById(kode) {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('Cabang');
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] == kode) {
+      sheet.deleteRow(i + 1);
+      return { msg: 'Cabang Berhasil Dihapus' };
+    }
+  }
+  throw new Error('Cabang tidak ditemukan');
+}
+
+function deleteSupirById(id) {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('Supir');
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] == id) {
+      sheet.deleteRow(i + 1);
+      return { msg: 'Supir Berhasil Dihapus' };
+    }
+  }
+  throw new Error('Supir tidak ditemukan');
+}
+
+function deleteBBMById(id) {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('BBM');
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] == id) {
+      sheet.deleteRow(i + 1);
+      return { msg: 'BBM Berhasil Dihapus' };
+    }
+  }
+  throw new Error('BBM tidak ditemukan');
 }
