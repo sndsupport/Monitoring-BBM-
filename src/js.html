@@ -179,6 +179,7 @@
     document.getElementById('page-form').style.display = 'none';
     document.getElementById('page-dashboard').style.display = 'none';
     document.getElementById('page-master').style.display = 'none';
+    document.getElementById('page-settings').style.display = 'none';
     
     if (tab === 'form') {
       document.getElementById('page-form').style.display = 'block';
@@ -186,6 +187,9 @@
       document.getElementById('page-dashboard').style.display = 'block';
     } else if (tab === 'master') {
       document.getElementById('page-master').style.display = 'block';
+    } else if (tab === 'settings') {
+      document.getElementById('page-settings').style.display = 'block';
+      if (typeof loadSettings === 'function') loadSettings();
     }
     
     document.querySelectorAll('.top-tabs .nav-link').forEach(link => {

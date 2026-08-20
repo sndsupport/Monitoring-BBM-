@@ -1,0 +1,67 @@
+<div id='page-settings' style='display:none;'>
+  <div class='card mb-4'>
+    <div class='card-body p-4'>
+      <h4 class='mb-3'>
+        <i class='bi bi-sliders me-2'></i> Pengaturan Aplikasi
+      </h4>
+      
+      <div class='row g-4'>
+        <div class='col-12 col-md-6'>
+          <div class='card border-primary'>
+            <div class='card-header bg-primary text-white'>
+              <i class='bi bi-image me-1'></i> Logo Aplikasi
+            </div>
+            <div class='card-body text-center'>
+              <div id='settings-logo-preview' class='mb-3 p-4 bg-light rounded'>
+                <i class='bi bi-fuel-pump' style='font-size: 64px; color: #0d6efd;'></i>
+              </div>
+              <p class='text-muted small mb-2'>
+                Format: PNG, JPG, SVG<br>
+                Max ukuran: 200KB<br>
+                Rekomendasi: 200x200px
+              </p>
+              <input type='file' id='logo-file' accept='image/*' style='display:none;' onchange='previewLogo(this)'>
+              <button class='btn btn-outline-primary' onclick='document.getElementById("logo-file").click()'>
+                <i class='bi bi-upload me-1'></i> Pilih Logo Baru
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <div class='col-12 col-md-6'>
+          <div class='card border-info'>
+            <div class='card-header bg-info text-white'>
+              <i class='bi bi-info-circle me-1'></i> Info Aplikasi
+            </div>
+            <div class='card-body'>
+              <div class='mb-3'>
+                <label class='form-label'>Nama Aplikasi</label>
+                <input type='text' id='settings-app-name' class='form-control' placeholder='Monitoring BBM Operasional'>
+              </div>
+              <div class='mb-3'>
+                <label class='form-label'>Nama Perusahaan</label>
+                <input type='text' id='settings-company-name' class='form-control' placeholder='PT. ABC Indonesia'>
+              </div>
+              <div class='mb-0'>
+                <label class='form-label'>Footer Text</label>
+                <input type='text' id='settings-footer-text' class='form-control' placeholder='© 2026 PT. ABC Indonesia'>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class='mt-4'>
+        <button class='btn btn-primary btn-lg btn-full' onclick='saveSettings()'>
+          <i class='bi bi-check-circle me-2'></i> Simpan Pengaturan
+        </button>
+      </div>
+      
+    </div>
+  </div>
+</div>
+
+<div id='settings-loading' class='loading-overlay' style='display:none;'>
+  <div class='spinner-border text-primary'></div>
+  <span>Menyimpan pengaturan...</span>
+</div>
