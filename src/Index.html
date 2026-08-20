@@ -16,24 +16,37 @@
     </nav>
 
     <!-- HALAMAN LOGIN -->
-    <div class='container mt-5' id='page-login'>
+    <div class='container mt-4 mt-md-5' id='page-login' style='display:none;'>
       <div class='row justify-content-center'>
-        <div class='col-md-5'>
-          <div class='card shadow'>
-            <div class='card-header bg-primary text-white text-center fw-bold'>
-              Login Sistem BBM
-            </div>
-            <div class='card-body'>
+        <div class='col-12 col-md-5 col-lg-4'>
+          <div class='card shadow-sm'>
+            <div class='card-body p-4'>
+              <div class='text-center mb-4'>
+                <div id='login-logo' class='mb-3'>
+                  <i class='bi bi-fuel-pump' style='font-size: 64px; color: #0d6efd;'></i>
+                </div>
+                <h4 class='mb-1' id='login-app-name'>Monitoring BBM Operasional</h4>
+                <small class='text-muted' id='login-company-name'></small>
+              </div>
+              
               <form id='login-form' onsubmit='handleLogin(); return false;'>
                 <div class='mb-3'>
                   <label class='form-label'>Username</label>
-                  <input type='text' id='login_username' class='form-control' required>
+                  <div class='input-group'>
+                    <span class='input-group-text bg-light'><i class='bi bi-person'></i></span>
+                    <input type='text' id='login_username' class='form-control' placeholder='Masukkan username' required>
+                  </div>
                 </div>
-                <div class='mb-3'>
+                <div class='mb-4'>
                   <label class='form-label'>Password</label>
-                  <input type='password' id='login_password' class='form-control' required>
+                  <div class='input-group'>
+                    <span class='input-group-text bg-light'><i class='bi bi-lock'></i></span>
+                    <input type='password' id='login_password' class='form-control' placeholder='Masukkan password' required>
+                  </div>
                 </div>
-                <button type='submit' class='btn btn-primary w-100' id='btn-login'>Masuk</button>
+                <button type='submit' class='btn btn-primary btn-full btn-lg' id='btn-login'>
+                  <i class='bi bi-box-arrow-in-right me-2'></i> Masuk
+                </button>
               </form>
             </div>
           </div>

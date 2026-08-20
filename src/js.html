@@ -8,13 +8,13 @@
     ocrModal = new bootstrap.Modal(document.getElementById('ocrModal'));
     document.getElementById('tanggal').valueAsDate = new Date();
     
-    // Cek LocalStorage
+    loadAppSettings();
+    
     let storedUser = localStorage.getItem('bbm_user');
     if (storedUser) {
        userInfo = JSON.parse(storedUser);
        loadInitialData(userInfo);
     } else {
-       // Tampilkan Login
        document.getElementById('page-login').style.display = 'block';
     }
   });
@@ -68,19 +68,23 @@
         userRole = data.role;
         document.getElementById('user-info').innerHTML = data.user + ' (' + userRole + ' - ' + data.cabang + ') <a href="#" onclick="logout()" class="text-warning ms-2">Logout</a>';
         
+        if (userRole === 'SUPERADMIN') {
+          document.getElementById('nav-master').classList.remove('d-none');
+          document.getElementById('nav-settings').classList.remove('d-none');
+          document.getElementById('btn-nav-master').style.display = 'flex';
+          document.getElementById('btn-nav-settings').style.display = 'flex';
+        }
+        
         let roleAlert = document.getElementById('role-alert');
-        if (userRole === 'SUPERADMIN' || userRole === 'PIC WHO' || userRole === 'PIC CABANG') {
-          if(userRole === 'SUPERADMIN') {
-            document.getElementById('nav-master').style.display = 'block';
-            if(roleAlert) {
-               roleAlert.className = 'alert alert-warning text-center';
-               roleAlert.innerHTML = '<small>Anda login sebagai SUPERADMIN. Anda memiliki kendali dan akses penuh ke seluruh cabang.</small>';
-            }
-          } else {
-            if(roleAlert) {
-               roleAlert.className = 'alert alert-info text-center';
-               roleAlert.innerHTML = '<small>Anda login sebagai ' + userRole + '. Anda hanya bisa mengelola kendaraan dan supir di cabang Anda (' + data.cabang + ').</small>';
-            }
+        if (userRole === 'SUPERADMIN') {
+          if(roleAlert) {
+             roleAlert.className = 'alert alert-warning text-center';
+             roleAlert.innerHTML = '<small><i class="bi bi-shield-check me-1"></i> Anda login sebagai SUPERADMIN. Akses penuh ke seluruh cabang.</small>';
+          }
+        } else {
+          if(roleAlert) {
+             roleAlert.className = 'alert alert-info text-center';
+             roleAlert.innerHTML = '<small><i class="bi bi-info-circle me-1"></i> Anda login sebagai ' + userRole + '. Cabang: ' + data.cabang + '</small>';
           }
         }
 
@@ -140,6 +144,24 @@
         switchTab('form');
       })
       .processInitialData(uInfo);
+  }
+
+  function loadAppSettings() {
+    google.script.run
+      .withSuccessHandler(function(settings) {
+        if (settings.logo_url) {
+          document.getElementById('login-logo').innerHTML = 
+            '<img src="' + settings.logo_url + '" alt="Logo" style="max-height: 100px; max-width: 200px;">';
+        }
+        if (settings.app_name) {
+          document.getElementById('login-app-name').innerText = settings.app_name;
+          document.querySelector('.navbar-brand').innerText = settings.app_name;
+        }
+        if (settings.company_name) {
+          document.getElementById('login-company-name').innerText = settings.company_name;
+        }
+      })
+      .getAppSettings();
   }
 
   function switchTab(tab) {
