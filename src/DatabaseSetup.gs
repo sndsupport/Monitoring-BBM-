@@ -18,7 +18,8 @@ function setupDatabase() {
     { name: 'Foto_Evidence', headers: ['evidence_id', 'transaction_id', 'tipe_foto', 'file_url', 'file_id', 'timestamp'] },
     { name: 'Audit_Log', headers: ['log_id', 'timestamp', 'user_id', 'action', 'modul', 'keterangan', 'data_sebelum', 'data_sesudah'] },
     { name: 'Konfigurasi', headers: ['key', 'value', 'keterangan'] },
-    { name: 'Dashboard', headers: ['Metrics', 'Value'] }
+    { name: 'Dashboard', headers: ['Metrics', 'Value'] },
+    { name: 'Pengaturan', headers: ['key', 'value', 'updated_at'] }
   ];
 
   sheets.forEach(sheetInfo => {
@@ -33,6 +34,14 @@ function setupDatabase() {
       sheet.setFrozenRows(1);
     }
   });
+
+  var pengaturanSheet = ss.getSheetByName('Pengaturan');
+  if (pengaturanSheet && pengaturanSheet.getLastRow() === 1) {
+    pengaturanSheet.appendRow(['logo_url', '', new Date()]);
+    pengaturanSheet.appendRow(['app_name', 'Monitoring BBM Operasional', new Date()]);
+    pengaturanSheet.appendRow(['company_name', '', new Date()]);
+    pengaturanSheet.appendRow(['footer_text', '', new Date()]);
+  }
 
   Logger.log('Setup database selesai.');
 }
@@ -79,5 +88,94 @@ function seedDummyData() {
   }
   
   Logger.log('Data dummy (Cabang, Kendaraan, Pengguna) berhasil dimasukkan.');
+}
+
+function getAppSettings() {
+  var ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+  var sheet = ss.getSheetByName('Pengaturan');
+
+  if (!sheet) {
+    return {
+      logo_url: '',
+      app_name: 'Monitoring BBM Operasional',
+      company_name: '',
+      footer_text: ''
+    };
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var settings = {};
+
+  for (var i = 1; i < data.length; i++) {
+    settings[data[i][0]] = data[i][1];
+  }
+
+  return {
+    logo_url: settings.logo_url || '',
+    app_name: settings.app_name || 'Monitoring BBM Operasional',
+    company_name: settings.company_name || '',
+    footer_text: settings.footer_text || ''
+  };
+}
+
+function saveAppSettings(data) {
+  var ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+  var sheet = ss.getSheetByName('Pengaturan');
+
+  if (!sheet) {
+    return { success: false, msg: 'Sheet Pengaturan tidak ditemukan' };
+  }
+
+  var updates = {
+    'logo_url': data.logo_url || '',
+    'app_name': data.app_name || 'Monitoring BBM Operasional',
+    'company_name': data.company_name || '',
+    'footer_text': data.footer_text || ''
+  };
+
+  var range = sheet.getDataRange();
+  var values = range.getValues();
+
+  for (var key in updates) {
+    var found = false;
+    for (var i = 1; i < values.length; i++) {
+      if (values[i][0] === key) {
+        sheet.getRange(i + 1, 2).setValue(updates[key]);
+        sheet.getRange(i + 1, 3).setValue(new Date());
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      sheet.appendRow([key, updates[key], new Date()]);
+    }
+  }
+
+  return { success: true, msg: 'Pengaturan berhasil disimpan' };
+}
+
+function uploadLogo(base64Data, fileName) {
+  try {
+    var data = base64Data.split(',')[1];
+    var blob = Utilities.newBlob(Utilities.base64Decode(data), 'image/png', fileName);
+
+    var folder = DriveApp.getFoldersByName('BBM_Logos');
+    if (!folder.hasNext()) {
+      folder = DriveApp.createFolder('BBM_Logos');
+    } else {
+      folder = folder.next();
+    }
+
+    var file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    var fileUrl = 'https://drive.google.com/uc?export=view&id=' + file.getId();
+
+    saveAppSettings({ logo_url: fileUrl });
+
+    return { success: true, url: fileUrl };
+  } catch (e) {
+    return { success: false, msg: 'Gagal upload logo: ' + e.toString() };
+  }
 }
 
