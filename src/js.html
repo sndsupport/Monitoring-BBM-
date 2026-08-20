@@ -318,8 +318,15 @@
         bbmNama = bbmSelect.options[bbmSelect.selectedIndex].dataset.jenis;
       }
 
+      let vSelect = document.getElementById('vehicle');
+      let vName = vSelect.options[vSelect.selectedIndex] ? vSelect.options[vSelect.selectedIndex].text : '';
+      let cSelect = document.getElementById('input-cabang');
+      let selectedCabang = (cSelect && cSelect.value) ? cSelect.value : (userInfo ? userInfo.cabang : '');
+      
       formDataPayload = {
         vehicle_id: document.getElementById('vehicle').value,
+        vehicle_nama: vName,
+        cabang_trx: selectedCabang,
         nama_supir: document.getElementById('nama_supir').value,
         tanggal: document.getElementById('tanggal').value,
         bar_awal: document.getElementById('bar_awal').value,
