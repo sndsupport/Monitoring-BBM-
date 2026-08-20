@@ -34,9 +34,9 @@
          localStorage.setItem('bbm_user', JSON.stringify(res));
          loadInitialData(userInfo);
        } else {
-         alert(res.msg);
-         btn.disabled = false;
-         btn.innerText = 'Masuk';
+          showToast(res.msg, 'error');
+          btn.disabled = false;
+          btn.innerText = 'Masuk';
        }
     }).doLogin(un, pw);
   }
@@ -54,7 +54,7 @@
 
     google.script.run
       .withFailureHandler(function(err) {
-         alert('Terjadi kesalahan server: ' + err.message);
+         showToast('Terjadi kesalahan server: ' + err.message, 'error');
          logout();
       })
       .withSuccessHandler(function(data) {
@@ -303,18 +303,18 @@
              formDataPayload.serverData = res; 
              ocrModal.show(); 
            } else {
-             alert('Terjadi kesalahan memproses foto: ' + res.error);
+              showToast('Terjadi kesalahan memproses foto: ' + res.error, 'error');
            }
         })
         .withFailureHandler(function(err){
-           alert('Gagal menghubungi server: ' + err.message);
+           showToast('Gagal menghubungi server: ' + err.message, 'error');
            btn.disabled = false;
            btn.innerHTML = originalText;
         })
         .processDailyImages(formDataPayload);
 
     } catch (e) {
-      alert('Error membaca file: ' + e.toString());
+      showToast('Error membaca file: ' + e.toString(), 'error');
       btn.disabled = false;
       btn.innerHTML = originalText;
     }
@@ -329,12 +329,14 @@
      formDataPayload.km_akhir_confirmed = document.getElementById('km_akhir_val').value;
 
      google.script.run
-       .withSuccessHandler(function(res) {
-          if (res.success) {
-            alert('Laporan Harian Berhasil Disimpan!');
-            window.top.location.reload(); 
-          } else {
-            alert('Gagal menyimpan: ' + res.error);
+        .withSuccessHandler(function(res) {
+           if (res.success) {
+             showToast('Laporan Harian Berhasil Disimpan!', 'success');
+             document.getElementById('daily-form').reset();
+             document.getElementById('page-form').style.display = 'block';
+             document.getElementById('page-dashboard').style.display = 'none';
+           } else {
+             showToast('Gagal menyimpan: ' + res.error, 'error');
             btn.disabled = false;
             btn.innerText = 'Simpan Data Permanen';
           }
@@ -445,7 +447,7 @@
       nama: document.getElementById('m_nama_cabang').value
     };
     google.script.run.withSuccessHandler(res => {
-      alert(res.msg);
+      showToast(res.msg, 'success');
       btn.disabled = false;
       document.getElementById('form-cabang').reset();
     }).saveMasterCabang(data);
@@ -460,7 +462,7 @@
       cabang: document.getElementById('m_cabang').value
     };
     google.script.run.withSuccessHandler(res => {
-      alert(res.msg);
+      showToast(res.msg, 'success');
       btn.disabled = false;
       document.getElementById('form-kendaraan').reset();
     }).saveMasterKendaraan(data);
@@ -473,7 +475,7 @@
       cabang: document.getElementById('m_cabang_supir').value
     };
     google.script.run.withSuccessHandler(res => {
-      alert(res.msg);
+      showToast(res.msg, 'success');
       btn.disabled = false;
       document.getElementById('form-supir').reset();
     }).saveMasterSupir(data);
@@ -495,7 +497,7 @@
       harga: document.getElementById('m_harga_bbm').value
     };
     google.script.run.withSuccessHandler(res => {
-      alert(res.msg);
+      showToast(res.msg, 'success');
       btn.disabled = false;
       document.getElementById('form-bbm').reset();
     }).saveMasterBBM(data);
