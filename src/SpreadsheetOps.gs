@@ -167,6 +167,20 @@ function insertSupir(data) {
   return { msg: 'Supir Berhasil Ditambahkan' };
 }
 
+function deleteKendaraanById(vehicleId) {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('Kendaraan');
+  if (!sheet) return { msg: 'Sheet tidak ditemukan' };
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === vehicleId) {
+      sheet.getRange(i + 1, 11).setValue('Non-Aktif');
+      return { msg: 'Kendaraan Berhasil Dihapus' };
+    }
+  }
+  return { msg: 'Kendaraan tidak ditemukan' };
+}
+
 function getActiveBBM() {
   const ss = getDB();
   const sheet = ss.getSheetByName('BBM');

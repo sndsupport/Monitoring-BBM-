@@ -21,10 +21,23 @@ function processInitialData(userInfo) {
     vehicles: getActiveVehicles(userInfo.role, userInfo.cabang),
     drivers: getActiveDrivers(userInfo.role, userInfo.cabang),
     cabangList: getCabangList(),
+    bbmList: getActiveBBM(),
     user: userInfo.nama,
     username: userInfo.username,
     role: userInfo.role,
     cabang: userInfo.cabang
+  };
+}
+
+function getMasterData(userInfo) {
+  if (!userInfo || !userInfo.username) {
+    return { error: 'Not logged in' };
+  }
+  return {
+    vehicles: getActiveVehicles(userInfo.role, userInfo.cabang),
+    drivers: getActiveDrivers(userInfo.role, userInfo.cabang),
+    cabangList: getCabangList(),
+    bbmList: getActiveBBM()
   };
 }
 
@@ -75,5 +88,9 @@ function saveMasterKendaraan(data) {
 
 function saveMasterSupir(data) {
   return insertSupir(data);
+}
+
+function deleteMasterKendaraan(vehicleId) {
+  return deleteKendaraanById(vehicleId);
 }
 

@@ -69,6 +69,8 @@
         }
 
         document.getElementById('main-app').style.display = 'block';
+        var bottomNav = document.getElementById('bottom-nav');
+        if (bottomNav) bottomNav.style.display = 'flex';
         
         userRole = data.role;
         document.getElementById('user-info').innerHTML = data.user + ' (' + userRole + ' - ' + data.cabang + ') <a href="#" onclick="logout()" class="text-warning ms-2">Logout</a>';
@@ -626,6 +628,27 @@
         '</div>' +
       '</div>'
     ).join('');
+  }
+
+  function deleteKendaraan(vehicleId) {
+    if (!confirm('Yakin ingin menghapus kendaraan ini?')) return;
+    google.script.run.withSuccessHandler(function(res) {
+      showToast(res.msg, 'success');
+      loadMasterData('kendaraan');
+    }).deleteMasterKendaraan(vehicleId);
+  }
+
+  function showToast(message, type) {
+    var container = document.getElementById('toast-container');
+    var toast = document.createElement('div');
+    toast.className = 'toast ' + (type || 'success');
+    var icon = type === 'error' ? 'bi-exclamation-circle text-danger' : 'bi-check-circle text-success';
+    toast.innerHTML = '<i class="bi ' + icon + ' me-2"></i><span>' + message + '</span>';
+    container.appendChild(toast);
+    setTimeout(function() {
+      toast.style.animation = 'slideOut 0.3s ease forwards';
+      setTimeout(function() { toast.remove(); }, 300);
+    }, 3000);
   }
 
 </script>
