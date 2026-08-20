@@ -3,6 +3,7 @@
   let userRole = '';
   let ocrModal;
   let userInfo = null;
+  window.masterData = { kendaraan: [], cabang: [], supir: [], bbm: [] };
   let allVehicles = [];
   let allDrivers = [];
 
@@ -538,6 +539,64 @@
     });
   }
 
+
+  function closeBootstrapModal(modalId) {
+    var modalEl = document.getElementById(modalId);
+    if (modalEl) {
+      var modal = bootstrap.Modal.getInstance(modalEl);
+      if (modal) modal.hide();
+    }
+  }
+
+  function editKendaraan(id) {
+    let v = window.masterData.kendaraan.find(x => x.vehicle_id === id);
+    if(v) {
+      document.getElementById('m_edit_id_kendaraan').value = v.vehicle_id;
+      document.getElementById('m_plat').value = v.plat_nomor;
+      document.getElementById('m_nama_kendaraan').value = v.nama;
+      document.getElementById('m_jenis_kendaraan').value = v.jenis;
+      document.getElementById('m_merk').value = v.merk || '';
+      document.getElementById('m_model').value = v.model || '';
+      document.getElementById('m_kapasitas').value = v.kapasitas_tangki || '';
+      document.getElementById('m_bar').value = v.jumlah_bar || '';
+      document.getElementById('m_standar').value = v.standar_km_l || '';
+      document.getElementById('m_cabang').value = v.cabang;
+      var modal = new bootstrap.Modal(document.getElementById('modal-kendaraan'));
+      modal.show();
+    }
+  }
+  function editCabang(kode) {
+    let c = window.masterData.cabang.find(x => x.kode === kode);
+    if(c) {
+      document.getElementById('m_edit_old_kode_cabang').value = c.kode;
+      document.getElementById('m_kode_cabang').value = c.kode;
+      document.getElementById('m_nama_cabang').value = c.nama;
+      document.getElementById('m_lokasi_cabang').value = c.lokasi || '';
+      var modal = new bootstrap.Modal(document.getElementById('modal-cabang'));
+      modal.show();
+    }
+  }
+  function editSupir(id) {
+    let d = window.masterData.supir.find(x => x.id === id);
+    if(d) {
+      document.getElementById('m_edit_id_supir').value = d.id;
+      document.getElementById('m_nama_supir').value = d.nama;
+      document.getElementById('m_cabang_supir').value = d.cabang;
+      var modal = new bootstrap.Modal(document.getElementById('modal-supir'));
+      modal.show();
+    }
+  }
+  function editBBM(id) {
+    let b = window.masterData.bbm.find(x => x.id === id);
+    if(b) {
+      document.getElementById('m_edit_id_bbm').value = b.id;
+      document.getElementById('m_jenis_bbm').value = b.jenis;
+      document.getElementById('m_harga_bbm').value = b.harga;
+      var modal = new bootstrap.Modal(document.getElementById('modal-bbm'));
+      modal.show();
+    }
+  }
+
   function addMasterCabang() {
     let btn = document.getElementById('btn-add-cabang');
     btn.disabled = true;
@@ -546,15 +605,18 @@
       nama: document.getElementById('m_nama_cabang').value,
       lokasi: document.getElementById('m_lokasi_cabang').value
     };
+    let editId = document.getElementById('m_edit_old_kode_cabang').value;
+    if (editId) data.edit_id = editId;
     google.script.run.withSuccessHandler(res => {
       showToast(res.msg, 'success');
       btn.disabled = false;
       document.getElementById('form-cabang').reset();
       loadMasterData('cabang');
+      closeBootstrapModal('modal-cabang');
     }).withFailureHandler(err => {
       showToast('Gagal: ' + err.message, 'error');
       btn.disabled = false;
-    }).saveMasterCabang(data);
+    })[editId ? 'updateMasterCabang' : 'saveMasterCabang'](data);
   }
 
   function addMasterKendaraan() {
@@ -564,17 +626,25 @@
       plat: document.getElementById('m_plat').value,
       nama: document.getElementById('m_nama_kendaraan').value,
       jenis: document.getElementById('m_jenis_kendaraan').value,
+      merk: document.getElementById('m_merk') ? document.getElementById('m_merk').value : '',
+      model: document.getElementById('m_model') ? document.getElementById('m_model').value : '',
+      kapasitas_tangki: document.getElementById('m_kapasitas') ? document.getElementById('m_kapasitas').value : '',
+      jumlah_bar: document.getElementById('m_bar') ? document.getElementById('m_bar').value : '',
+      standar_km_l: document.getElementById('m_standar') ? document.getElementById('m_standar').value : '',
       cabang: document.getElementById('m_cabang').value
     };
+    let editId = document.getElementById('m_edit_id_kendaraan').value;
+    if (editId) data.edit_id = editId;
     google.script.run.withSuccessHandler(res => {
       showToast(res.msg, 'success');
       btn.disabled = false;
       document.getElementById('form-kendaraan').reset();
       loadMasterData('kendaraan');
+      closeBootstrapModal('modal-kendaraan');
     }).withFailureHandler(err => {
       showToast('Gagal: ' + err.message, 'error');
       btn.disabled = false;
-    }).saveMasterKendaraan(data);
+    })[editId ? 'updateMasterKendaraan' : 'saveMasterKendaraan'](data);
   }
   function addMasterSupir() {
     let btn = document.getElementById('btn-add-supir');
@@ -583,15 +653,18 @@
       nama: document.getElementById('m_nama_supir').value,
       cabang: document.getElementById('m_cabang_supir').value
     };
+    let editId = document.getElementById('m_edit_id_supir').value;
+    if (editId) data.edit_id = editId;
     google.script.run.withSuccessHandler(res => {
       showToast(res.msg, 'success');
       btn.disabled = false;
       document.getElementById('form-supir').reset();
       loadMasterData('supir');
+      closeBootstrapModal('modal-supir');
     }).withFailureHandler(err => {
       showToast('Gagal: ' + err.message, 'error');
       btn.disabled = false;
-    }).saveMasterSupir(data);
+    })[editId ? 'updateMasterSupir' : 'saveMasterSupir'](data);
   }
 
   function calcBBM() {
@@ -609,15 +682,18 @@
       jenis: document.getElementById('m_jenis_bbm').value,
       harga: document.getElementById('m_harga_bbm').value
     };
+    let editId = document.getElementById('m_edit_id_bbm').value;
+    if (editId) data.edit_id = editId;
     google.script.run.withSuccessHandler(res => {
       showToast(res.msg, 'success');
       btn.disabled = false;
       document.getElementById('form-bbm').reset();
       loadMasterData('bbm');
+      closeBootstrapModal('modal-bbm');
     }).withFailureHandler(err => {
       showToast('Gagal: ' + err.message, 'error');
       btn.disabled = false;
-    }).saveMasterBBM(data);
+    })[editId ? 'updateMasterBBM' : 'saveMasterBBM'](data);
   }
 
   function switchMasterTab(tab) {
@@ -652,18 +728,28 @@
   }
 
   function renderKendaraanList(vehicles) {
+    window.masterData.kendaraan = vehicles;
     let container = document.getElementById('list-kendaraan');
     if (vehicles.length === 0) {
       container.innerHTML = '<div class="list-group-item text-center text-muted py-4">Belum ada data kendaraan</div>';
       return;
     }
     container.innerHTML = vehicles.map(v => 
-      '<div class="list-group-item d-flex justify-content-between align-items-center">' +
-        '<div>' +
-          '<div class="fw-bold">' + v.plat_nomor + '</div>' +
-          '<small class="text-muted">' + v.nama + ' • ' + v.jenis + ' • ' + v.cabang + '</small>' +
+      '<div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3">' +
+        '<div class="d-flex align-items-center">' +
+          '<div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 48px; height: 48px;">' +
+            '<i class="bi ' + (v.jenis === 'Motor' ? 'bi-bicycle' : 'bi-car-front-fill') + ' fs-5"></i>' +
+          '</div>' +
+          '<div>' +
+            '<div class="fw-bold mb-1 fs-6">' + v.plat_nomor + '</div>' +
+            '<div class="d-flex align-items-center small text-muted">' +
+              '<span class="badge bg-secondary me-2">' + v.nama + '</span>' +
+              '<span>' + v.jenis + ' - ' + v.cabang + '</span>' +
+            '</div>' +
+          '</div>' +
         '</div>' +
         '<div>' +
+          '<button class="btn btn-sm btn-outline-primary me-2" onclick="editKendaraan(\'' + v.vehicle_id + '\')"><i class="bi bi-pencil"></i></button>' +
           '<button class="btn btn-sm btn-outline-danger" onclick="deleteKendaraan(\'' + v.vehicle_id + '\')"><i class="bi bi-trash"></i></button>' +
         '</div>' +
       '</div>'
@@ -671,22 +757,33 @@
   }
 
   function renderCabangList(cabangList) {
+    window.masterData.cabang = cabangList;
     let container = document.getElementById('list-cabang');
     if (cabangList.length === 0) {
       container.innerHTML = '<div class="list-group-item text-center text-muted py-4">Belum ada data cabang</div>';
       return;
     }
     container.innerHTML = cabangList.map(c =>
-      '<div class="list-group-item d-flex justify-content-between align-items-center">' +
-        '<div>' +
-          '<div class="fw-bold">' + c.nama + '</div>' +
-          '<small class="text-muted">' + c.kode + '</small>' +
+      '<div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3">' +
+        '<div class="d-flex align-items-center">' +
+          '<div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 48px; height: 48px;">' +
+            '<i class="bi bi-geo-alt-fill fs-5"></i>' +
+          '</div>' +
+          '<div>' +
+            '<div class="fw-bold mb-1 fs-6">' + c.nama + '</div>' +
+            '<div class="d-flex align-items-center small text-muted">' +
+              '<span class="badge bg-secondary me-2">' + c.kode + '</span>' +
+              (c.lokasi ? '<span><i class="bi bi-geo me-1"></i>' + c.lokasi + '</span>' : '') +
+            '</div>' +
+          '</div>' +
         '</div>' +
+        '<div><button class="btn btn-sm btn-outline-primary me-2" onclick="editCabang(\'' + c.kode + '\')"><i class="bi bi-pencil"></i></button></div>' +
       '</div>'
     ).join('');
   }
 
   function renderSupirList(drivers) {
+    window.masterData.supir = drivers;
     let container = document.getElementById('list-supir');
     if (drivers.length === 0) {
       container.innerHTML = '<div class="list-group-item text-center text-muted py-4">Belum ada data supir</div>';
@@ -703,6 +800,7 @@
   }
 
   function renderBBMList(bbmList) {
+    window.masterData.bbm = bbmList;
     let container = document.getElementById('list-bbm');
     if (bbmList.length === 0) {
       container.innerHTML = '<div class="list-group-item text-center text-muted py-4">Belum ada data BBM</div>';

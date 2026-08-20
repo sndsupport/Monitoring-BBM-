@@ -94,3 +94,10 @@ function deleteMasterKendaraan(vehicleId) {
   return deleteKendaraanById(vehicleId);
 }
 
+
+function updateMasterCabang(data) { return updateCabang(data); }
+function updateMasterKendaraan(data) { return updateKendaraan(data); }
+function updateMasterSupir(data) { return updateSupir(data); }
+function updateMasterBBM(data) { return updateBBM(data); }
+
+function saveMasterBBM(data) { return insertBBM(data); }

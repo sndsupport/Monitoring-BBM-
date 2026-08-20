@@ -202,3 +202,66 @@ function saveMasterBBM(payload) {
   sheet.appendRow([newId, payload.jenis, payload.harga, 'Aktif']);
   return { success: true, msg: 'BBM Berhasil Ditambahkan!' };
 }
+
+function updateCabang(data) {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('Cabang');
+  const values = sheet.getDataRange().getValues();
+  for (let i = 1; i < values.length; i++) {
+    if (values[i][0] == data.edit_id) {
+      sheet.getRange(i + 1, 1, 1, 3).setValues([[data.kode, data.nama, data.lokasi || '']]);
+      return { msg: 'Cabang Berhasil Diupdate' };
+    }
+  }
+  throw new Error('Cabang tidak ditemukan');
+}
+
+function updateKendaraan(data) {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('Kendaraan');
+  const values = sheet.getDataRange().getValues();
+  for (let i = 1; i < values.length; i++) {
+    if (values[i][0] == data.edit_id) {
+      sheet.getRange(i + 1, 2, 1, 9).setValues([[
+        data.plat, data.nama, data.jenis || 'Mobil',
+        data.merk || '', data.model || '', data.kapasitas_tangki || '',
+        data.jumlah_bar || '', data.standar_km_l || '', data.cabang
+      ]]);
+      return { msg: 'Kendaraan Berhasil Diupdate' };
+    }
+  }
+  throw new Error('Kendaraan tidak ditemukan');
+}
+
+function updateSupir(data) {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('Supir');
+  const values = sheet.getDataRange().getValues();
+  for (let i = 1; i < values.length; i++) {
+    if (values[i][0] == data.edit_id) {
+      sheet.getRange(i + 1, 2, 1, 2).setValues([[data.nama, data.cabang]]);
+      return { msg: 'Supir Berhasil Diupdate' };
+    }
+  }
+  throw new Error('Supir tidak ditemukan');
+}
+
+function updateBBM(data) {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('BBM');
+  const values = sheet.getDataRange().getValues();
+  for (let i = 1; i < values.length; i++) {
+    if (values[i][0] == data.edit_id) {
+      sheet.getRange(i + 1, 2, 1, 2).setValues([[data.jenis, data.harga]]);
+      return { msg: 'BBM Berhasil Diupdate' };
+    }
+  }
+  throw new Error('BBM tidak ditemukan');
+}
+
+function insertBBM(data) {
+  const ss = getDB();
+  let id = 'BBM-' + new Date().getTime();
+  ss.getSheetByName('BBM').appendRow([id, data.jenis, data.harga]);
+  return { msg: 'BBM Berhasil Ditambahkan' };
+}
