@@ -212,15 +212,15 @@
                   <div id='bbm-section' style='display:none;'>
                     <div class='mb-3'>
                       <label class='form-label'>Jenis BBM</label>
-                      <select id='jenis_bbm' class='form-select' onchange='calcBBM()'></select>
+                      <select id='jenis_bbm' class='form-select' onchange='calcLiter()'></select>
                     </div>
                     <div class='mb-3'>
                       <label class='form-label'>Jumlah Liter BBM</label>
-                      <input type='number' id='liter_bbm' class='form-control' step='0.01' oninput='calcBBM()'>
+                      <input type='number' id='liter_bbm' class='form-control' step='0.01' readonly>
                     </div>
                     <div class='mb-3'>
                       <label class='form-label'>Total Biaya BBM (Rp)</label>
-                      <input type='number' id='biaya_bbm' class='form-control' readonly>
+                      <input type='number' id='biaya_bbm' class='form-control' oninput='calcLiter()'>
                     </div>
                     <div class='mb-0'>
                       <label class='form-label'>Foto Struk BBM</label>

@@ -705,12 +705,12 @@
     })[editId ? 'updateMasterSupir' : 'saveMasterSupir'](data);
   }
 
-  function calcBBM() {
+  function calcLiter() {
     let sel = document.getElementById('jenis_bbm');
     let hrg = parseFloat(sel.value) || 0;
-    let lit = parseFloat(document.getElementById('liter_bbm').value) || 0;
-    let total = (hrg * lit) || 0;
-    document.getElementById('biaya_bbm').value = total ? total.toLocaleString('id-ID') : '';
+    let biaya = parseFloat(document.getElementById('biaya_bbm').value) || 0;
+    let liter = (hrg > 0 && biaya > 0) ? (biaya / hrg) : 0;
+    document.getElementById('liter_bbm').value = liter ? liter.toFixed(2) : '';
   }
 
   function addMasterBBM() {
