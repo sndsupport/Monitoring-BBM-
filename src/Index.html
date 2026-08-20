@@ -514,24 +514,65 @@
       <?!= include('Settings'); ?>
       <!-- MODAL OCR RESULT -->
       <div class='modal fade' id='ocrModal' tabindex='-1' data-bs-backdrop='static'>
-        <div class='modal-dialog'>
-          <div class='modal-content'>
-            <div class='modal-header bg-success text-white'>
-              <h5 class='modal-title'>Konfirmasi Hasil Bacaan</h5>
+        <div class='modal-dialog modal-dialog-centered'>
+          <div class='modal-content' style='border-radius: 16px; overflow: hidden;'>
+            <div class='modal-header bg-success text-white py-3'>
+              <h5 class='modal-title'>
+                <i class='bi bi-check-circle me-2'></i> Konfirmasi Hasil Bacaan
+              </h5>
             </div>
-            <div class='modal-body'>
-              <p>Sistem telah mendeteksi angka dari foto. <b>Periksa kembali dan ketik ulang jika mesin salah membaca angka!</b></p>
-              <div class='mb-3'>
-                <label class='form-label fw-bold text-primary'>KM Keberangkatan (Awal):</label>
-                <input type='number' id='km_awal_val' class='form-control form-control-lg' required>
+            <div class='modal-body p-4'>
+              <div class='alert alert-info mb-4'>
+                <small>
+                  <i class='bi bi-info-circle me-1'></i>
+                  Sistem telah mendeteksi angka dari foto. <strong>Periksa kembali dan edit jika perlu!</strong>
+                </small>
               </div>
+              
               <div class='mb-3'>
-                <label class='form-label fw-bold text-danger'>KM Kepulangan (Akhir):</label>
-                <input type='number' id='km_akhir_val' class='form-control form-control-lg' required>
+                <label class='form-label fw-bold text-primary'>
+                  <i class='bi bi-arrow-right-circle me-1'></i> KM Keberangkatan (Awal)
+                </label>
+                <input type='number' id='km_awal_val' class='form-control form-control-lg text-center' required>
+              </div>
+              
+              <div class='mb-4'>
+                <label class='form-label fw-bold text-danger'>
+                  <i class='bi bi-arrow-left-circle me-1'></i> KM Kepulangan (Akhir)
+                </label>
+                <input type='number' id='km_akhir_val' class='form-control form-control-lg text-center' required>
+              </div>
+              
+              <div class='summary-box' id='ocr-summary' style='display:none;'>
+                <h6 class='mb-3'>
+                  <i class='bi bi-calculator me-1'></i> Ringkasan
+                </h6>
+                <div class='summary-row'>
+                  <span>Jarak Tempuh</span>
+                  <strong id='summary-km'>- KM</strong>
+                </div>
+                <div class='summary-row'>
+                  <span>BBM</span>
+                  <span id='summary-bbm'>-</span>
+                </div>
+                <div class='summary-row'>
+                  <span>Total BBM</span>
+                  <span id='summary-bbm-cost'>-</span>
+                </div>
+                <div class='summary-row'>
+                  <span>Toll</span>
+                  <span id='summary-toll'>-</span>
+                </div>
+                <div class='summary-row summary-total'>
+                  <span>TOTAL</span>
+                  <span id='summary-total'>-</span>
+                </div>
               </div>
             </div>
-            <div class='modal-footer'>
-              <button type='button' id='btn-save' class='btn btn-success w-100 py-2 fw-bold' onclick='confirmAndSave()'>Simpan Data Permanen</button>
+            <div class='modal-footer p-3'>
+              <button type='button' id='btn-save' class='btn btn-success btn-lg btn-full py-3 fw-bold' onclick='confirmAndSave()'>
+                <i class='bi bi-save me-2'></i> Simpan Data Permanen
+              </button>
             </div>
           </div>
         </div>

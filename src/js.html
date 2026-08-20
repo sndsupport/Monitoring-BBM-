@@ -10,6 +10,11 @@
     
     loadAppSettings();
     
+    var kmAwalInput = document.getElementById('km_awal_val');
+    var kmAkhirInput = document.getElementById('km_akhir_val');
+    if (kmAwalInput) kmAwalInput.addEventListener('input', updateOCRSummary);
+    if (kmAkhirInput) kmAkhirInput.addEventListener('input', updateOCRSummary);
+    
     let storedUser = localStorage.getItem('bbm_user');
     if (storedUser) {
        userInfo = JSON.parse(storedUser);
@@ -300,8 +305,9 @@
            if(res.success) {
              document.getElementById('km_awal_val').value = res.km_awal || '';
              document.getElementById('km_akhir_val').value = res.km_akhir || '';
-             formDataPayload.serverData = res; 
-             ocrModal.show(); 
+              formDataPayload.serverData = res;
+              updateOCRSummary();
+              ocrModal.show();
            } else {
               showToast('Terjadi kesalahan memproses foto: ' + res.error, 'error');
            }
@@ -320,6 +326,30 @@
     }
   }
   
+  function updateOCRSummary() {
+    var kmAwal = parseFloat(document.getElementById('km_awal_val').value) || 0;
+    var kmAkhir = parseFloat(document.getElementById('km_akhir_val').value) || 0;
+    var kmTempuh = kmAkhir - kmAwal;
+    
+    if (kmTempuh > 0) {
+      document.getElementById('summary-km').textContent = kmTempuh + ' KM';
+      document.getElementById('ocr-summary').style.display = 'block';
+      
+      var literBBM = parseFloat(document.getElementById('liter_bbm').value) || 0;
+      var biayaBBM = parseFloat(document.getElementById('biaya_bbm').value) || 0;
+      var biayaToll = parseFloat(document.getElementById('biaya_toll').value) || 0;
+      
+      var totalBiaya = biayaBBM + biayaToll;
+      
+      document.getElementById('summary-bbm').textContent = literBBM ? literBBM + ' L' : '-';
+      document.getElementById('summary-bbm-cost').textContent = biayaBBM ? formatCurrency(biayaBBM) : '-';
+      document.getElementById('summary-toll').textContent = biayaToll ? formatCurrency(biayaToll) : '-';
+      document.getElementById('summary-total').textContent = formatCurrency(totalBiaya);
+    } else {
+      document.getElementById('ocr-summary').style.display = 'none';
+    }
+  }
+
   function confirmAndSave() {
      let btn = document.getElementById('btn-save');
      btn.disabled = true;
