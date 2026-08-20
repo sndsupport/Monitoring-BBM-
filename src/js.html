@@ -406,6 +406,9 @@
               document.getElementById('daily-form').reset();
               document.getElementById('page-form').style.display = 'block';
               document.getElementById('page-dashboard').style.display = 'none';
+              ocrModal.hide();
+              btn.disabled = false;
+              btn.innerText = 'Simpan Data Permanen';
             } else {
               showToast('Gagal menyimpan: ' + res.error, 'error');
              btn.disabled = false;
