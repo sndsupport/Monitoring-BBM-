@@ -43,16 +43,49 @@
 
     <div class='container mt-4' id='main-app' style='display:none;'>
       
-      <!-- NAV TABS -->
-      <ul class='nav nav-pills mb-4 shadow-sm p-2 bg-white rounded' id='menu-tabs'>
+      <!-- BOTTOM NAVIGATION (Mobile) -->
+      <nav class='bottom-nav fixed-bottom bg-white border-top d-md-none' id='bottom-nav' style='display:none;'>
+        <div class='d-flex justify-content-around align-items-center h-100'>
+          <button class='btn-nav active' onclick='switchTab("form")' data-tab='form'>
+            <i class='bi bi-pencil-square'></i>
+            <span>Input</span>
+          </button>
+          <button class='btn-nav' onclick='switchTab("dashboard")' data-tab='dashboard'>
+            <i class='bi bi-clock-history'></i>
+            <span>History</span>
+          </button>
+          <button class='btn-nav' onclick='switchTab("master")' data-tab='master' id='btn-nav-master' style='display:none;'>
+            <i class='bi bi-gear'></i>
+            <span>Master</span>
+          </button>
+          <button class='btn-nav' onclick='switchTab("settings")' data-tab='settings' id='btn-nav-settings' style='display:none;'>
+            <i class='bi bi-sliders'></i>
+            <span>Pengaturan</span>
+          </button>
+        </div>
+      </nav>
+
+      <!-- TOP TABS (Desktop) -->
+      <ul class='nav nav-pills mb-4 shadow-sm p-2 bg-white rounded top-tabs d-none d-md-flex' id='menu-tabs'>
         <li class='nav-item'>
-          <a class='nav-link active' id='tab-form' href='#' onclick='switchTab("form")'>Input Laporan</a>
+          <a class='nav-link active' id='tab-form' href='#' onclick='switchTab("form")'>
+            <i class='bi bi-pencil-square me-1'></i> Input Laporan
+          </a>
         </li>
         <li class='nav-item'>
-          <a class='nav-link' id='tab-dashboard' href='#' onclick='switchTab("dashboard")'>History Laporan</a>
+          <a class='nav-link' id='tab-dashboard' href='#' onclick='switchTab("dashboard")'>
+            <i class='bi bi-clock-history me-1'></i> History Laporan
+          </a>
         </li>
-        <li class='nav-item' id='nav-master' style='display:none;'>
-          <a class='nav-link bg-warning text-dark fw-bold ms-2' id='tab-master' href='#' onclick='switchTab("master")'>Data Master</a>
+        <li class='nav-item d-none' id='nav-master'>
+          <a class='nav-link bg-warning text-dark fw-bold ms-2' id='tab-master' href='#' onclick='switchTab("master")'>
+            <i class='bi bi-database me-1'></i> Data Master
+          </a>
+        </li>
+        <li class='nav-item d-none' id='nav-settings'>
+          <a class='nav-link bg-info text-dark fw-bold ms-2' id='tab-settings' href='#' onclick='switchTab("settings")'>
+            <i class='bi bi-sliders me-1'></i> Pengaturan
+          </a>
         </li>
       </ul>
 
