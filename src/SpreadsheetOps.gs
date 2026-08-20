@@ -133,7 +133,7 @@ function insertCabang(data) {
 function insertKendaraan(data) {
   const ss = getDB();
   let id = 'V-' + new Date().getTime();
-  ss.getSheetByName('Kendaraan').appendRow([id, data.plat, data.nama, 'Mobil', '', '', '', '', '', data.cabang, 'Aktif']);
+  ss.getSheetByName('Kendaraan').appendRow([id, data.plat, data.nama, data.jenis || 'Mobil', '', '', '', '', '', data.cabang, 'Aktif']);
   return { msg: 'Kendaraan Berhasil Ditambahkan' };
 }
 
