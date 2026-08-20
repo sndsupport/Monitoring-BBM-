@@ -517,6 +517,17 @@
     loadDashboard();
   }
 
+
+  function onSupirChange() {
+    let supirName = document.getElementById('nama_supir').value;
+    if (!supirName) return;
+    let d = allDrivers.find(x => x.nama === supirName);
+    if (d && d.default_vehicle_id) {
+      let vSel = document.getElementById('vehicle');
+      if (vSel) vSel.value = d.default_vehicle_id;
+    }
+  }
+
   function filterFormByCabang() {
     let cabang = document.getElementById('input-cabang').value;
     let selectVeh = document.getElementById('vehicle');
@@ -576,12 +587,39 @@
       modal.show();
     }
   }
+  function filterKendaraanSupir() {
+    let cabang = document.getElementById('m_cabang_supir').value;
+    let sel = document.getElementById('m_default_vehicle');
+    if(!sel) return;
+    sel.innerHTML = '<option value="">-- Tidak ada --</option>';
+    let filteredV = cabang ? window.masterData.kendaraan.filter(v => v.cabang === cabang) : window.masterData.kendaraan;
+    filteredV.forEach(v => {
+      let opt = document.createElement('option');
+      opt.value = v.vehicle_id;
+      opt.text = v.plat_nomor + ' - ' + v.nama;
+      sel.appendChild(opt);
+    });
+  }
+
+  function prepareAddSupir() {
+    document.getElementById('form-supir').reset();
+    document.getElementById('m_edit_id_supir').value = '';
+    filterKendaraanSupir();
+  }
+
   function editSupir(id) {
     let d = window.masterData.supir.find(x => x.id === id);
     if(d) {
       document.getElementById('m_edit_id_supir').value = d.id;
       document.getElementById('m_nama_supir').value = d.nama;
       document.getElementById('m_cabang_supir').value = d.cabang;
+      
+      filterKendaraanSupir();
+      let defaultSel = document.getElementById('m_default_vehicle');
+      if (defaultSel && d.default_vehicle_id) {
+        defaultSel.value = d.default_vehicle_id;
+      }
+
       var modal = new bootstrap.Modal(document.getElementById('modal-supir'));
       modal.show();
     }

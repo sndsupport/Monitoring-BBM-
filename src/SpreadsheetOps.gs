@@ -163,7 +163,7 @@ function getActiveDrivers(role, userCabang) {
 function insertSupir(data) {
   const ss = getDB();
   let id = 'DRV-' + new Date().getTime();
-  ss.getSheetByName('Supir').appendRow([id, data.nama, data.cabang, 'Aktif']);
+  ss.getSheetByName('Supir').appendRow([id, data.nama, data.cabang, 'Aktif', data.default_vehicle_id || '']);
   return { msg: 'Supir Berhasil Ditambahkan' };
 }
 
@@ -239,7 +239,9 @@ function updateSupir(data) {
   const values = sheet.getDataRange().getValues();
   for (let i = 1; i < values.length; i++) {
     if (values[i][0] == data.edit_id) {
+      // update nama, cabang, and default_vehicle_id (col 2, 3, 5)
       sheet.getRange(i + 1, 2, 1, 2).setValues([[data.nama, data.cabang]]);
+      sheet.getRange(i + 1, 5).setValue(data.default_vehicle_id || '');
       return { msg: 'Supir Berhasil Diupdate' };
     }
   }
