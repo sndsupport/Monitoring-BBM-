@@ -497,4 +497,99 @@
     }).saveMasterBBM(data);
   }
 
+  function switchMasterTab(tab) {
+    document.querySelectorAll('.master-tab-content').forEach(el => {
+      el.style.display = 'none';
+    });
+    document.getElementById('master-' + tab).style.display = 'block';
+    document.querySelectorAll('#master-tabs .nav-link').forEach(btn => {
+      btn.classList.remove('active');
+    });
+    document.querySelector('#master-tabs [data-tab="' + tab + '"]').classList.add('active');
+    loadMasterData(tab);
+  }
+
+  function loadMasterData(tab) {
+    google.script.run
+      .withSuccessHandler(function(data) {
+        if (tab === 'kendaraan') {
+          renderKendaraanList(data.vehicles || []);
+        } else if (tab === 'cabang') {
+          renderCabangList(data.cabangList || []);
+        } else if (tab === 'supir') {
+          renderSupirList(data.drivers || []);
+        } else if (tab === 'bbm') {
+          renderBBMList(data.bbmList || []);
+        }
+      })
+      .getMasterData(userInfo);
+  }
+
+  function renderKendaraanList(vehicles) {
+    let container = document.getElementById('list-kendaraan');
+    if (vehicles.length === 0) {
+      container.innerHTML = '<div class="list-group-item text-center text-muted py-4">Belum ada data kendaraan</div>';
+      return;
+    }
+    container.innerHTML = vehicles.map(v => 
+      '<div class="list-group-item d-flex justify-content-between align-items-center">' +
+        '<div>' +
+          '<div class="fw-bold">' + v.plat_nomor + '</div>' +
+          '<small class="text-muted">' + v.nama + ' • ' + v.cabang + '</small>' +
+        '</div>' +
+        '<div>' +
+          '<button class="btn btn-sm btn-outline-danger" onclick="deleteKendaraan(\'' + v.vehicle_id + '\')"><i class="bi bi-trash"></i></button>' +
+        '</div>' +
+      '</div>'
+    ).join('');
+  }
+
+  function renderCabangList(cabangList) {
+    let container = document.getElementById('list-cabang');
+    if (cabangList.length === 0) {
+      container.innerHTML = '<div class="list-group-item text-center text-muted py-4">Belum ada data cabang</div>';
+      return;
+    }
+    container.innerHTML = cabangList.map(c =>
+      '<div class="list-group-item d-flex justify-content-between align-items-center">' +
+        '<div>' +
+          '<div class="fw-bold">' + c.nama + '</div>' +
+          '<small class="text-muted">' + c.kode + '</small>' +
+        '</div>' +
+      '</div>'
+    ).join('');
+  }
+
+  function renderSupirList(drivers) {
+    let container = document.getElementById('list-supir');
+    if (drivers.length === 0) {
+      container.innerHTML = '<div class="list-group-item text-center text-muted py-4">Belum ada data supir</div>';
+      return;
+    }
+    container.innerHTML = drivers.map(d =>
+      '<div class="list-group-item d-flex justify-content-between align-items-center">' +
+        '<div>' +
+          '<div class="fw-bold">' + d.nama + '</div>' +
+          '<small class="text-muted">' + d.id + ' • ' + d.cabang + '</small>' +
+        '</div>' +
+      '</div>'
+    ).join('');
+  }
+
+  function renderBBMList(bbmList) {
+    let container = document.getElementById('list-bbm');
+    if (bbmList.length === 0) {
+      container.innerHTML = '<div class="list-group-item text-center text-muted py-4">Belum ada data BBM</div>';
+      return;
+    }
+    container.innerHTML = bbmList.map(b =>
+      '<div class="list-group-item d-flex justify-content-between align-items-center">' +
+        '<div>' +
+          '<div class="fw-bold">' + b.jenis + '</div>' +
+          '<small class="text-muted">Rp ' + parseInt(b.harga).toLocaleString('id-ID') + '/L</small>' +
+        '</div>' +
+      '</div>'
+    ).join('');
+  }
+
 </script>

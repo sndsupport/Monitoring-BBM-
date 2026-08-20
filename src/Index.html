@@ -326,95 +326,189 @@
 
       <!-- HALAMAN 3: DATA MASTER (SUPERADMIN ONLY) -->
       <div id='page-master' style='display:none;'>
-        
-        <div class='card border-warning mb-4'>
-          <div class='card-header bg-warning fw-bold'>Tambah Master Kendaraan</div>
-          <div class='card-body'>
-            <form id='form-kendaraan' onsubmit='addMasterKendaraan(); return false;'>
-              <div class='row'>
-                <div class='col-md-6 mb-2'>
-                  <label>Plat Nomor</label>
-                  <input type='text' id='m_plat' class='form-control' required>
+        <div class='card mb-4'>
+          <div class='card-body p-4'>
+            <h4 class='mb-3'>
+              <i class='bi bi-database me-2'></i> Data Master
+            </h4>
+            
+            <ul class='nav nav-pills mb-4' id='master-tabs'>
+              <li class='nav-item'>
+                <button class='nav-link active' onclick='switchMasterTab("kendaraan")' data-tab='kendaraan'>
+                  <i class='bi bi-car-front me-1'></i> Kendaraan
+                </button>
+              </li>
+              <li class='nav-item'>
+                <button class='nav-link' onclick='switchMasterTab("cabang")' data-tab='cabang'>
+                  <i class='bi bi-geo-alt me-1'></i> Cabang
+                </button>
+              </li>
+              <li class='nav-item'>
+                <button class='nav-link' onclick='switchMasterTab("supir")' data-tab='supir'>
+                  <i class='bi bi-person me-1'></i> Supir
+                </button>
+              </li>
+              <li class='nav-item'>
+                <button class='nav-link' onclick='switchMasterTab("bbm")' data-tab='bbm'>
+                  <i class='bi bi-fuel-pump me-1'></i> BBM
+                </button>
+              </li>
+            </ul>
+            
+            <div class='master-tab-content' id='master-kendaraan'>
+              <div class='row g-4'>
+                <div class='col-12 col-md-5'>
+                  <div class='card border-primary'>
+                    <div class='card-header bg-primary text-white'>
+                      <i class='bi bi-plus-circle me-1'></i> Tambah Kendaraan
+                    </div>
+                    <div class='card-body'>
+                      <form id='form-kendaraan' onsubmit='addMasterKendaraan(); return false;'>
+                        <div class='mb-3'>
+                          <label class='form-label'>Plat Nomor</label>
+                          <input type='text' id='m_plat' class='form-control' required placeholder='B 1234 CD'>
+                        </div>
+                        <div class='mb-3'>
+                          <label class='form-label'>Nama Kendaraan</label>
+                          <input type='text' id='m_nama_kendaraan' class='form-control' required placeholder='Toyota Avanza'>
+                        </div>
+                        <div class='mb-3'>
+                          <label class='form-label'>Cabang</label>
+                          <select id='m_cabang' class='form-select' required></select>
+                        </div>
+                        <button type='submit' class='btn btn-primary btn-full' id='btn-add-vehicle'>
+                          <i class='bi bi-check-circle me-1'></i> Simpan Kendaraan
+                        </button>
+                      </form>
+                    </div>
+                  </div>
                 </div>
-                <div class='col-md-6 mb-2'>
-                  <label>Nama/Deskripsi Kendaraan</label>
-                  <input type='text' id='m_nama_kendaraan' class='form-control' required>
-                </div>
-                <div class='col-md-6 mb-2'>
-                  <label>Cabang</label>
-                  <select id='m_cabang' class='form-select' required></select>
-                </div>
-                <div class='col-md-6 mb-2 mt-4'>
-                  <button type='submit' class='btn btn-success w-100' id='btn-add-vehicle'>Simpan Kendaraan</button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-
-        <div class='card border-primary mb-4'>
-          <div class='card-header bg-primary text-white fw-bold'>Tambah Master Cabang</div>
-          <div class='card-body'>
-            <form id='form-cabang' onsubmit='addMasterCabang(); return false;'>
-              <div class='row'>
-                <div class='col-md-4 mb-2'>
-                  <label>Kode Cabang (Misal: CBG-JKT)</label>
-                  <input type='text' id='m_kode_cabang' class='form-control' required>
-                </div>
-                <div class='col-md-4 mb-2'>
-                  <label>Nama Cabang</label>
-                  <input type='text' id='m_nama_cabang' class='form-control' required>
-                </div>
-                <div class='col-md-4 mb-2 mt-4'>
-                  <button type='submit' class='btn btn-primary w-100' id='btn-add-cabang'>Simpan Cabang</button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-
-        <div class='card border-success'>
-          <div class='card-header bg-success text-white fw-bold'>Tambah Master Supir</div>
-          <div class='card-body'>
-            <form id='form-supir' onsubmit='addMasterSupir(); return false;'>
-              <div class='row'>
-                <div class='col-md-6 mb-2'>
-                  <label>Nama Lengkap Supir</label>
-                  <input type='text' id='m_nama_supir' class='form-control' required>
-                </div>
-                <div class='col-md-6 mb-2'>
-                  <label>Cabang</label>
-                  <select id='m_cabang_supir' class='form-select' required></select>
-                </div>
-                <div class='col-md-12 mb-2 mt-2'>
-                  <button type='submit' class='btn btn-success w-100' id='btn-add-supir'>Simpan Supir</button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-
-        <div class='card border-danger mt-4'>
-          <div class='card-header bg-danger text-white fw-bold'>Tambah Master Harga BBM</div>
-          <div class='card-body'>
-            <form id='form-bbm' onsubmit='addMasterBBM(); return false;'>
-              <div class='row'>
-                <div class='col-md-6 mb-2'>
-                  <label>Jenis BBM (contoh: Dexlite)</label>
-                  <input type='text' id='m_jenis_bbm' class='form-control' required>
-                </div>
-                <div class='col-md-6 mb-2'>
-                  <label>Harga per Liter (Rp)</label>
-                  <input type='number' id='m_harga_bbm' class='form-control' required>
-                </div>
-                <div class='col-md-12 mb-2 mt-2'>
-                  <button type='submit' class='btn btn-danger w-100' id='btn-add-bbm'>Simpan BBM</button>
+                <div class='col-12 col-md-7'>
+                  <div class='card'>
+                    <div class='card-header'>
+                      <i class='bi bi-list-ul me-1'></i> Daftar Kendaraan
+                    </div>
+                    <div class='card-body p-0'>
+                      <div id='list-kendaraan' class='list-group list-group-flush'></div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </form>
+            </div>
+            
+            <div class='master-tab-content' id='master-cabang' style='display:none;'>
+              <div class='row g-4'>
+                <div class='col-12 col-md-5'>
+                  <div class='card border-success'>
+                    <div class='card-header bg-success text-white'>
+                      <i class='bi bi-plus-circle me-1'></i> Tambah Cabang
+                    </div>
+                    <div class='card-body'>
+                      <form id='form-cabang' onsubmit='addMasterCabang(); return false;'>
+                        <div class='mb-3'>
+                          <label class='form-label'>Kode Cabang</label>
+                          <input type='text' id='m_kode_cabang' class='form-control' required placeholder='CBG-JKT'>
+                        </div>
+                        <div class='mb-3'>
+                          <label class='form-label'>Nama Cabang</label>
+                          <input type='text' id='m_nama_cabang' class='form-control' required placeholder='Jakarta'>
+                        </div>
+                        <button type='submit' class='btn btn-success btn-full' id='btn-add-cabang'>
+                          <i class='bi bi-check-circle me-1'></i> Simpan Cabang
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+                <div class='col-12 col-md-7'>
+                  <div class='card'>
+                    <div class='card-header'>
+                      <i class='bi bi-list-ul me-1'></i> Daftar Cabang
+                    </div>
+                    <div class='card-body p-0'>
+                      <div id='list-cabang' class='list-group list-group-flush'></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class='master-tab-content' id='master-supir' style='display:none;'>
+              <div class='row g-4'>
+                <div class='col-12 col-md-5'>
+                  <div class='card border-purple' style='border-left: 4px solid #6f42c1 !important;'>
+                    <div class='card-header' style='background: #6f42c1; color: white;'>
+                      <i class='bi bi-plus-circle me-1'></i> Tambah Supir
+                    </div>
+                    <div class='card-body'>
+                      <form id='form-supir' onsubmit='addMasterSupir(); return false;'>
+                        <div class='mb-3'>
+                          <label class='form-label'>Nama Lengkap</label>
+                          <input type='text' id='m_nama_supir' class='form-control' required placeholder='Budi Santoso'>
+                        </div>
+                        <div class='mb-3'>
+                          <label class='form-label'>Cabang</label>
+                          <select id='m_cabang_supir' class='form-select' required></select>
+                        </div>
+                        <button type='submit' class='btn btn-full' id='btn-add-supir' style='background: #6f42c1; color: white;'>
+                          <i class='bi bi-check-circle me-1'></i> Simpan Supir
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+                <div class='col-12 col-md-7'>
+                  <div class='card'>
+                    <div class='card-header'>
+                      <i class='bi bi-list-ul me-1'></i> Daftar Supir
+                    </div>
+                    <div class='card-body p-0'>
+                      <div id='list-supir' class='list-group list-group-flush'></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class='master-tab-content' id='master-bbm' style='display:none;'>
+              <div class='row g-4'>
+                <div class='col-12 col-md-5'>
+                  <div class='card border-danger'>
+                    <div class='card-header bg-danger text-white'>
+                      <i class='bi bi-plus-circle me-1'></i> Tambah Harga BBM
+                    </div>
+                    <div class='card-body'>
+                      <form id='form-bbm' onsubmit='addMasterBBM(); return false;'>
+                        <div class='mb-3'>
+                          <label class='form-label'>Jenis BBM</label>
+                          <input type='text' id='m_jenis_bbm' class='form-control' required placeholder='Pertalite'>
+                        </div>
+                        <div class='mb-3'>
+                          <label class='form-label'>Harga per Liter (Rp)</label>
+                          <input type='number' id='m_harga_bbm' class='form-control' required placeholder='10000'>
+                        </div>
+                        <button type='submit' class='btn btn-danger btn-full' id='btn-add-bbm'>
+                          <i class='bi bi-check-circle me-1'></i> Simpan BBM
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+                <div class='col-12 col-md-7'>
+                  <div class='card'>
+                    <div class='card-header'>
+                      <i class='bi bi-list-ul me-1'></i> Daftar Harga BBM
+                    </div>
+                    <div class='card-body p-0'>
+                      <div id='list-bbm' class='list-group list-group-flush'></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
           </div>
         </div>
-        
       </div>
 
       <!-- MODAL OCR RESULT -->
