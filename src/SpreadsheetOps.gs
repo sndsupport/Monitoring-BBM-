@@ -126,7 +126,7 @@ function getRecentTransactions(role, userCabang) {
 
 function insertCabang(data) {
   const ss = getDB();
-  ss.getSheetByName('Cabang').appendRow([data.kode, data.nama, '', 'Aktif']);
+  ss.getSheetByName('Cabang').appendRow([data.kode, data.nama, data.lokasi || '', 'Aktif']);
   return { msg: 'Cabang Berhasil Ditambahkan' };
 }
 

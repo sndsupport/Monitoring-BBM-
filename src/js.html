@@ -37,6 +37,7 @@
        if (res.success) {
          userInfo = res;
          localStorage.setItem('bbm_user', JSON.stringify(res));
+         showToast('Login berhasil!', 'success');
          loadInitialData(userInfo);
        } else {
           showToast(res.msg, 'error');
@@ -360,20 +361,25 @@
      formDataPayload.km_awal_confirmed = document.getElementById('km_awal_val').value;
      formDataPayload.km_akhir_confirmed = document.getElementById('km_akhir_val').value;
 
-     google.script.run
-        .withSuccessHandler(function(res) {
-           if (res.success) {
-             showToast('Laporan Harian Berhasil Disimpan!', 'success');
-             document.getElementById('daily-form').reset();
-             document.getElementById('page-form').style.display = 'block';
-             document.getElementById('page-dashboard').style.display = 'none';
-           } else {
-             showToast('Gagal menyimpan: ' + res.error, 'error');
-            btn.disabled = false;
-            btn.innerText = 'Simpan Data Permanen';
-          }
-       })
-       .saveDailyTransaction(formDataPayload);
+      google.script.run
+         .withSuccessHandler(function(res) {
+            if (res.success) {
+              showToast('Laporan Harian Berhasil Disimpan!', 'success');
+              document.getElementById('daily-form').reset();
+              document.getElementById('page-form').style.display = 'block';
+              document.getElementById('page-dashboard').style.display = 'none';
+            } else {
+              showToast('Gagal menyimpan: ' + res.error, 'error');
+             btn.disabled = false;
+             btn.innerText = 'Simpan Data Permanen';
+           }
+        })
+        .withFailureHandler(function(err) {
+           showToast('Gagal menyimpan: ' + err.message, 'error');
+           btn.disabled = false;
+           btn.innerText = 'Simpan Data Permanen';
+        })
+        .saveDailyTransaction(formDataPayload);
   }
 
   function loadDashboard() {
@@ -457,6 +463,10 @@
           cardsContainer.appendChild(card);
         });
       })
+      .withFailureHandler(function(err) {
+        loadingState.style.display = 'none';
+        showToast('Gagal memuat dashboard: ' + err.message, 'error');
+      })
       .getDashboardData(userInfo);
   }
 
@@ -476,12 +486,16 @@
     btn.disabled = true;
     let data = {
       kode: document.getElementById('m_kode_cabang').value,
-      nama: document.getElementById('m_nama_cabang').value
+      nama: document.getElementById('m_nama_cabang').value,
+      lokasi: document.getElementById('m_lokasi_cabang').value
     };
     google.script.run.withSuccessHandler(res => {
       showToast(res.msg, 'success');
       btn.disabled = false;
       document.getElementById('form-cabang').reset();
+    }).withFailureHandler(err => {
+      showToast('Gagal: ' + err.message, 'error');
+      btn.disabled = false;
     }).saveMasterCabang(data);
   }
 
@@ -497,6 +511,9 @@
       showToast(res.msg, 'success');
       btn.disabled = false;
       document.getElementById('form-kendaraan').reset();
+    }).withFailureHandler(err => {
+      showToast('Gagal: ' + err.message, 'error');
+      btn.disabled = false;
     }).saveMasterKendaraan(data);
   }
   function addMasterSupir() {
@@ -510,6 +527,9 @@
       showToast(res.msg, 'success');
       btn.disabled = false;
       document.getElementById('form-supir').reset();
+    }).withFailureHandler(err => {
+      showToast('Gagal: ' + err.message, 'error');
+      btn.disabled = false;
     }).saveMasterSupir(data);
   }
 
@@ -532,6 +552,9 @@
       showToast(res.msg, 'success');
       btn.disabled = false;
       document.getElementById('form-bbm').reset();
+    }).withFailureHandler(err => {
+      showToast('Gagal: ' + err.message, 'error');
+      btn.disabled = false;
     }).saveMasterBBM(data);
   }
 
@@ -559,6 +582,9 @@
         } else if (tab === 'bbm') {
           renderBBMList(data.bbmList || []);
         }
+      })
+      .withFailureHandler(function(err) {
+        showToast('Gagal memuat data: ' + err.message, 'error');
       })
       .getMasterData(userInfo);
   }
@@ -635,13 +661,16 @@
     google.script.run.withSuccessHandler(function(res) {
       showToast(res.msg, 'success');
       loadMasterData('kendaraan');
+    }).withFailureHandler(function(err) {
+      showToast('Gagal menghapus: ' + err.message, 'error');
     }).deleteMasterKendaraan(vehicleId);
   }
 
   function showToast(message, type) {
     var container = document.getElementById('toast-container');
+    if (!container) return;
     var toast = document.createElement('div');
-    toast.className = 'toast ' + (type || 'success');
+    toast.className = 'app-toast ' + (type || 'success');
     var icon = type === 'error' ? 'bi-exclamation-circle text-danger' : 'bi-check-circle text-success';
     toast.innerHTML = '<i class="bi ' + icon + ' me-2"></i><span>' + message + '</span>';
     container.appendChild(toast);
