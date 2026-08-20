@@ -93,10 +93,10 @@ function saveTransactionEndOfDay(payload) {
     let efisiensi = (bbm_dikonsumsi > 0) ? (km_tempuh / bbm_dikonsumsi).toFixed(2) : '';
   
   let userName = payload.userInfo.nama || payload.userInfo.username;
-  let userCabang = payload.userInfo.cabang;
-
-  let row = [
-    transaction_id, new Date(), payload.tanggal, payload.userInfo.username, userName, userCabang, payload.vehicle_id, 'PLAT-UNKNOWN',
+    let trxCabang = payload.cabang_trx || payload.userInfo.cabang;
+  
+    let row = [
+      transaction_id, new Date(), payload.tanggal, payload.userInfo.username, userName, trxCabang, payload.vehicle_nama || payload.vehicle_id, payload.vehicle_id,
     payload.serverData.files.odo_awal, payload.serverData.km_awal, km_awal, payload.bar_awal,
     payload.serverData.files.odo_akhir, payload.serverData.km_akhir, km_akhir, payload.bar_akhir,
     km_tempuh, (payload.bar_awal - payload.bar_akhir), liter, payload.biaya_bbm, 
