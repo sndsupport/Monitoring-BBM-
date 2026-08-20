@@ -1,0 +1,357 @@
+<script>
+  let formDataPayload = {};
+  let userRole = '';
+  let ocrModal;
+  let userInfo = null;
+
+  document.addEventListener('DOMContentLoaded', function() {
+    ocrModal = new bootstrap.Modal(document.getElementById('ocrModal'));
+    document.getElementById('tanggal').valueAsDate = new Date();
+    
+    // Cek LocalStorage
+    let storedUser = localStorage.getItem('bbm_user');
+    if (storedUser) {
+       userInfo = JSON.parse(storedUser);
+       loadInitialData(userInfo);
+    } else {
+       // Tampilkan Login
+       document.getElementById('page-login').style.display = 'block';
+    }
+  });
+
+  function handleLogin() {
+    let un = document.getElementById('login_username').value;
+    let pw = document.getElementById('login_password').value;
+    if(!un || !pw) return;
+
+    let btn = document.getElementById('btn-login');
+    btn.disabled = true;
+    btn.innerText = 'Mengecek...';
+
+    google.script.run.withSuccessHandler(function(res) {
+       if (res.success) {
+         userInfo = res;
+         localStorage.setItem('bbm_user', JSON.stringify(res));
+         loadInitialData(userInfo);
+       } else {
+         alert(res.msg);
+         btn.disabled = false;
+         btn.innerText = 'Masuk';
+       }
+    }).doLogin(un, pw);
+  }
+
+  function logout() {
+    localStorage.removeItem('bbm_user');
+    window.location.reload();
+  }
+
+  function loadInitialData(uInfo) {
+    document.getElementById('page-login').style.display = 'none';
+    
+    let btn = document.getElementById('btn-login');
+    if(btn) btn.innerText = 'Memuat Data...';
+
+    google.script.run
+      .withFailureHandler(function(err) {
+         alert('Terjadi kesalahan server: ' + err.message);
+         logout();
+      })
+      .withSuccessHandler(function(data) {
+        if (data.error) {
+           logout();
+           return;
+        }
+
+        document.getElementById('main-app').style.display = 'block';
+        
+        userRole = data.role;
+        document.getElementById('user-info').innerHTML = data.user + ' (' + userRole + ' - ' + data.cabang + ') <a href="#" onclick="logout()" class="text-warning ms-2">Logout</a>';
+        
+        let roleAlert = document.getElementById('role-alert');
+        if (userRole === 'SUPERADMIN' || userRole === 'PIC WHO' || userRole === 'PIC CABANG') {
+          if(userRole === 'SUPERADMIN') {
+            document.getElementById('nav-master').style.display = 'block';
+            if(roleAlert) {
+               roleAlert.className = 'alert alert-warning text-center';
+               roleAlert.innerHTML = '<small>Anda login sebagai SUPERADMIN. Anda memiliki kendali dan akses penuh ke seluruh cabang.</small>';
+            }
+          } else {
+            if(roleAlert) {
+               roleAlert.className = 'alert alert-info text-center';
+               roleAlert.innerHTML = '<small>Anda login sebagai ' + userRole + '. Anda hanya bisa mengelola kendaraan dan supir di cabang Anda (' + data.cabang + ').</small>';
+            }
+          }
+        }
+
+        let selectVeh = document.getElementById('vehicle');
+        selectVeh.innerHTML = ''; 
+        data.vehicles.forEach(v => {
+          let opt = document.createElement('option');
+          opt.value = v.vehicle_id;
+          opt.text = v.plat_nomor + ' - ' + v.nama;
+          selectVeh.appendChild(opt);
+        });
+        
+        let selectSupir = document.getElementById('nama_supir');
+        selectSupir.innerHTML = '';
+        if (data.drivers) {
+          data.drivers.forEach(d => {
+            let opt = document.createElement('option');
+            opt.value = d.nama;
+            opt.text = d.nama + ' (' + d.id + ')';
+            selectSupir.appendChild(opt);
+          });
+        }
+
+        let selectCabang = document.getElementById('m_cabang');
+        let selectCabangSupir = document.getElementById('m_cabang_supir');
+        if (selectCabang) {
+           selectCabang.innerHTML = '';
+           if(selectCabangSupir) selectCabangSupir.innerHTML = '';
+           
+           data.cabangList.forEach(c => {
+             let opt = document.createElement('option');
+             opt.value = c.kode;
+             opt.text = c.nama;
+             selectCabang.appendChild(opt);
+             
+             if(selectCabangSupir) {
+               let opt2 = document.createElement('option');
+               opt2.value = c.kode;
+               opt2.text = c.nama;
+               selectCabangSupir.appendChild(opt2);
+             }
+           });
+        }
+
+        let selectBBM = document.getElementById('jenis_bbm');
+        if (selectBBM && data.bbmList) {
+          selectBBM.innerHTML = '<option value="">-- Pilih BBM --</option>';
+          data.bbmList.forEach(b => {
+             let opt = document.createElement('option');
+             opt.value = b.harga;
+             opt.text = b.jenis + ' (Rp ' + b.harga + '/L)';
+             opt.dataset.jenis = b.jenis;
+             selectBBM.appendChild(opt);
+          });
+        }
+
+        switchTab('form');
+      })
+      .processInitialData(uInfo);
+  }
+
+  function switchTab(tab) {
+    document.getElementById('page-form').style.display = (tab === 'form') ? 'block' : 'none';
+    document.getElementById('page-dashboard').style.display = (tab === 'dashboard') ? 'block' : 'none';
+    document.getElementById('page-master').style.display = (tab === 'master') ? 'block' : 'none';
+    
+    document.getElementById('tab-form').classList.toggle('active', tab === 'form');
+    document.getElementById('tab-dashboard').classList.toggle('active', tab === 'dashboard');
+    if(document.getElementById('tab-master')) document.getElementById('tab-master').classList.toggle('active', tab === 'master');
+    
+    if(tab === 'dashboard') loadDashboard();
+  }
+
+  function toggleSection(id, val) {
+    document.getElementById(id).style.display = (val === 'Ya') ? 'block' : 'none';
+  }
+
+  function getBase64(file) {
+    return new Promise((resolve, reject) => {
+      if (!file) { resolve(null); return; }
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
+    });
+  }
+
+  async function processDailyReport() {
+    let odoAwal = document.getElementById('foto_odo_awal').files[0];
+    let odoAkhir = document.getElementById('foto_odo_akhir').files[0];
+    let strukBBM = document.getElementById('foto_struk_bbm').files[0];
+    let strukToll = document.getElementById('foto_struk_toll').files[0];
+
+    if (!document.getElementById('daily-form').checkValidity()) {
+      document.getElementById('daily-form').reportValidity();
+      return;
+    }
+
+    let btn = document.getElementById('btn-process');
+    let originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = "<span class='spinner-border spinner-border-sm'></span> Sedang Upload & Proses OCR...";
+
+    try {
+      let bbmSelect = document.getElementById('jenis_bbm');
+      let bbmNama = '';
+      if(bbmSelect.selectedIndex > 0) {
+        bbmNama = bbmSelect.options[bbmSelect.selectedIndex].dataset.jenis;
+      }
+
+      formDataPayload = {
+        vehicle_id: document.getElementById('vehicle').value,
+        nama_supir: document.getElementById('nama_supir').value,
+        tanggal: document.getElementById('tanggal').value,
+        bar_awal: document.getElementById('bar_awal').value,
+        bar_akhir: document.getElementById('bar_akhir').value,
+        liter_bbm: document.getElementById('liter_bbm').value || 0,
+        biaya_bbm: document.getElementById('biaya_bbm').value || 0,
+        jenis_bbm_nama: bbmNama,
+        biaya_toll: document.getElementById('biaya_toll').value || 0,
+        foto_odo_awal: await getBase64(odoAwal),
+        foto_odo_awal_name: odoAwal.name,
+        foto_odo_akhir: await getBase64(odoAkhir),
+        foto_odo_akhir_name: odoAkhir.name,
+        foto_struk_bbm: strukBBM ? await getBase64(strukBBM) : null,
+        foto_struk_bbm_name: strukBBM ? strukBBM.name : null,
+        foto_struk_toll: strukToll ? await getBase64(strukToll) : null,
+        foto_struk_toll_name: strukToll ? strukToll.name : null
+      };
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+           btn.disabled = false;
+           btn.innerHTML = originalText;
+           if(res.success) {
+             document.getElementById('km_awal_val').value = res.km_awal || '';
+             document.getElementById('km_akhir_val').value = res.km_akhir || '';
+             formDataPayload.serverData = res; 
+             ocrModal.show(); 
+           } else {
+             alert('Terjadi kesalahan memproses foto: ' + res.error);
+           }
+        })
+        .withFailureHandler(function(err){
+           alert('Gagal menghubungi server: ' + err.message);
+           btn.disabled = false;
+           btn.innerHTML = originalText;
+        })
+        .processDailyImages(formDataPayload);
+
+    } catch (e) {
+      alert('Error membaca file: ' + e.toString());
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+    }
+  }
+  
+  function confirmAndSave() {
+     let btn = document.getElementById('btn-save');
+     btn.disabled = true;
+     btn.innerHTML = "<span class='spinner-border spinner-border-sm'></span> Menyimpan...";
+
+     formDataPayload.km_awal_confirmed = document.getElementById('km_awal_val').value;
+     formDataPayload.km_akhir_confirmed = document.getElementById('km_akhir_val').value;
+
+     google.script.run
+       .withSuccessHandler(function(res) {
+          if (res.success) {
+            alert('Laporan Harian Berhasil Disimpan!');
+            window.top.location.reload(); 
+          } else {
+            alert('Gagal menyimpan: ' + res.error);
+            btn.disabled = false;
+            btn.innerText = 'Simpan Data Permanen';
+          }
+       })
+       .saveDailyTransaction(formDataPayload);
+  }
+
+  function loadDashboard() {
+    let tbody = document.getElementById('dashboard-tbody');
+    tbody.innerHTML = "<tr><td colspan='9' class='text-center'>Memuat data...</td></tr>";
+    
+    google.script.run
+      .withSuccessHandler(function(data) {
+        tbody.innerHTML = '';
+        if (data.length === 0) {
+           tbody.innerHTML = "<tr><td colspan='9' class='text-center'>Belum ada data operasional.</td></tr>";
+           return;
+        }
+        data.forEach(row => {
+          let tr = document.createElement('tr');
+          let links = "<a href='" + row.foto_odo_awal + "' target='_blank'>Awal</a> | <a href='" + row.foto_odo_akhir + "' target='_blank'>Akhir</a>";
+          tr.innerHTML = 
+            "<td>" + row.tanggal + "</td>" +
+            "<td>" + row.cabang + "</td>" +
+            "<td>" + row.user + "</td>" +
+            "<td>" + row.supir + "</td>" +
+            "<td>" + row.vehicle + "</td>" +
+            "<td>" + row.km_tempuh + " KM</td>" +
+            "<td>" + row.liter + " L</td>" +
+            "<td>" + (row.efisiensi ? row.efisiensi + " KM/L" : "-") + "</td>" +
+            "<td>" + row.toll + "</td>" +
+            "<td>" + links + "</td>";
+          tbody.appendChild(tr);
+        });
+      })
+      .getDashboardData(userInfo);
+  }
+
+  function addMasterCabang() {
+    let btn = document.getElementById('btn-add-cabang');
+    btn.disabled = true;
+    let data = {
+      kode: document.getElementById('m_kode_cabang').value,
+      nama: document.getElementById('m_nama_cabang').value
+    };
+    google.script.run.withSuccessHandler(res => {
+      alert(res.msg);
+      btn.disabled = false;
+      document.getElementById('form-cabang').reset();
+    }).saveMasterCabang(data);
+  }
+
+  function addMasterKendaraan() {
+    let btn = document.getElementById('btn-add-vehicle');
+    btn.disabled = true;
+    let data = {
+      plat: document.getElementById('m_plat').value,
+      nama: document.getElementById('m_nama_kendaraan').value,
+      cabang: document.getElementById('m_cabang').value
+    };
+    google.script.run.withSuccessHandler(res => {
+      alert(res.msg);
+      btn.disabled = false;
+      document.getElementById('form-kendaraan').reset();
+    }).saveMasterKendaraan(data);
+  }
+  function addMasterSupir() {
+    let btn = document.getElementById('btn-add-supir');
+    btn.disabled = true;
+    let data = {
+      nama: document.getElementById('m_nama_supir').value,
+      cabang: document.getElementById('m_cabang_supir').value
+    };
+    google.script.run.withSuccessHandler(res => {
+      alert(res.msg);
+      btn.disabled = false;
+      document.getElementById('form-supir').reset();
+    }).saveMasterSupir(data);
+  }
+
+  function calcBBM() {
+    let sel = document.getElementById('jenis_bbm');
+    let hrg = parseFloat(sel.value) || 0;
+    let lit = parseFloat(document.getElementById('liter_bbm').value) || 0;
+    document.getElementById('biaya_bbm').value = (hrg * lit) || '';
+  }
+
+  function addMasterBBM() {
+    let btn = document.getElementById('btn-add-bbm');
+    btn.disabled = true;
+    let data = {
+      jenis: document.getElementById('m_jenis_bbm').value,
+      harga: document.getElementById('m_harga_bbm').value
+    };
+    google.script.run.withSuccessHandler(res => {
+      alert(res.msg);
+      btn.disabled = false;
+      document.getElementById('form-bbm').reset();
+    }).saveMasterBBM(data);
+  }
+
+</script>
