@@ -115,6 +115,15 @@
             
             <form id='daily-form' onsubmit='return false;'>
               
+              <div id='input-cabang-filter' class='card mb-3' style='display:none;'>
+                <div class='card-body'>
+                  <label class='form-label'>Pilih Cabang</label>
+                  <select id='input-cabang' class='form-select' onchange='filterFormByCabang()'>
+                    <option value=''>Semua Cabang</option>
+                  </select>
+                </div>
+              </div>
+
               <div class='card mb-3'>
                 <div class='card-header'>
                   <i class='bi bi-car-front text-primary'></i>

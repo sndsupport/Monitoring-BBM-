@@ -3,6 +3,8 @@
   let userRole = '';
   let ocrModal;
   let userInfo = null;
+  let allVehicles = [];
+  let allDrivers = [];
 
   document.addEventListener('DOMContentLoaded', function() {
     ocrModal = new bootstrap.Modal(document.getElementById('ocrModal'));
@@ -81,6 +83,8 @@
           document.getElementById('nav-settings').classList.remove('d-none');
           document.getElementById('btn-nav-master').style.display = 'flex';
           document.getElementById('btn-nav-settings').style.display = 'flex';
+          var inputCabangFilter = document.getElementById('input-cabang-filter');
+          if (inputCabangFilter) inputCabangFilter.style.display = 'block';
         }
         
         let roleAlert = document.getElementById('role-alert');
@@ -159,6 +163,20 @@
             filterCabang.appendChild(opt);
           });
         }
+
+        let inputCabang = document.getElementById('input-cabang');
+        if (inputCabang && data.cabangList) {
+          inputCabang.innerHTML = '<option value="">Semua Cabang</option>';
+          data.cabangList.forEach(c => {
+            let opt = document.createElement('option');
+            opt.value = c.kode;
+            opt.text = c.nama;
+            inputCabang.appendChild(opt);
+          });
+        }
+
+        allVehicles = data.vehicles || [];
+        allDrivers = data.drivers || [];
 
         switchTab('form');
       })
@@ -481,6 +499,28 @@
     loadDashboard();
   }
 
+  function filterFormByCabang() {
+    let cabang = document.getElementById('input-cabang').value;
+    let selectVeh = document.getElementById('vehicle');
+    let selectSupir = document.getElementById('nama_supir');
+    selectVeh.innerHTML = '';
+    selectSupir.innerHTML = '';
+    let filteredV = cabang ? allVehicles.filter(v => v.cabang === cabang) : allVehicles;
+    let filteredD = cabang ? allDrivers.filter(d => d.cabang === cabang) : allDrivers;
+    filteredV.forEach(v => {
+      let opt = document.createElement('option');
+      opt.value = v.vehicle_id;
+      opt.text = v.plat_nomor + ' - ' + v.nama;
+      selectVeh.appendChild(opt);
+    });
+    filteredD.forEach(d => {
+      let opt = document.createElement('option');
+      opt.value = d.nama;
+      opt.text = d.nama + ' (' + d.id + ')';
+      selectSupir.appendChild(opt);
+    });
+  }
+
   function addMasterCabang() {
     let btn = document.getElementById('btn-add-cabang');
     btn.disabled = true;
@@ -493,6 +533,7 @@
       showToast(res.msg, 'success');
       btn.disabled = false;
       document.getElementById('form-cabang').reset();
+      loadMasterData('cabang');
     }).withFailureHandler(err => {
       showToast('Gagal: ' + err.message, 'error');
       btn.disabled = false;
@@ -512,6 +553,7 @@
       showToast(res.msg, 'success');
       btn.disabled = false;
       document.getElementById('form-kendaraan').reset();
+      loadMasterData('kendaraan');
     }).withFailureHandler(err => {
       showToast('Gagal: ' + err.message, 'error');
       btn.disabled = false;
@@ -528,6 +570,7 @@
       showToast(res.msg, 'success');
       btn.disabled = false;
       document.getElementById('form-supir').reset();
+      loadMasterData('supir');
     }).withFailureHandler(err => {
       showToast('Gagal: ' + err.message, 'error');
       btn.disabled = false;
@@ -553,6 +596,7 @@
       showToast(res.msg, 'success');
       btn.disabled = false;
       document.getElementById('form-bbm').reset();
+      loadMasterData('bbm');
     }).withFailureHandler(err => {
       showToast('Gagal: ' + err.message, 'error');
       btn.disabled = false;
