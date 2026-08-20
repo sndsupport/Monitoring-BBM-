@@ -264,29 +264,61 @@
       
       <!-- HALAMAN 2: DASHBOARD (ADMIN & PIC) -->
       <div id='page-dashboard' style='display:none;'>
-        <div class='card'>
-          <div class='card-body'>
-            <h4 class='card-title'>Riwayat Operasional Kendaraan</h4>
-            <div class='table-responsive mt-3'>
-              <table class='table table-bordered table-striped table-hover dashboard-table'>
-                <thead class='table-dark align-middle text-center'>
-                  <tr>
-                    <th>Tanggal</th>
-                    <th>Cabang</th>
-                    <th>PIC</th>
-                    <th>Supir</th>
-                    <th>Kendaraan</th>
-                    <th>KM Tempuh</th>
-                    <th>BBM (L)</th>
-                    <th>Efisiensi (KM/L)</th>
-                    <th>Biaya Toll</th>
-                    <th>Bukti Foto</th>
-                  </tr>
-                </thead>
-                <tbody id='dashboard-tbody'>
-                  <!-- Diisi dari JS -->
-                </tbody>
-              </table>
+        <div class='card mb-4'>
+          <div class='card-body p-4'>
+            <h4 class='mb-3'>
+              <i class='bi bi-clock-history me-2'></i> Riwayat Operasional
+            </h4>
+            
+            <div class='row g-2 mb-4'>
+              <div class='col-6 col-md-4'>
+                <select id='filter-cabang' class='form-select form-select-sm' onchange='loadDashboard()'>
+                  <option value=''>Semua Cabang</option>
+                </select>
+              </div>
+              <div class='col-6 col-md-4'>
+                <input type='month' id='filter-bulan' class='form-control form-control-sm' onchange='loadDashboard()'>
+              </div>
+              <div class='col-12 col-md-4'>
+                <button class='btn btn-outline-secondary btn-sm w-100' onclick='resetFilters()'>
+                  <i class='bi bi-x-circle me-1'></i> Reset Filter
+                </button>
+              </div>
+            </div>
+            
+            <div id='dashboard-content'>
+              <div class='d-none d-md-block table-responsive'>
+                <table class='table table-bordered table-striped table-hover'>
+                  <thead class='table-dark align-middle text-center'>
+                    <tr>
+                      <th>Tanggal</th>
+                      <th>Cabang</th>
+                      <th>Supir</th>
+                      <th>Kendaraan</th>
+                      <th>KM Tempuh</th>
+                      <th>BBM (L)</th>
+                      <th>Efisiensi</th>
+                      <th>Toll</th>
+                      <th>Foto</th>
+                    </tr>
+                  </thead>
+                  <tbody id='dashboard-tbody'></tbody>
+                </table>
+              </div>
+              
+              <div class='d-md-none' id='dashboard-cards'></div>
+            </div>
+            
+            <div id='dashboard-empty' class='empty-state' style='display:none;'>
+              <i class='bi bi-inbox'></i>
+              <h5>Belum ada data operasional</h5>
+              <p>Data akan muncul setelah Anda mengisi laporan harian.</p>
+            </div>
+            
+            <div id='dashboard-loading' style='display:none;'>
+              <div class='skeleton' style='height: 100px; margin-bottom: 12px;'></div>
+              <div class='skeleton' style='height: 100px; margin-bottom: 12px;'></div>
+              <div class='skeleton' style='height: 100px;'></div>
             </div>
           </div>
         </div>

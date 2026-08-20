@@ -141,6 +141,17 @@
           });
         }
 
+        let filterCabang = document.getElementById('filter-cabang');
+        if (filterCabang && data.cabangList) {
+          filterCabang.innerHTML = '<option value="">Semua Cabang</option>';
+          data.cabangList.forEach(c => {
+            let opt = document.createElement('option');
+            opt.value = c.kode;
+            opt.text = c.nama;
+            filterCabang.appendChild(opt);
+          });
+        }
+
         switchTab('form');
       })
       .processInitialData(uInfo);
@@ -329,33 +340,97 @@
 
   function loadDashboard() {
     let tbody = document.getElementById('dashboard-tbody');
-    tbody.innerHTML = "<tr><td colspan='9' class='text-center'>Memuat data...</td></tr>";
+    let cardsContainer = document.getElementById('dashboard-cards');
+    let emptyState = document.getElementById('dashboard-empty');
+    let loadingState = document.getElementById('dashboard-loading');
+    
+    tbody.innerHTML = '';
+    cardsContainer.innerHTML = '';
+    emptyState.style.display = 'none';
+    loadingState.style.display = 'block';
     
     google.script.run
       .withSuccessHandler(function(data) {
-        tbody.innerHTML = '';
+        loadingState.style.display = 'none';
+        
         if (data.length === 0) {
-           tbody.innerHTML = "<tr><td colspan='9' class='text-center'>Belum ada data operasional.</td></tr>";
-           return;
+          emptyState.style.display = 'block';
+          return;
         }
+        
         data.forEach(row => {
           let tr = document.createElement('tr');
-          let links = "<a href='" + row.foto_odo_awal + "' target='_blank'>Awal</a> | <a href='" + row.foto_odo_akhir + "' target='_blank'>Akhir</a>";
+          let links = "<a href='" + row.foto_odo_awal + "' target='_blank' class='btn btn-sm btn-outline-primary'><i class='bi bi-image'></i></a> ";
+          links += "<a href='" + row.foto_odo_akhir + "' target='_blank' class='btn btn-sm btn-outline-primary'><i class='bi bi-image'></i></a>";
+          
           tr.innerHTML = 
             "<td>" + row.tanggal + "</td>" +
             "<td>" + row.cabang + "</td>" +
-            "<td>" + row.user + "</td>" +
             "<td>" + row.supir + "</td>" +
             "<td>" + row.vehicle + "</td>" +
-            "<td>" + row.km_tempuh + " KM</td>" +
-            "<td>" + row.liter + " L</td>" +
-            "<td>" + (row.efisiensi ? row.efisiensi + " KM/L" : "-") + "</td>" +
-            "<td>" + row.toll + "</td>" +
-            "<td>" + links + "</td>";
+            "<td class='text-center'>" + row.km_tempuh + " KM</td>" +
+            "<td class='text-center'>" + row.liter + " L</td>" +
+            "<td class='text-center'>" + (row.efisiensi ? row.efisiensi + " KM/L" : "-") + "</td>" +
+            "<td class='text-center'>" + formatCurrency(row.toll) + "</td>" +
+            "<td class='text-center'>" + links + "</td>";
           tbody.appendChild(tr);
+        });
+        
+        data.forEach(row => {
+          let card = document.createElement('div');
+          card.className = 'card mb-3';
+          card.innerHTML = 
+            "<div class='card-header bg-light'>" +
+              "<div class='d-flex justify-content-between align-items-center'>" +
+                "<div><i class='bi bi-calendar me-1'></i> " + row.tanggal + "</div>" +
+                "<small class='text-muted'>" + row.cabang + "</small>" +
+              "</div>" +
+            "</div>" +
+            "<div class='card-body'>" +
+              "<div class='mb-2'><strong>" + row.vehicle + "</strong></div>" +
+              "<div class='mb-2 text-muted'><i class='bi bi-person me-1'></i> " + row.supir + "</div>" +
+              "<div class='row g-2 mb-2'>" +
+                "<div class='col-6'>" +
+                  "<div class='stats-box'>" +
+                    "<div class='stats-label'>KM Tempuh</div>" +
+                    "<div class='stats-value'>" + row.km_tempuh + " KM</div>" +
+                  "</div>" +
+                "</div>" +
+                "<div class='col-6'>" +
+                  "<div class='stats-box'>" +
+                    "<div class='stats-label'>BBM</div>" +
+                    "<div class='stats-value'>" + row.liter + " L</div>" +
+                  "</div>" +
+                "</div>" +
+              "</div>" +
+              "<div class='d-flex justify-content-between align-items-center'>" +
+                "<small><i class='bi bi-fuel-pump me-1'></i> " + (row.efisiensi ? row.efisiensi + " KM/L" : "-") + "</small>" +
+                "<small><i class='bi bi-signpost-2 me-1'></i> " + formatCurrency(row.toll) + "</small>" +
+              "</div>" +
+              "<div class='mt-2 pt-2 border-top'>" +
+                "<a href='" + row.foto_odo_awal + "' target='_blank' class='btn btn-sm btn-outline-primary me-1'>" +
+                  "<i class='bi bi-camera me-1'></i> Awal" +
+                "</a>" +
+                "<a href='" + row.foto_odo_akhir + "' target='_blank' class='btn btn-sm btn-outline-primary'>" +
+                  "<i class='bi bi-camera me-1'></i> Akhir" +
+                "</a>" +
+              "</div>" +
+            "</div>";
+          cardsContainer.appendChild(card);
         });
       })
       .getDashboardData(userInfo);
+  }
+
+  function formatCurrency(value) {
+    if (!value || value === '0') return 'Rp 0';
+    return 'Rp ' + parseInt(value).toLocaleString('id-ID');
+  }
+
+  function resetFilters() {
+    document.getElementById('filter-cabang').value = '';
+    document.getElementById('filter-bulan').value = '';
+    loadDashboard();
   }
 
   function addMasterCabang() {
