@@ -2,21 +2,44 @@
 
 Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan pemantauan operasional kendaraan dinas/harian, meliputi pencatatan kilometer (odometer), konsumsi bahan bakar (BBM), dan biaya tol secara terpusat.
 
-## 🌟 Fitur Utama
-1. **Multi-Role Access (Role-Based)**
-   - **SUPERADMIN:** Memiliki akses global tanpa batas ke seluruh cabang. Bisa melihat semua history kendaraan dan mengelola seluruh data master.
-   - **PIC CABANG:** Hanya bisa mengelola dan melihat kendaraan serta supir yang berada di cabang yang bersangkutan.
-2. **Auto-Calculate BBM & Efisiensi**
-   - Menghitung jarak tempuh secara otomatis (KM Akhir - KM Awal).
-   - Menghitung total harga BBM otomatis (berdasarkan jumlah liter × harga master BBM).
-   - Menghitung efisiensi bahan bakar (KM/Liter).
-3. **Master Data Dinamis**
-   - Mendukung penambahan cabang, supir, dan kendaraan.
-   - Mendukung penyesuaian/penambahan jenis dan harga BBM (contoh: Solar, Pertalite, Pertamax).
-4. **Data Tersimpan di Google Sheets**
-   - Seluruh data operasional langsung terekam pada Google Sheets sehingga mudah untuk di-*export*, direkap, atau dihubungkan dengan Google Data Studio / Looker.
+## Fitur Utama
 
-## 🛠️ Cara Instalasi & Penggunaan (Google Apps Script)
+### Multi-Role Access (Role-Based)
+- **SUPERADMIN:** Akses penuh ke seluruh cabang, semua history, data master, dan pengaturan aplikasi.
+- **PIC CABANG:** Hanya bisa mengelola laporan untuk kendaraan dan supir di cabangnya sendiri.
+
+### Mobile-First Responsive Design
+- Bottom navigation bar (mobile) / top tabs (desktop).
+- Card-based form input dengan preview foto.
+- Dashboard tampilan cards (mobile) atau table (desktop).
+- Toast notification untuk semua aksi (bukan alert).
+
+### Auto-Calculate BBM & Efisiensi
+- Menghitung jarak tempuh otomatis (KM Akhir - KM Awal).
+- Menghitung total harga BBM otomatis (liter x harga master BBM).
+- Menghitung efisiensi bahan bakar (KM/Liter).
+
+### Master Data Dinamis
+- **Cabang:** Kode, nama, lokasi, status.
+- **Kendaraan:** Plat nomor, nama, jenis (Mobil/Motor), cabang.
+- **Supir:** Nama, cabang.
+- **BBM:** Jenis, harga per liter.
+
+### OCR Foto Odometer
+- Upload foto odometer awal dan akhir.
+- OCR otomatis mengekstrak angka KM dari foto.
+- Modal preview hasil OCR dengan perhitungan otomatis sebelum simpan.
+
+### Pengaturan Aplikasi (Superadmin)
+- Upload logo aplikasi (tersimpan di Google Drive).
+- Konfigurasi nama aplikasi, nama perusahaan, footer text.
+- Filter cabang di form input untuk Superadmin (pilih cabang tertentu atau semua).
+
+### Data Tersimpan di Google Sheets
+- Seluruh data operasional langsung terekam pada Google Sheets.
+- Mudah untuk di-export, direkap, atau dihubungkan dengan Looker Studio.
+
+## Cara Instalasi & Penggunaan (Google Apps Script)
 
 ### 1. Menyiapkan Spreadsheet
 Pastikan Anda sudah memiliki file Google Spreadsheet kosong (atau menggunakan yang sudah disediakan).
@@ -25,32 +48,38 @@ Pastikan Anda sudah memiliki file Google Spreadsheet kosong (atau menggunakan ya
 Kode aplikasi ini dibuat untuk diunggah menggunakan [clasp](https://github.com/google/clasp) ke dalam *Google Apps Script* yang terikat dengan Spreadsheet Anda.
 
 ### 3. Setup Database Awal (Wajib)
-Setelah semua kode (*script*) berada di Editor Apps Script, ikuti langkah berikut untuk membuat kerangka database:
+Setelah semua kode berada di Editor Apps Script:
 1. Buka file **`DatabaseSetup.gs`** di Editor Apps Script.
-2. Pilih fungsi **`setupDatabase`** pada menu tarik-turun (*dropdown*) di atas editor, lalu tekan tombol **Run (Jalankan)**.
-   > Sistem akan otomatis membuat *sheet* (tabel) yang dibutuhkan seperti `Cabang`, `Supir`, `BBM`, `Pengguna`, `Kendaraan`, dan `Penggunaan_BBM`.
-3. (Opsional) Jika Anda ingin mengisinya dengan data percobaan (*dummy*), jalankan fungsi **`seedDummyData`**.
+2. Pilih fungsi **`setupDatabase`** pada menu dropdown di atas editor, lalu tekan tombol **Run**.
+   > Sistem akan membuat sheet `Cabang`, `Supir`, `BBM`, `Pengguna`, `Kendaraan`, `Penggunaan_BBM`, dan `Pengaturan`.
+3. (Opsional) Jalankan **`seedDummyData`** untuk mengisi data percobaan.
 
 ### 4. Deploy Web App
-1. Klik tombol **Deploy** > **New deployment** di pojok kanan atas Apps Script Editor.
+1. Klik **Deploy** > **New deployment** di pojok kanan atas Apps Script Editor.
 2. Pilih tipe **Web app**.
-3. Atur "Execute as" ke **User accessing the web app** (atau akun Anda sendiri, tergantung preferensi) dan "Who has access" ke **Anyone**.
+3. Atur "Execute as" ke **User accessing the web app** dan "Who has access" ke **Anyone**.
 4. Klik **Deploy** dan salin URL Web App yang dihasilkan.
 
-## 👥 Akun Login (Default Dummy)
-Jika Anda sudah menjalankan `seedDummyData()`, Anda bisa login menggunakan akun berikut:
+## Akun Login (Default Dummy)
+Setelah menjalankan `seedDummyData()`:
 - **SUPERADMIN:** Username: `snd` | Password: `snd123`
 - **PIC Jakarta:** Username: `picjkt` | Password: `pic123`
 - **PIC Bandung:** Username: `picbdg` | Password: `pic123`
 
-## 📂 Struktur File
-- `Code.gs` : Backend utama yang menghubungkan UI (HTML) dengan fungsi database.
-- `DatabaseSetup.gs` : Skrip untuk inisialisasi tabel dan struktur awal Google Sheets.
-- `SpreadsheetOps.gs` : Skrip pengelola fungsi CRUD (*Create, Read, Update, Delete*) ke Google Sheets.
-- `DriveOps.gs` & `OCRService.gs` : Penunjang untuk penyimpanan foto dan ekstraksi teks (bila OCR digunakan).
-- `Index.html` : Struktur kerangka antarmuka pengguna (UI) menggunakan Bootstrap 5.
-- `js.html` : Logika interaksi sisi-*client* (Frontend JavaScript).
-- `css.html` : Gaya desain tambahan aplikasi.
+## Struktur File
+
+| File | Deskripsi |
+|------|-----------|
+| `Code.gs` | Backend utama, hubungkan UI dengan fungsi database. |
+| `DatabaseSetup.gs` | Inisialisasi tabel dan struktur Google Sheets. |
+| `SpreadsheetOps.gs` | CRUD ke Google Sheets. |
+| `DriveOps.gs` | Penyimpanan foto ke Google Drive. |
+| `OCRService.gs` | Ekstraksi teks dari foto odometer (OCR). |
+| `Index.html` | Struktur UI utama (Bootstrap 5 + mobile-first). |
+| `js.html` | Logika interaksi sisi client (JavaScript). |
+| `css.html` | Gaya desain custom (responsive, mobile-first). |
+| `Settings.html` | Halaman pengaturan aplikasi (logo, nama, perusahaan). |
 
 ---
-*Dikembangkan secara khusus untuk monitoring dan efisiensi operasional harian perusahaan.*
+
+*Dikembangkan untuk monitoring dan efisiensi operasional harian perusahaan.*
