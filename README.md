@@ -10,20 +10,22 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 
 ### Mobile-First Responsive Design
 - Bottom navigation bar (mobile) / top tabs (desktop).
-- Card-based form input dengan preview foto.
+- Card-based form input bergaya modern dengan preview foto dan layout 2-kolom dinamis di perangkat Desktop/PC.
 - Dashboard tampilan cards (mobile) atau table (desktop).
 - Toast notification untuk semua aksi (bukan alert).
 
 ### Auto-Calculate BBM & Efisiensi
 - Menghitung jarak tempuh otomatis (KM Akhir - KM Awal).
-- Menghitung total harga BBM otomatis (liter x harga master BBM).
+- Menghitung liter BBM otomatis (input nominal pengeluaran BBM, liter terhitung otomatis berdasarkan harga master).
+- Menghitung total harga BBM secara dinamis jika diubah.
 - Menghitung efisiensi bahan bakar (KM/Liter).
 
 ### Master Data Dinamis
 - **Cabang:** Kode, nama, lokasi, status.
 - **Kendaraan:** Plat nomor, nama, jenis (Mobil/Motor), cabang.
-- **Supir:** Nama, cabang.
+- **Supir:** Nama, cabang, dan relasi kendaraan default.
 - **BBM:** Jenis, harga per liter.
+- **Manajemen Lengkap (CRUD):** Tambah, Edit, dan Hapus (Delete) dengan Bootstrap Modals interaktif untuk semua kategori.
 
 ### OCR Foto Odometer
 - Upload foto odometer awal dan akhir.
@@ -34,6 +36,7 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - Upload logo aplikasi (tersimpan di Google Drive).
 - Konfigurasi nama aplikasi, nama perusahaan, footer text.
 - Filter cabang di form input untuk Superadmin (pilih cabang tertentu atau semua).
+- Tema warna (Branding) kustom, seperti warna utama (primary color) hijau khas perusahaan.
 
 ### Data Tersimpan di Google Sheets
 - Seluruh data operasional langsung terekam pada Google Sheets.
