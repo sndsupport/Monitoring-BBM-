@@ -22,13 +22,25 @@ function processOdometerImageOCR(fileId) {
     // 4. Bersihkan file sementara (document)
     DriveApp.getFileById(ocrFile.id).setTrashed(true);
     
-    // 5. Kembalikan teks dan coba filter hanya angkanya
-    let numbersOnly = extractedText.replace(/[^0-9]/g, '');
+    // 5. Filter logika Odometer
+    // Odometer biasanya adalah angka 4 hingga 7 digit yang menyatu
+    let possibleNumbers = extractedText.match(/\d{4,7}/g);
+    let bestNumber = "";
+    if (possibleNumbers && possibleNumbers.length > 0) {
+       // Ambil angka terpanjang dari kandidat yang ada
+       bestNumber = possibleNumbers.reduce((a, b) => a.length > b.length ? a : b);
+    } else {
+       // Fallback: Jika tidak ada angka panjang, ambil angka apa pun yang paling panjang
+       let allNumbers = extractedText.match(/\d+/g);
+       if (allNumbers && allNumbers.length > 0) {
+          bestNumber = allNumbers.reduce((a, b) => a.length > b.length ? a : b);
+       }
+    }
     
     return {
       success: true,
       rawText: extractedText,
-      extractedNumbers: numbersOnly
+      extractedNumbers: bestNumber
     };
     
   } catch (e) {
