@@ -14,11 +14,11 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - Dashboard tampilan cards (mobile) atau table (desktop).
 - Toast notification untuk semua aksi (bukan alert).
 
-### Auto-Calculate BBM & Efisiensi
+### Auto-Calculate BBM & Efisiensi Pintar
 - Menghitung jarak tempuh otomatis (KM Akhir - KM Awal).
-- Menghitung liter BBM otomatis (input nominal pengeluaran BBM, liter terhitung otomatis berdasarkan harga master).
+- Menghitung liter BBM otomatis (input nominal pengeluaran BBM, liter terhitung berdasarkan harga master).
 - Menghitung total harga BBM secara dinamis jika diubah.
-- Menghitung efisiensi bahan bakar (KM/Liter).
+- **Smart Fuel Efficiency:** Menghitung efisiensi bahan bakar (KM/Liter) menggunakan rumus penurunan indikator Bar Bensin dan Kapasitas Tangki dari master Kendaraan. Bahkan jika hari itu tidak mengisi bensin (0 L), efisiensi tetap terhitung akurat berdasarkan penurunan Bar.
 
 ### Master Data Dinamis
 - **Cabang:** Kode, nama, lokasi, status.
@@ -27,10 +27,10 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - **BBM:** Jenis, harga per liter.
 - **Manajemen Lengkap (CRUD):** Tambah, Edit, dan Hapus (Delete) dengan Bootstrap Modals interaktif untuk semua kategori.
 
-### OCR Foto Odometer
+### Smart OCR Odometer
 - Upload foto odometer awal dan akhir.
-- OCR otomatis mengekstrak angka KM dari foto.
-- Modal preview hasil OCR dengan perhitungan otomatis sebelum simpan.
+- OCR cerdas otomatis menyaring angka *speedometer* (batas kecepatan) dan hanya mengekstrak angka panjang KM dari foto odometer.
+- Modal preview hasil OCR dengan perhitungan otomatis sebelum disimpan.
 
 ### Pengaturan Aplikasi (Superadmin)
 - Upload logo aplikasi (tersimpan di Google Drive).
