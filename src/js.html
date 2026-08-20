@@ -52,6 +52,7 @@
 
   function logout() {
     localStorage.removeItem('bbm_user');
+    document.getElementById('user-info').innerHTML = '';
     document.getElementById('main-app').style.display = 'none';
     var bottomNav = document.getElementById('bottom-nav');
     if (bottomNav) bottomNav.style.display = 'none';
