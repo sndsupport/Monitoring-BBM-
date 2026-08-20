@@ -51,7 +51,19 @@
 
   function logout() {
     localStorage.removeItem('bbm_user');
-    window.location.reload();
+    document.getElementById('main-app').style.display = 'none';
+    var bottomNav = document.getElementById('bottom-nav');
+    if (bottomNav) bottomNav.style.display = 'none';
+    document.getElementById('page-login').style.display = 'block';
+    document.getElementById('page-form').style.display = 'none';
+    document.getElementById('page-dashboard').style.display = 'none';
+    document.getElementById('page-master').style.display = 'none';
+    document.getElementById('page-settings').style.display = 'none';
+    document.getElementById('login_username').value = '';
+    document.getElementById('login_password').value = '';
+    var btn = document.getElementById('btn-login');
+    btn.disabled = false;
+    btn.innerText = 'Masuk';
   }
 
   function loadInitialData(uInfo) {
@@ -178,6 +190,7 @@
         allVehicles = data.vehicles || [];
         allDrivers = data.drivers || [];
 
+        loadAppSettings();
         switchTab('form');
       })
       .processInitialData(uInfo);
@@ -187,12 +200,16 @@
     google.script.run
       .withSuccessHandler(function(settings) {
         if (settings.logo_url) {
-          document.getElementById('login-logo').innerHTML = 
-            '<img src="' + settings.logo_url + '" alt="Logo" style="max-height: 100px; max-width: 200px;">';
+          var logoHtml = '<img src="' + settings.logo_url + '" alt="Logo" style="max-height: 100px; max-width: 200px;">';
+          var loginLogo = document.getElementById('login-logo');
+          if (loginLogo) loginLogo.innerHTML = logoHtml;
+          var mainLogo = document.getElementById('main-logo');
+          if (mainLogo) { mainLogo.innerHTML = logoHtml; mainLogo.style.display = 'block'; }
         }
         if (settings.app_name) {
           document.getElementById('login-app-name').innerText = settings.app_name;
-          document.querySelector('.navbar-brand').innerText = settings.app_name;
+          var brand = document.querySelector('.navbar-brand');
+          if (brand) brand.innerText = settings.app_name;
         }
         if (settings.company_name) {
           document.getElementById('login-company-name').innerText = settings.company_name;
