@@ -322,8 +322,11 @@
       let vName = vSelect.options[vSelect.selectedIndex] ? vSelect.options[vSelect.selectedIndex].text : '';
       let cSelect = document.getElementById('input-cabang');
       let selectedCabang = (cSelect && cSelect.value) ? cSelect.value : (userInfo ? userInfo.cabang : '');
+      let selVeh = allVehicles.find(v => v.vehicle_id === document.getElementById('vehicle').value);
       
       formDataPayload = {
+        kapasitas_tangki: selVeh ? selVeh.kapasitas_tangki : 0,
+        jumlah_bar: selVeh ? selVeh.jumlah_bar : 0,
         vehicle_id: document.getElementById('vehicle').value,
         vehicle_nama: vName,
         cabang_trx: selectedCabang,

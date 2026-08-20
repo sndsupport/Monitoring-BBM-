@@ -80,8 +80,17 @@ function saveTransactionEndOfDay(payload) {
   let km_awal = parseFloat(payload.km_awal_confirmed) || 0;
   let km_akhir = parseFloat(payload.km_akhir_confirmed) || 0;
   let km_tempuh = km_akhir - km_awal;
-  let liter = parseFloat(payload.liter_bbm) || 0;
-  let efisiensi = liter > 0 ? (km_tempuh / liter).toFixed(2) : '';
+    let liter = parseFloat(payload.liter_bbm) || 0;
+    
+    let kapasitas = parseFloat(payload.kapasitas_tangki) || 0;
+    let jumlah_bar = parseFloat(payload.jumlah_bar) || 0;
+    let liter_per_bar = (jumlah_bar > 0) ? (kapasitas / jumlah_bar) : 0;
+    
+    let bar_awal = parseFloat(payload.bar_awal) || 0;
+    let bar_akhir = parseFloat(payload.bar_akhir) || 0;
+    let bbm_dikonsumsi = (bar_awal * liter_per_bar) + liter - (bar_akhir * liter_per_bar);
+    
+    let efisiensi = (bbm_dikonsumsi > 0) ? (km_tempuh / bbm_dikonsumsi).toFixed(2) : '';
   
   let userName = payload.userInfo.nama || payload.userInfo.username;
   let userCabang = payload.userInfo.cabang;
