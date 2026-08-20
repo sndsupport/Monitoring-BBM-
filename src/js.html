@@ -397,6 +397,7 @@
 
      formDataPayload.km_awal_confirmed = document.getElementById('km_awal_val').value;
      formDataPayload.km_akhir_confirmed = document.getElementById('km_akhir_val').value;
+     formDataPayload.userInfo = userInfo;
 
       google.script.run
          .withSuccessHandler(function(res) {
