@@ -193,6 +193,34 @@
     if (tab === 'dashboard') loadDashboard();
   }
 
+  function previewPhoto(input, previewId) {
+    if (input.files && input.files[0]) {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var previewDiv = document.getElementById(previewId);
+        previewDiv.style.display = 'block';
+        previewDiv.querySelector('img').src = e.target.result;
+        input.closest('.photo-upload').classList.add('has-image');
+        input.closest('.photo-upload').querySelector('span').textContent = 'Foto sudah dipilih';
+      };
+      reader.readAsDataURL(input.files[0]);
+    }
+  }
+
+  function toggleBBM(value, btn) {
+    document.getElementById('isi_bensin').value = value;
+    document.getElementById('bbm-section').style.display = (value === 'Ya') ? 'block' : 'none';
+    btn.parentElement.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  function toggleToll(value, btn) {
+    document.getElementById('isi_toll').value = value;
+    document.getElementById('toll-section').style.display = (value === 'Ya') ? 'block' : 'none';
+    btn.parentElement.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
   function toggleSection(id, val) {
     document.getElementById(id).style.display = (val === 'Ya') ? 'block' : 'none';
   }
@@ -376,7 +404,8 @@
     let sel = document.getElementById('jenis_bbm');
     let hrg = parseFloat(sel.value) || 0;
     let lit = parseFloat(document.getElementById('liter_bbm').value) || 0;
-    document.getElementById('biaya_bbm').value = (hrg * lit) || '';
+    let total = (hrg * lit) || 0;
+    document.getElementById('biaya_bbm').value = total ? total.toLocaleString('id-ID') : '';
   }
 
   function addMasterBBM() {

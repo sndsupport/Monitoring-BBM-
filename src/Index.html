@@ -104,96 +104,158 @@
 
       <!-- HALAMAN 1: FORMULIR INPUT -->
       <div id='page-form' style='display:none;'>
-        <div class='card'>
-          <div class='card-body'>
-            <h4 class='card-title text-center mb-4'>Laporan Operasional Harian</h4>
+        <div class='card mb-4'>
+          <div class='card-body p-4'>
+            <h4 class='text-center mb-3'>
+              <i class='bi bi-pencil-square me-2'></i> Laporan Operasional Harian
+            </h4>
             <div id='role-alert' class='alert alert-info text-center'>
               <small>Anda login sebagai PIC Cabang. Anda hanya memasukkan laporan untuk kendaraan dan supir di cabang Anda.</small>
             </div>
             
             <form id='daily-form' onsubmit='return false;'>
               
-              <div class='section-title'>1. Data Kendaraan & Supir</div>
-              <div class='mb-3'>
-                <label class='form-label'>Pilih Kendaraan:</label>
-                <select id='vehicle' class='form-select' required></select>
-              </div>
-              <div class='mb-3'>
-                <label class='form-label'>Nama Supir:</label>
-                <select id='nama_supir' class='form-select' required></select>
-              </div>
-              <div class='mb-3'>
-                <label class='form-label'>Tanggal Operasional:</label>
-                <input type='date' id='tanggal' class='form-control' required>
-              </div>
-              
-              <div class='section-title'>2. Keberangkatan (Awal)</div>
-              <div class='mb-3'>
-                <label class='form-label'>Bar Bensin Awal (Ketik Angka):</label>
-                <input type='number' id='bar_awal' class='form-control' min='0' required placeholder='Misal: 8'>
-              </div>
-              <div class='mb-3'>
-                <label class='form-label'>Foto Dasbor Awal:</label>
-                <input type='file' id='foto_odo_awal' class='form-control' accept='image/*' required>
+              <div class='card mb-3'>
+                <div class='card-header'>
+                  <i class='bi bi-car-front text-primary'></i>
+                  <span>Data Kendaraan & Supir</span>
+                </div>
+                <div class='card-body'>
+                  <div class='mb-3'>
+                    <label class='form-label'>Pilih Kendaraan</label>
+                    <select id='vehicle' class='form-select' required></select>
+                  </div>
+                  <div class='mb-3'>
+                    <label class='form-label'>Nama Supir</label>
+                    <select id='nama_supir' class='form-select' required></select>
+                  </div>
+                  <div class='mb-0'>
+                    <label class='form-label'>Tanggal Operasional</label>
+                    <input type='date' id='tanggal' class='form-control' required>
+                  </div>
+                </div>
               </div>
               
-              <div class='section-title'>3. Kepulangan (Akhir)</div>
-              <div class='mb-3'>
-                <label class='form-label'>Bar Bensin Akhir (Ketik Angka):</label>
-                <input type='number' id='bar_akhir' class='form-control' min='0' required placeholder='Misal: 5'>
-              </div>
-              <div class='mb-3'>
-                <label class='form-label'>Foto Dasbor Akhir:</label>
-                <input type='file' id='foto_odo_akhir' class='form-control' accept='image/*' required>
-              </div>
-              
-              <div class='section-title'>4. Pengeluaran Tambahan (Opsional)</div>
-              <div class='mb-3'>
-                <label class='form-label'>Apakah ada struk BBM hari ini?</label>
-                <select id='isi_bensin' class='form-select' onchange='toggleSection("bbm-section", this.value)'>
-                  <option value='Tidak'>Tidak</option>
-                  <option value='Ya'>Ya</option>
-                </select>
-              </div>
-              <div id='bbm-section' class='p-3 mb-3 bg-light border rounded' style='display:none;'>
-                 <div class='mb-2'>
-                   <label class='form-label'>Jenis BBM:</label>
-                   <select id='jenis_bbm' class='form-select' onchange='calcBBM()'></select>
-                 </div>
-                 <div class='mb-2'>
-                   <label class='form-label'>Jumlah Liter BBM:</label>
-                   <input type='number' id='liter_bbm' class='form-control' step='0.01' oninput='calcBBM()'>
-                 </div>
-                 <div class='mb-2'>
-                   <label class='form-label'>Total Biaya BBM (Rp):</label>
-                   <input type='number' id='biaya_bbm' class='form-control'>
-                 </div>
-                 <div class='mb-2'>
-                   <label class='form-label'>Upload Foto Struk BBM:</label>
-                   <input type='file' id='foto_struk_bbm' class='form-control' accept='image/*'>
-                 </div>
+              <div class='card mb-3'>
+                <div class='card-header'>
+                  <i class='bi bi-arrow-right-circle text-primary'></i>
+                  <span>Keberangkatan (Awal)</span>
+                </div>
+                <div class='card-body'>
+                  <div class='mb-3'>
+                    <label class='form-label'>Bar Bensin Awal</label>
+                    <input type='number' id='bar_awal' class='form-control' min='0' required placeholder='Misal: 8'>
+                  </div>
+                  <div class='mb-0'>
+                    <label class='form-label'>Foto Dasbor Awal</label>
+                    <div class='photo-upload' onclick='document.getElementById("foto_odo_awal").click()'>
+                      <i class='bi bi-camera'></i>
+                      <span>Tap untuk upload foto</span>
+                      <input type='file' id='foto_odo_awal' accept='image/*' required style='display:none;' onchange='previewPhoto(this, "preview-awal")'>
+                    </div>
+                    <div id='preview-awal' class='mt-2' style='display:none;'>
+                      <img src='' alt='Preview' style='max-width: 100%; border-radius: 8px;'>
+                    </div>
+                  </div>
+                </div>
               </div>
               
-              <div class='mb-3'>
-                <label class='form-label'>Apakah ada struk Toll hari ini?</label>
-                <select id='isi_toll' class='form-select' onchange='toggleSection("toll-section", this.value)'>
-                  <option value='Tidak'>Tidak</option>
-                  <option value='Ya'>Ya</option>
-                </select>
-              </div>
-              <div id='toll-section' class='p-3 mb-3 bg-light border rounded' style='display:none;'>
-                 <div class='mb-2'>
-                   <label class='form-label'>Total Biaya Toll (Rp):</label>
-                   <input type='number' id='biaya_toll' class='form-control'>
-                 </div>
-                 <div class='mb-2'>
-                   <label class='form-label'>Upload Foto Struk Toll:</label>
-                   <input type='file' id='foto_struk_toll' class='form-control' accept='image/*'>
-                 </div>
+              <div class='card mb-3'>
+                <div class='card-header'>
+                  <i class='bi bi-arrow-left-circle text-success'></i>
+                  <span>Kepulangan (Akhir)</span>
+                </div>
+                <div class='card-body'>
+                  <div class='mb-3'>
+                    <label class='form-label'>Bar Bensin Akhir</label>
+                    <input type='number' id='bar_akhir' class='form-control' min='0' required placeholder='Misal: 5'>
+                  </div>
+                  <div class='mb-0'>
+                    <label class='form-label'>Foto Dasbor Akhir</label>
+                    <div class='photo-upload' onclick='document.getElementById("foto_odo_akhir").click()'>
+                      <i class='bi bi-camera'></i>
+                      <span>Tap untuk upload foto</span>
+                      <input type='file' id='foto_odo_akhir' accept='image/*' required style='display:none;' onchange='previewPhoto(this, "preview-akhir")'>
+                    </div>
+                    <div id='preview-akhir' class='mt-2' style='display:none;'>
+                      <img src='' alt='Preview' style='max-width: 100%; border-radius: 8px;'>
+                    </div>
+                  </div>
+                </div>
               </div>
               
-              <button id='btn-process' class='btn btn-primary w-100 py-3 mt-4 fw-bold' onclick='processDailyReport()'>
-                Proses Foto & Baca Angka Odometer
+              <div class='card mb-3'>
+                <div class='card-header'>
+                  <i class='bi bi-fuel-pump text-warning'></i>
+                  <span>Pengeluaran BBM (Opsional)</span>
+                </div>
+                <div class='card-body'>
+                  <div class='mb-3'>
+                    <label class='form-label'>Ada struk BBM hari ini?</label>
+                    <div class='toggle-group'>
+                      <button type='button' class='toggle-btn active' onclick='toggleBBM("Tidak", this)'>Tidak</button>
+                      <button type='button' class='toggle-btn' onclick='toggleBBM("Ya", this)'>Ya</button>
+                    </div>
+                    <input type='hidden' id='isi_bensin' value='Tidak'>
+                  </div>
+                  <div id='bbm-section' style='display:none;'>
+                    <div class='mb-3'>
+                      <label class='form-label'>Jenis BBM</label>
+                      <select id='jenis_bbm' class='form-select' onchange='calcBBM()'></select>
+                    </div>
+                    <div class='mb-3'>
+                      <label class='form-label'>Jumlah Liter BBM</label>
+                      <input type='number' id='liter_bbm' class='form-control' step='0.01' oninput='calcBBM()'>
+                    </div>
+                    <div class='mb-3'>
+                      <label class='form-label'>Total Biaya BBM (Rp)</label>
+                      <input type='number' id='biaya_bbm' class='form-control' readonly>
+                    </div>
+                    <div class='mb-0'>
+                      <label class='form-label'>Foto Struk BBM</label>
+                      <div class='photo-upload' onclick='document.getElementById("foto_struk_bbm").click()'>
+                        <i class='bi bi-receipt'></i>
+                        <span>Tap untuk upload struk</span>
+                        <input type='file' id='foto_struk_bbm' accept='image/*' style='display:none;'>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class='card mb-3'>
+                <div class='card-header'>
+                  <i class='bi bi-signpost-2 text-info'></i>
+                  <span>Toll (Opsional)</span>
+                </div>
+                <div class='card-body'>
+                  <div class='mb-3'>
+                    <label class='form-label'>Ada struk Toll hari ini?</label>
+                    <div class='toggle-group'>
+                      <button type='button' class='toggle-btn active' onclick='toggleToll("Tidak", this)'>Tidak</button>
+                      <button type='button' class='toggle-btn' onclick='toggleToll("Ya", this)'>Ya</button>
+                    </div>
+                    <input type='hidden' id='isi_toll' value='Tidak'>
+                  </div>
+                  <div id='toll-section' style='display:none;'>
+                    <div class='mb-3'>
+                      <label class='form-label'>Total Biaya Toll (Rp)</label>
+                      <input type='number' id='biaya_toll' class='form-control'>
+                    </div>
+                    <div class='mb-0'>
+                      <label class='form-label'>Foto Struk Toll</label>
+                      <div class='photo-upload' onclick='document.getElementById("foto_struk_toll").click()'>
+                        <i class='bi bi-receipt'></i>
+                        <span>Tap untuk upload struk</span>
+                        <input type='file' id='foto_struk_toll' accept='image/*' style='display:none;'>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <button id='btn-process' class='btn btn-primary btn-full btn-lg mt-3' onclick='processDailyReport()'>
+                <i class='bi bi-camera me-2'></i> Proses Foto & Simpan
               </button>
             </form>
           </div>
