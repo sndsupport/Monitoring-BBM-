@@ -37,11 +37,11 @@ Untuk setiap baris tampilan (kendaraan V, tanggal D):
 
 1. **Window:** semua transaksi V dengan tanggal dalam **[D−6, D]** (7 hari kalender, inklusif). Baris itu sendiri selalu termasuk, jadi minimal tampil konsumsi hariannya sendiri.
 2. `totalKm = Σ km_tempuh`
-3. `totalLiter = Σ literKonsumsi_i` (formula lama per transaksi, termasuk pembelian + konversi bar)
+3. `totalLiter = Σ literKonsumsi_i` — replikasi PERSIS formula harian yang sudah ada per transaksi, termasuk guard-nya: `literKonsumsi = literBeli + (barAwal−barAkhir)×literPerBar`; jika `≤ 0` maka pakai `literBeli`
 4. `efisiensi = totalKm / totalLiter` (2 desimal); jika `totalLiter ≤ 0` atau `totalKm ≤ 0` → `-`
 
 ### Catatan perilaku
-- Jika bar naik tanpa pencatatan pembelian di satu hari, konsumsi harian bisa negatif — **tidak di-clamp**; rata-rata 7 hari yang menetralkannya.
+- Kasus bar naik tanpa pembelian tercakup oleh guard formula harian yang sudah teruji (hari anomali menyumbang nilai pembeliannya saja).
 - Selisih pembacaan bar antar hari (bar_akhir H1 ≠ bar_awal H2) terakumulasi di metode ini — diterima sebagai trade-off yang dipilih user karena tiap angka harian tetap interpretable dan sudah teruji di kode sekarang.
 
 ---
