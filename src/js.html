@@ -489,8 +489,8 @@
         
         data.forEach(row => {
           let tr = document.createElement('tr');
-          let links = "<a href='" + row.foto_odo_awal + "' target='_blank' class='btn btn-sm btn-outline-primary' aria-label='Lihat foto KM awal'><i class='bi bi-image'></i></a> ";
-          links += "<a href='" + row.foto_odo_akhir + "' target='_blank' class='btn btn-sm btn-outline-primary' aria-label='Lihat foto KM akhir'><i class='bi bi-image'></i></a>";
+          let links = fotoThumbHtml(row.foto_odo_awal, row.foto_odo_awal_thumb, 'KM Awal') + " " +
+                      fotoThumbHtml(row.foto_odo_akhir, row.foto_odo_akhir_thumb, 'KM Akhir');
           
           tr.innerHTML = 
             "<td>" + row.tanggal + "</td>" +
@@ -536,13 +536,9 @@
                 "<small><i class='bi bi-fuel-pump me-1'></i> " + (row.efisiensi ? row.efisiensi + " KM/L" + efisiensiBadge(row.status_efisiensi) : "-") + "</small>" +
                 "<small><i class='bi bi-signpost-2 me-1'></i> " + formatCurrency(row.toll) + "</small>" +
               "</div>" +
-              "<div class='mt-2 pt-2 border-top'>" +
-                "<a href='" + row.foto_odo_awal + "' target='_blank' class='btn btn-sm btn-outline-primary me-1'>" +
-                  "<i class='bi bi-camera me-1'></i> Awal" +
-                "</a>" +
-                "<a href='" + row.foto_odo_akhir + "' target='_blank' class='btn btn-sm btn-outline-primary'>" +
-                  "<i class='bi bi-camera me-1'></i> Akhir" +
-                "</a>" +
+              "<div class='mt-2 pt-2 border-top d-flex justify-content-between align-items-center'>" +
+                fotoThumbHtml(row.foto_odo_awal, row.foto_odo_awal_thumb, 'KM Awal') +
+                fotoThumbHtml(row.foto_odo_akhir, row.foto_odo_akhir_thumb, 'KM Akhir') +
               "</div>" +
             "</div>";
           cardsContainer.appendChild(card);
@@ -564,6 +560,14 @@
     if (!status) return '';
     const warna = status === 'Boros' ? 'danger' : (status === 'Irit' ? 'info' : 'success');
     return " <span class='badge bg-" + warna + "'>" + status + "</span>";
+  }
+
+  function fotoThumbHtml(url, thumb, label) {
+    if (!url) return "<span class='text-muted small'>-</span>";
+    const inner = thumb
+      ? "<img src='" + thumb + "' alt='" + label + "' loading='lazy' width='64' height='48' class='rounded border' style='object-fit:cover'>"
+      : "<span class='badge bg-secondary'>" + label + "</span>";
+    return "<a href='" + url + "' target='_blank' title='Lihat " + label + "'>" + inner + "</a>";
   }
 
   function resetFilters() {

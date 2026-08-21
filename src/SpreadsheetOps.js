@@ -81,12 +81,12 @@ function saveTransactionEndOfDay(payload) {
   let km_akhir = parseFloat(payload.km_akhir_confirmed) || 0;
   let km_tempuh = km_akhir - km_awal;
   let liter = parseFloat(payload.liter_bbm) || 0;
-  let efisiensi = liter > 0 ? (km_tempuh / liter).toFixed(2) : '';
-  
+
   let userName = payload.userInfo.nama || payload.userInfo.username;
 
   let platNomor = 'PLAT-UNKNOWN';
   let trxCabang = payload.userInfo.cabang;
+  let kapasitas = 0, jumlahBar = 0;
   const kendaraanSheet = ss.getSheetByName('Kendaraan');
   if (kendaraanSheet) {
     const kendaraanData = kendaraanSheet.getDataRange().getValues();
@@ -94,21 +94,36 @@ function saveTransactionEndOfDay(payload) {
       if (kendaraanData[i][0] === payload.vehicle_id) {
         platNomor = kendaraanData[i][1];
         trxCabang = kendaraanData[i][9] || trxCabang;
+        kapasitas = parseFloat(kendaraanData[i][6]) || 0;
+        jumlahBar = parseFloat(kendaraanData[i][7]) || 0;
         break;
       }
     }
   }
 
+  let literPerBar = (kapasitas > 0 && jumlahBar > 0) ? (kapasitas / jumlahBar) : 0;
+  let barAwal = parseFloat(payload.bar_awal) || 0;
+  let barAkhir = parseFloat(payload.bar_akhir) || 0;
+  let literKonsumsi = liter + ((barAwal - barAkhir) * literPerBar);
+  if (literKonsumsi <= 0) literKonsumsi = liter;
+  let efisiensi = literKonsumsi > 0 ? (km_tempuh / literKonsumsi).toFixed(2) : '';
+
   let row = [
     transaction_id, new Date(), payload.tanggal, payload.userInfo.username, userName, trxCabang, payload.vehicle_id, platNomor,
     payload.serverData.files.odo_awal, payload.serverData.km_awal, km_awal, payload.bar_awal,
     payload.serverData.files.odo_akhir, payload.serverData.km_akhir, km_akhir, payload.bar_akhir,
-    km_tempuh, (payload.bar_awal - payload.bar_akhir), liter, payload.biaya_bbm, 
-    payload.serverData.files.struk_bbm || '', payload.biaya_toll, payload.serverData.files.struk_toll || '', 
-    efisiensi, 'COMPLETED', '', payload.nama_supir 
+    km_tempuh, (payload.bar_awal - payload.bar_akhir), liter, payload.biaya_bbm,
+    payload.serverData.files.struk_bbm || '', payload.biaya_toll, payload.serverData.files.struk_toll || '',
+    efisiensi, 'COMPLETED', '', payload.nama_supir
   ];
   sheet.appendRow(row);
   return { success: true };
+}
+
+function driveThumbnail(url) {
+  if (!url) return '';
+  const m = String(url).match(/[-\w]{25,}/);
+  return m ? 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=w200' : '';
 }
 
 function getRecentTransactions(role, userCabang) {
@@ -178,7 +193,9 @@ function getRecentTransactions(role, userCabang) {
       status_efisiensi: statusEfisiensi,
       supir: row[26] || '-',
       foto_odo_awal: row[8],
-      foto_odo_akhir: row[12]
+      foto_odo_akhir: row[12],
+      foto_odo_awal_thumb: driveThumbnail(row[8]),
+      foto_odo_akhir_thumb: driveThumbnail(row[12])
     });
   }
   return result;
