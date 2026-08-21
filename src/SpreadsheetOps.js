@@ -125,7 +125,8 @@ function getRecentTransactions(role, userCabang) {
     for (let i = 1; i < kd.length; i++) {
       kendaraanMap[kd[i][0]] = {
         kapasitas: parseFloat(kd[i][6]) || 0,
-        jumlah_bar: parseFloat(kd[i][7]) || 0
+        jumlah_bar: parseFloat(kd[i][7]) || 0,
+        standar: parseFloat(kd[i][8]) || 0
       };
     }
   }
@@ -155,7 +156,15 @@ function getRecentTransactions(role, userCabang) {
     if (literKonsumsi <= 0) literKonsumsi = literBeli;
     
     let kmTempuh = parseFloat(row[16]) || 0;
-    let efisiensi = literKonsumsi > 0 ? (kmTempuh / literKonsumsi).toFixed(2) : '';
+    let efisiensiVal = literKonsumsi > 0 ? (kmTempuh / literKonsumsi) : 0;
+    let efisiensi = efisiensiVal > 0 ? efisiensiVal.toFixed(2) : '';
+
+    let statusEfisiensi = '';
+    if (efisiensiVal > 0 && k.standar > 0) {
+      if (efisiensiVal < k.standar) statusEfisiensi = 'Boros';
+      else if (efisiensiVal <= k.standar * 1.3) statusEfisiensi = 'Normal';
+      else statusEfisiensi = 'Irit';
+    }
     
     result.push({
       tanggal: new Date(row[2]).toLocaleDateString('id-ID'),
@@ -166,6 +175,7 @@ function getRecentTransactions(role, userCabang) {
       liter: Math.round(literKonsumsi * 100) / 100, 
       toll: row[21], 
       efisiensi: efisiensi, 
+      status_efisiensi: statusEfisiensi,
       supir: row[26] || '-',
       foto_odo_awal: row[8],
       foto_odo_akhir: row[12]

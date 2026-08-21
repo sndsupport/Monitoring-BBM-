@@ -294,6 +294,37 @@
     document.getElementById(id).style.display = (val === 'Ya') ? 'block' : 'none';
   }
 
+  function resetDailyForm() {
+    document.getElementById('daily-form').reset();
+    document.getElementById('isi_bensin').value = 'Tidak';
+    document.getElementById('isi_toll').value = 'Tidak';
+    document.getElementById('bbm-section').style.display = 'none';
+    document.getElementById('toll-section').style.display = 'none';
+
+    document.querySelectorAll('#daily-form .toggle-group').forEach(group => {
+      group.querySelectorAll('.toggle-btn').forEach((b, idx) => b.classList.toggle('active', idx === 0));
+    });
+
+    ['preview-awal', 'preview-akhir'].forEach(id => {
+      const p = document.getElementById(id);
+      p.style.display = 'none';
+      const img = p.querySelector('img');
+      if (img) img.src = '';
+    });
+
+    document.querySelectorAll('#daily-form .photo-upload').forEach(u => {
+      u.classList.remove('has-image');
+      const span = u.querySelector('span');
+      if (span) span.textContent = 'Tap untuk upload foto';
+    });
+
+    document.getElementById('km_awal_val').value = '';
+    document.getElementById('km_akhir_val').value = '';
+    document.getElementById('ocr-summary').style.display = 'none';
+
+    formDataPayload = {};
+  }
+
   function getBase64(file) {
     return new Promise((resolve, reject) => {
       if (!file) { resolve(null); return; }
@@ -419,7 +450,7 @@
               btn.innerText = 'Simpan Data Permanen';
               ocrModal.hide();
               showToast('Laporan Harian Berhasil Disimpan!', 'success');
-              document.getElementById('daily-form').reset();
+              resetDailyForm();
               document.getElementById('page-form').style.display = 'block';
               document.getElementById('page-dashboard').style.display = 'none';
             } else {
@@ -468,7 +499,7 @@
             "<td>" + row.vehicle + "</td>" +
             "<td class='text-center'>" + row.km_tempuh + " KM</td>" +
             "<td class='text-center'>" + row.liter + " L</td>" +
-            "<td class='text-center'>" + (row.efisiensi ? row.efisiensi + " KM/L" : "-") + "</td>" +
+            "<td class='text-center'>" + (row.efisiensi ? row.efisiensi + " KM/L" + efisiensiBadge(row.status_efisiensi) : "-") + "</td>" +
             "<td class='text-center'>" + formatCurrency(row.toll) + "</td>" +
             "<td class='text-center'>" + links + "</td>";
           tbody.appendChild(tr);
@@ -502,7 +533,7 @@
                 "</div>" +
               "</div>" +
               "<div class='d-flex justify-content-between align-items-center'>" +
-                "<small><i class='bi bi-fuel-pump me-1'></i> " + (row.efisiensi ? row.efisiensi + " KM/L" : "-") + "</small>" +
+                "<small><i class='bi bi-fuel-pump me-1'></i> " + (row.efisiensi ? row.efisiensi + " KM/L" + efisiensiBadge(row.status_efisiensi) : "-") + "</small>" +
                 "<small><i class='bi bi-signpost-2 me-1'></i> " + formatCurrency(row.toll) + "</small>" +
               "</div>" +
               "<div class='mt-2 pt-2 border-top'>" +
@@ -527,6 +558,12 @@
   function formatCurrency(value) {
     if (!value || value === '0') return 'Rp 0';
     return 'Rp ' + parseInt(value).toLocaleString('id-ID');
+  }
+
+  function efisiensiBadge(status) {
+    if (!status) return '';
+    const warna = status === 'Boros' ? 'danger' : (status === 'Irit' ? 'info' : 'success');
+    return " <span class='badge bg-" + warna + "'>" + status + "</span>";
   }
 
   function resetFilters() {
