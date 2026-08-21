@@ -110,7 +110,7 @@ function saveTransactionEndOfDay(payload) {
 
   let warning = '';
   const prevTrx = getLastTransactionForVehicle(payload.vehicle_id);
-  if (prevTrx && km_awal !== prevTrx.km_akhir) {
+  if (prevTrx && prevTrx.km_akhir !== null && km_awal !== prevTrx.km_akhir) {
     warning = buildOdoWarning(km_awal, prevTrx.km_akhir, prevTrx.tanggal);
   }
 
@@ -134,9 +134,10 @@ function getLastTransactionForVehicle(vehicleId) {
   const data = sheet.getDataRange().getValues();
   for (let i = data.length - 1; i >= 1; i--) {
     if (data[i][6] === vehicleId) { // vehicle_id = kolom index 6
+      const v = parseFloat(data[i][14]); // km_akhir_confirmed = index 14
       return {
-        km_akhir: parseFloat(data[i][14]) || 0, // km_akhir_confirmed = index 14
-        tanggal: data[i][2]                     // tanggal = index 2
+        km_akhir: isNaN(v) ? null : v,
+        tanggal: data[i][2]                // tanggal = index 2
       };
     }
   }
