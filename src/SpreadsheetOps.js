@@ -161,6 +161,33 @@ function driveThumbnail(url) {
   return m ? 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=w200' : '';
 }
 
+function hitungEfisiensi7Hari(rowsKendaraan, tanggalD, literPerBar) {
+  const d = new Date(tanggalD);
+  if (isNaN(d.getTime())) return { efisiensi: '', label: '' };
+  const akhir = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const awal = new Date(akhir.getTime());
+  awal.setDate(awal.getDate() - 6);
+
+  let totalKm = 0;
+  let totalLiter = 0;
+  rowsKendaraan.forEach(function (r) {
+    const t = new Date(r[2]); // tanggal index 2
+    if (isNaN(t.getTime())) return;
+    const hari = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+    if (hari < awal || hari > akhir) return;
+    totalKm += parseFloat(r[16]) || 0; // km_tempuh index 16
+    const literBeli = parseFloat(r[18]) || 0; // liter_bbm index 18
+    const barA = parseFloat(r[11]) || 0;      // bar_awal index 11
+    const barK = parseFloat(r[15]) || 0;      // bar_akhir index 15
+    let literKonsumsi = literBeli + ((barA - barK) * literPerBar);
+    if (literKonsumsi <= 0) literKonsumsi = literBeli;
+    totalLiter += literKonsumsi;
+  });
+
+  const efisiensi = (totalLiter > 0 && totalKm > 0) ? (totalKm / totalLiter).toFixed(2) : '';
+  return { efisiensi: efisiensi, label: efisiensi ? 'Rata-rata 7 Hari' : '' };
+}
+
 function getRecentTransactions(role, userCabang) {
   const ss = getDB();
   const sheet = ss.getSheetByName('Penggunaan_BBM');
@@ -190,6 +217,14 @@ function getRecentTransactions(role, userCabang) {
     }
   }
 
+  let transaksiMap = {};
+  for (let i = 1; i < data.length; i++) {
+    const vid = data[i][6]; // vehicle_id index 6
+    if (!vid) continue;
+    if (!transaksiMap[vid]) transaksiMap[vid] = [];
+    transaksiMap[vid].push(data[i]);
+  }
+
   const result = [];
   
   let start = data.length > 100 ? data.length - 100 : 1;
@@ -206,10 +241,12 @@ function getRecentTransactions(role, userCabang) {
     if (literKonsumsi <= 0) literKonsumsi = literBeli;
     
     let kmTempuh = parseFloat(row[16]) || 0;
-    let efisiensiVal = literKonsumsi > 0 ? (kmTempuh / literKonsumsi) : 0;
-    let efisiensi = efisiensiVal > 0 ? efisiensiVal.toFixed(2) : '';
+
+    let roll = hitungEfisiensi7Hari(transaksiMap[row[6]] || [row], row[2], literPerBar);
+    let efisiensi = roll.efisiensi;
 
     let statusEfisiensi = '';
+    let efisiensiVal = parseFloat(efisiensi);
     if (efisiensiVal > 0 && k.standar > 0) {
       if (efisiensiVal < k.standar) statusEfisiensi = 'Boros';
       else if (efisiensiVal <= k.standar * 1.3) statusEfisiensi = 'Normal';
@@ -226,6 +263,7 @@ function getRecentTransactions(role, userCabang) {
       toll: row[21], 
       efisiensi: efisiensi, 
       status_efisiensi: statusEfisiensi,
+      efisiensi_label: roll.label,
       warning: row[25] || '',
       supir: row[26] || '-',
       foto_odo_awal: row[8],
