@@ -45,12 +45,16 @@ function processDailyImages(data) {
   try {
     let result = { success: true, files: {} };
     let odoAwalFile = uploadImageToDrive(data.foto_odo_awal, data.foto_odo_awal_name, 'KM_Awal');
-    let odoAwalOcr = processOdometerImageOCR(odoAwalFile.fileId); 
+    if (!odoAwalFile.success) return { success: false, error: 'Upload foto KM awal gagal: ' + odoAwalFile.error };
+    let odoAwalOcr = processOdometerImageOCR(odoAwalFile.fileId);
+    if (!odoAwalOcr.success) return { success: false, error: 'OCR foto KM awal gagal: ' + odoAwalOcr.error };
     result.km_awal = odoAwalOcr.extractedNumbers;
     result.files.odo_awal = odoAwalFile.fileUrl;
-    
+
     let odoAkhirFile = uploadImageToDrive(data.foto_odo_akhir, data.foto_odo_akhir_name, 'KM_Akhir');
+    if (!odoAkhirFile.success) return { success: false, error: 'Upload foto KM akhir gagal: ' + odoAkhirFile.error };
     let odoAkhirOcr = processOdometerImageOCR(odoAkhirFile.fileId);
+    if (!odoAkhirOcr.success) return { success: false, error: 'OCR foto KM akhir gagal: ' + odoAkhirOcr.error };
     result.km_akhir = odoAkhirOcr.extractedNumbers;
     result.files.odo_akhir = odoAkhirFile.fileUrl;
     

@@ -13,7 +13,7 @@
             </div>
             <div class='card-body text-center'>
               <div id='settings-logo-preview' class='mb-3 p-4 bg-light rounded'>
-                <i class='bi bi-fuel-pump' style='font-size: 64px; color: #0d6efd;'></i>
+                <i class='bi bi-fuel-pump text-primary' style='font-size: 64px;'></i>
               </div>
               <p class='text-muted small mb-2'>
                 Format: PNG, JPG, SVG<br>
@@ -85,12 +85,15 @@ function loadSettings() {
   google.script.run
     .withSuccessHandler(function(settings) {
       if (settings.logo_url) {
-        document.getElementById('settings-logo-preview').innerHTML = 
+        document.getElementById('settings-logo-preview').innerHTML =
           '<img src="' + settings.logo_url + '" alt="Current Logo" style="max-height: 150px; max-width: 200px;">';
       }
       document.getElementById('settings-app-name').value = settings.app_name || '';
       document.getElementById('settings-company-name').value = settings.company_name || '';
       document.getElementById('settings-footer-text').value = settings.footer_text || '';
+    })
+    .withFailureHandler(function(err) {
+      showToast('Gagal memuat pengaturan: ' + err.message, 'error');
     })
     .getAppSettings();
 }
@@ -120,6 +123,10 @@ function saveSettings() {
             showToast('Gagal upload logo: ' + result.msg, 'error');
           }
         })
+        .withFailureHandler(function(err) {
+          loading.style.display = 'none';
+          showToast('Gagal upload logo: ' + err.message, 'error');
+        })
         .uploadLogo(base64Data, selectedLogoFile.name);
     };
     reader.readAsDataURL(selectedLogoFile);
@@ -128,6 +135,10 @@ function saveSettings() {
       .withSuccessHandler(function(currentSettings) {
         settingsData.logo_url = currentSettings.logo_url || '';
         saveSettingsData(settingsData, loading);
+      })
+      .withFailureHandler(function(err) {
+        loading.style.display = 'none';
+        showToast('Gagal menyimpan pengaturan: ' + err.message, 'error');
       })
       .getAppSettings();
   }
@@ -144,6 +155,10 @@ function saveSettingsData(data, loading) {
       } else {
         showToast('Gagal menyimpan: ' + result.msg, 'error');
       }
+    })
+    .withFailureHandler(function(err) {
+      loading.style.display = 'none';
+      showToast('Gagal menyimpan pengaturan: ' + err.message, 'error');
     })
     .saveAppSettings(data);
 }

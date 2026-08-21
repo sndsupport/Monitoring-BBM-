@@ -80,23 +80,26 @@ function saveTransactionEndOfDay(payload) {
   let km_awal = parseFloat(payload.km_awal_confirmed) || 0;
   let km_akhir = parseFloat(payload.km_akhir_confirmed) || 0;
   let km_tempuh = km_akhir - km_awal;
-    let liter = parseFloat(payload.liter_bbm) || 0;
-    
-    let kapasitas = parseFloat(payload.kapasitas_tangki) || 0;
-    let jumlah_bar = parseFloat(payload.jumlah_bar) || 0;
-    let liter_per_bar = (jumlah_bar > 0) ? (kapasitas / jumlah_bar) : 0;
-    
-    let bar_awal = parseFloat(payload.bar_awal) || 0;
-    let bar_akhir = parseFloat(payload.bar_akhir) || 0;
-    let bbm_dikonsumsi = (bar_awal * liter_per_bar) + liter - (bar_akhir * liter_per_bar);
-    
-    let efisiensi = (bbm_dikonsumsi > 0) ? (km_tempuh / bbm_dikonsumsi).toFixed(2) : '';
+  let liter = parseFloat(payload.liter_bbm) || 0;
+  let efisiensi = liter > 0 ? (km_tempuh / liter).toFixed(2) : '';
   
   let userName = payload.userInfo.nama || payload.userInfo.username;
-    let trxCabang = payload.cabang_trx || payload.userInfo.cabang;
-  
-    let row = [
-      transaction_id, new Date(), payload.tanggal, payload.userInfo.username, userName, trxCabang, payload.vehicle_nama || payload.vehicle_id, payload.vehicle_id,
+  let userCabang = payload.userInfo.cabang;
+
+  let platNomor = 'PLAT-UNKNOWN';
+  const kendaraanSheet = ss.getSheetByName('Kendaraan');
+  if (kendaraanSheet) {
+    const kendaraanData = kendaraanSheet.getDataRange().getValues();
+    for (let i = 1; i < kendaraanData.length; i++) {
+      if (kendaraanData[i][0] === payload.vehicle_id) {
+        platNomor = kendaraanData[i][1];
+        break;
+      }
+    }
+  }
+
+  let row = [
+    transaction_id, new Date(), payload.tanggal, payload.userInfo.username, userName, userCabang, payload.vehicle_id, platNomor,
     payload.serverData.files.odo_awal, payload.serverData.km_awal, km_awal, payload.bar_awal,
     payload.serverData.files.odo_akhir, payload.serverData.km_akhir, km_akhir, payload.bar_akhir,
     km_tempuh, (payload.bar_awal - payload.bar_akhir), liter, payload.biaya_bbm, 
@@ -124,7 +127,7 @@ function getRecentTransactions(role, userCabang) {
       tanggal: new Date(row[2]).toLocaleDateString('id-ID'),
       user: row[4], 
       cabang: row[5], 
-      vehicle: row[6],
+      vehicle: row[7],
       km_tempuh: row[16], 
       liter: row[18], 
       toll: row[21], 
@@ -146,7 +149,7 @@ function insertCabang(data) {
 function insertKendaraan(data) {
   const ss = getDB();
   let id = 'V-' + new Date().getTime();
-  ss.getSheetByName('Kendaraan').appendRow([id, data.plat, data.nama, data.jenis || 'Mobil', '', '', '', '', '', data.cabang, 'Aktif']);
+  ss.getSheetByName('Kendaraan').appendRow([id, data.plat, data.nama, data.jenis || 'Mobil', data.merk || '', data.model || '', data.kapasitas_tangki || '', data.jumlah_bar || '', data.standar_km_l || '', data.cabang, 'Aktif']);
   return { msg: 'Kendaraan Berhasil Ditambahkan' };
 }
 
@@ -166,7 +169,8 @@ function getActiveDrivers(role, userCabang) {
       activeDrivers.push({
         id: row[0],
         nama: row[1],
-        cabang: row[2]
+        cabang: row[2],
+        default_vehicle_id: row[4] || ''
       });
     }
   }
@@ -206,14 +210,6 @@ function getActiveBBM() {
     }
   }
   return list;
-}
-
-function saveMasterBBM(payload) {
-  const ss = getDB();
-  const sheet = ss.getSheetByName('BBM');
-  const newId = 'BBM-' + ('000' + sheet.getLastRow()).slice(-3);
-  sheet.appendRow([newId, payload.jenis, payload.harga, 'Aktif']);
-  return { success: true, msg: 'BBM Berhasil Ditambahkan!' };
 }
 
 function updateCabang(data) {
@@ -277,7 +273,7 @@ function updateBBM(data) {
 function insertBBM(data) {
   const ss = getDB();
   let id = 'BBM-' + new Date().getTime();
-  ss.getSheetByName('BBM').appendRow([id, data.jenis, data.harga]);
+  ss.getSheetByName('BBM').appendRow([id, data.jenis, data.harga, 'Aktif']);
   return { msg: 'BBM Berhasil Ditambahkan' };
 }
 

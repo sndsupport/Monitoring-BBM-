@@ -18,9 +18,14 @@
   <body>
     <!-- Navbar -->
     <nav class='navbar navbar-expand-lg navbar-dark bg-primary'>
-      <div class='container'>
-        <a class='navbar-brand' href='#'>BBM Operasional</a>
-        <span class='navbar-text text-light fw-bold' id='user-info'></span>
+      <div class='container d-flex justify-content-between align-items-center flex-nowrap'>
+        <a class='navbar-brand mb-0' href='#'>BBM Operasional</a>
+        <div class='d-flex align-items-center gap-2'>
+          <span class='navbar-text text-light fw-bold mb-0' id='user-info'></span>
+          <button type='button' class='navbar-logout-btn d-md-none' id='btn-logout-mobile' onclick='logout()' aria-label='Logout' style='display:none;'>
+            <i class='bi bi-box-arrow-right'></i>
+          </button>
+        </div>
       </div>
     </nav>
 
@@ -32,7 +37,7 @@
             <div class='card-body p-4'>
               <div class='text-center mb-4'>
                 <div id='login-logo' class='mb-3'>
-                  <i class='bi bi-fuel-pump' style='font-size: 64px; color: #0d6efd;'></i>
+                  <i class='bi bi-fuel-pump' style='font-size: 64px;'></i>
                 </div>
                 <h4 class='mb-1' id='login-app-name'>Monitoring BBM Operasional</h4>
                 <small class='text-muted' id='login-company-name'></small>
@@ -53,7 +58,7 @@
                     <input type='password' id='login_password' class='form-control' placeholder='Masukkan password' required>
                   </div>
                 </div>
-                <button type='submit' class='btn btn-custom btn-full btn-lg' id='btn-login'>
+                <button type='submit' class='btn btn-primary btn-full btn-lg' id='btn-login'>
                   <i class='bi bi-box-arrow-in-right me-2'></i> Masuk
                 </button>
               </form>
@@ -89,29 +94,35 @@
         </div>
       </nav>
 
-      <!-- TOP TABS (Desktop) -->
-      <ul class='nav nav-pills mb-4 shadow-sm p-2 bg-white rounded top-tabs d-none d-md-flex' id='menu-tabs'>
-        <li class='nav-item'>
-          <a class='nav-link active' id='tab-form' href='#' onclick='switchTab("form")'>
-            <i class='bi bi-pencil-square me-1'></i> Input Laporan
+      <div class='app-shell'>
+        <!-- SIDEBAR NAVIGATION (Desktop) -->
+        <nav class='app-sidebar top-tabs d-none d-md-flex' id='menu-tabs'>
+          <a class='nav-link sidebar-link active' id='tab-form' href='#' onclick='switchTab("form")'>
+            <i class='bi bi-pencil-square'></i> <span>Input Laporan</span>
           </a>
-        </li>
-        <li class='nav-item'>
-          <a class='nav-link' id='tab-dashboard' href='#' onclick='switchTab("dashboard")'>
-            <i class='bi bi-clock-history me-1'></i> History Laporan
+          <a class='nav-link sidebar-link' id='tab-dashboard' href='#' onclick='switchTab("dashboard")'>
+            <i class='bi bi-clock-history'></i> <span>History Laporan</span>
           </a>
-        </li>
-        <li class='nav-item d-none' id='nav-master'>
-          <a class='nav-link bg-warning text-dark fw-bold ms-2' id='tab-master' href='#' onclick='switchTab("master")'>
-            <i class='bi bi-database me-1'></i> Data Master
-          </a>
-        </li>
-        <li class='nav-item d-none' id='nav-settings'>
-          <a class='nav-link bg-info text-dark fw-bold ms-2' id='tab-settings' href='#' onclick='switchTab("settings")'>
-            <i class='bi bi-sliders me-1'></i> Pengaturan
-          </a>
-        </li>
-      </ul>
+          <div class='d-none sidebar-admin-group' id='nav-master'>
+            <a class='nav-link sidebar-link' id='tab-master' href='#' onclick='switchTab("master")'>
+              <i class='bi bi-database'></i> <span>Data Master</span>
+            </a>
+          </div>
+          <div class='d-none' id='nav-settings'>
+            <a class='nav-link sidebar-link' id='tab-settings' href='#' onclick='switchTab("settings")'>
+              <i class='bi bi-sliders'></i> <span>Pengaturan</span>
+            </a>
+          </div>
+
+          <div class='sidebar-footer'>
+            <div class='sidebar-user' id='sidebar-user-info'></div>
+            <button type='button' class='sidebar-logout-btn' onclick='logout()'>
+              <i class='bi bi-box-arrow-right'></i> <span>Logout</span>
+            </button>
+          </div>
+        </nav>
+
+        <div class='app-main-content'>
 
       <!-- HALAMAN 1: FORMULIR INPUT -->
       <div id='page-form' style='display:none;'>
@@ -299,7 +310,7 @@
                   </div>
                 </div>
                 
-                <button id='btn-process' class='btn btn-custom btn-full btn-lg mt-3' onclick='processDailyReport()'>
+                <button id='btn-process' class='btn btn-primary btn-full btn-lg mt-3' onclick='processDailyReport()'>
                   <i class='bi bi-camera me-2'></i> Proses Foto & Simpan
                 </button>
 
@@ -528,7 +539,7 @@
               <div class='card mb-3'>
                 <div class='card-header d-flex justify-content-between align-items-center'>
                   <div><i class='bi bi-list-ul me-1'></i> Daftar Supir</div>
-                  <button class='btn btn-sm btn-primary' style='background: #6f42c1; color: white; border: none;' data-bs-toggle='modal' data-bs-target='#modal-supir' onclick='prepareAddSupir()'>
+                  <button class='btn btn-sm btn-accent' data-bs-toggle='modal' data-bs-target='#modal-supir' onclick='prepareAddSupir()'>
                     <i class='bi bi-plus-circle me-1'></i> Tambah Supir
                   </button>
                 </div>
@@ -541,8 +552,8 @@
             <!-- Modal Supir -->
             <div class='modal fade' id='modal-supir' tabindex='-1'>
               <div class='modal-dialog modal-dialog-centered'>
-                <div class='modal-content border-primary'>
-                  <div class='modal-header bg-primary text-white' style='background: #6f42c1; color: white;'>
+                <div class='modal-content border-accent'>
+                  <div class='modal-header bg-accent text-white'>
                     <h5 class='modal-title'><i class='bi bi-plus-circle me-2'></i>Tambah Supir</h5>
                     <button type='button' class='btn-close btn-close-white' data-bs-dismiss='modal' aria-label='Close'></button>
                   </div>
@@ -555,9 +566,13 @@
                         </div>
                         <div class='mb-3'>
                           <label class='form-label'>Cabang</label>
-                          <select id='m_cabang_supir' class='form-select' required></select>
+                          <select id='m_cabang_supir' class='form-select' required onchange='filterKendaraanSupir()'></select>
                         </div>
-                        <button type='submit' class='btn btn-full' id='btn-add-supir' style='background: #6f42c1; color: white;'>
+                        <div class='mb-3'>
+                          <label class='form-label'>Kendaraan Default (opsional)</label>
+                          <select id='m_default_vehicle' class='form-select'></select>
+                        </div>
+                        <button type='submit' class='btn btn-accent btn-full' id='btn-add-supir'>
                           <i class='bi bi-check-circle me-1'></i> Simpan Supir
                         </button>
                       </form>
@@ -613,6 +628,10 @@
       </div>
 
       <?!= include('Settings'); ?>
+
+        </div><!-- /.app-main-content -->
+      </div><!-- /.app-shell -->
+
       <!-- MODAL OCR RESULT -->
       <div class='modal fade' id='ocrModal' tabindex='-1' data-bs-backdrop='static'>
         <div class='modal-dialog modal-dialog-centered'>

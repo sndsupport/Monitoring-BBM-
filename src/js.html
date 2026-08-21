@@ -53,6 +53,10 @@
   function logout() {
     localStorage.removeItem('bbm_user');
     document.getElementById('user-info').innerHTML = '';
+    var sidebarUserInfo = document.getElementById('sidebar-user-info');
+    if (sidebarUserInfo) sidebarUserInfo.innerHTML = '';
+    var btnLogoutMobile = document.getElementById('btn-logout-mobile');
+    if (btnLogoutMobile) btnLogoutMobile.style.display = 'none';
     document.getElementById('main-app').style.display = 'none';
     var bottomNav = document.getElementById('bottom-nav');
     if (bottomNav) bottomNav.style.display = 'none';
@@ -88,10 +92,15 @@
         document.getElementById('main-app').style.display = 'block';
         var bottomNav = document.getElementById('bottom-nav');
         if (bottomNav) bottomNav.style.display = 'flex';
-        
+        var btnLogoutMobile = document.getElementById('btn-logout-mobile');
+        if (btnLogoutMobile) btnLogoutMobile.style.display = 'flex';
+
         userRole = data.role;
-        document.getElementById('user-info').innerHTML = data.user + ' (' + userRole + ' - ' + data.cabang + ') <a href="#" onclick="logout()" class="text-warning ms-2">Logout</a>';
-        
+        var userSummary = data.user + ' (' + userRole + ' - ' + data.cabang + ')';
+        document.getElementById('user-info').innerHTML = userSummary;
+        var sidebarUserInfo = document.getElementById('sidebar-user-info');
+        if (sidebarUserInfo) sidebarUserInfo.innerHTML = '<strong>' + data.user + '</strong>' + userRole + ' &middot; ' + data.cabang;
+
         if (userRole === 'SUPERADMIN') {
           document.getElementById('nav-master').classList.remove('d-none');
           document.getElementById('nav-settings').classList.remove('d-none');
@@ -318,18 +327,8 @@
         bbmNama = bbmSelect.options[bbmSelect.selectedIndex].dataset.jenis;
       }
 
-      let vSelect = document.getElementById('vehicle');
-      let vName = vSelect.options[vSelect.selectedIndex] ? vSelect.options[vSelect.selectedIndex].text : '';
-      let cSelect = document.getElementById('input-cabang');
-      let selectedCabang = (cSelect && cSelect.value) ? cSelect.value : (userInfo ? userInfo.cabang : '');
-      let selVeh = allVehicles.find(v => v.vehicle_id === document.getElementById('vehicle').value);
-      
       formDataPayload = {
-        kapasitas_tangki: selVeh ? selVeh.kapasitas_tangki : 0,
-        jumlah_bar: selVeh ? selVeh.jumlah_bar : 0,
         vehicle_id: document.getElementById('vehicle').value,
-        vehicle_nama: vName,
-        cabang_trx: selectedCabang,
         nama_supir: document.getElementById('nama_supir').value,
         tanggal: document.getElementById('tanggal').value,
         bar_awal: document.getElementById('bar_awal').value,
@@ -356,6 +355,10 @@
              document.getElementById('km_awal_val').value = res.km_awal || '';
              document.getElementById('km_akhir_val').value = res.km_akhir || '';
               formDataPayload.serverData = res;
+              delete formDataPayload.foto_odo_awal;
+              delete formDataPayload.foto_odo_akhir;
+              delete formDataPayload.foto_struk_bbm;
+              delete formDataPayload.foto_struk_toll;
               updateOCRSummary();
               ocrModal.show();
            } else {
@@ -412,13 +415,13 @@
       google.script.run
          .withSuccessHandler(function(res) {
             if (res.success) {
+              btn.disabled = false;
+              btn.innerText = 'Simpan Data Permanen';
+              ocrModal.hide();
               showToast('Laporan Harian Berhasil Disimpan!', 'success');
               document.getElementById('daily-form').reset();
               document.getElementById('page-form').style.display = 'block';
               document.getElementById('page-dashboard').style.display = 'none';
-              ocrModal.hide();
-              btn.disabled = false;
-              btn.innerText = 'Simpan Data Permanen';
             } else {
               showToast('Gagal menyimpan: ' + res.error, 'error');
              btn.disabled = false;
@@ -455,8 +458,8 @@
         
         data.forEach(row => {
           let tr = document.createElement('tr');
-          let links = "<a href='" + row.foto_odo_awal + "' target='_blank' class='btn btn-sm btn-outline-primary'><i class='bi bi-image'></i></a> ";
-          links += "<a href='" + row.foto_odo_akhir + "' target='_blank' class='btn btn-sm btn-outline-primary'><i class='bi bi-image'></i></a>";
+          let links = "<a href='" + row.foto_odo_awal + "' target='_blank' class='btn btn-sm btn-outline-primary' aria-label='Lihat foto KM awal'><i class='bi bi-image'></i></a> ";
+          links += "<a href='" + row.foto_odo_akhir + "' target='_blank' class='btn btn-sm btn-outline-primary' aria-label='Lihat foto KM akhir'><i class='bi bi-image'></i></a>";
           
           tr.innerHTML = 
             "<td>" + row.tanggal + "</td>" +
@@ -704,7 +707,8 @@
     btn.disabled = true;
     let data = {
       nama: document.getElementById('m_nama_supir').value,
-      cabang: document.getElementById('m_cabang_supir').value
+      cabang: document.getElementById('m_cabang_supir').value,
+      default_vehicle_id: document.getElementById('m_default_vehicle') ? document.getElementById('m_default_vehicle').value : ''
     };
     let editId = document.getElementById('m_edit_id_supir').value;
     if (editId) data.edit_id = editId;
@@ -802,8 +806,8 @@
           '</div>' +
         '</div>' +
         '<div>' +
-          '<button class="btn btn-sm btn-outline-primary me-2" onclick="editKendaraan(\'' + v.vehicle_id + '\')"><i class="bi bi-pencil"></i></button>' +
-          '<button class="btn btn-sm btn-outline-danger" onclick="deleteKendaraan(\'' + v.vehicle_id + '\')"><i class="bi bi-trash"></i></button>' +
+          '<button class="btn btn-sm btn-outline-primary me-2" aria-label="Edit kendaraan ' + v.plat_nomor + '" onclick="editKendaraan(\'' + v.vehicle_id + '\')"><i class="bi bi-pencil"></i></button>' +
+          '<button class="btn btn-sm btn-outline-danger" aria-label="Hapus kendaraan ' + v.plat_nomor + '" onclick="deleteKendaraan(\'' + v.vehicle_id + '\')"><i class="bi bi-trash"></i></button>' +
         '</div>' +
       '</div>'
     ).join('');
@@ -831,8 +835,8 @@
           '</div>' +
         '</div>' +
         '<div>' +
-      '<button class="btn btn-sm btn-outline-primary me-2" onclick="editCabang(\'' + c.kode + '\')"><i class="bi bi-pencil"></i></button>' +
-      '<button class="btn btn-sm btn-outline-danger" onclick="deleteCabang(\'' + c.kode + '\')"><i class="bi bi-trash"></i></button>' +
+      '<button class="btn btn-sm btn-outline-primary me-2" aria-label="Edit cabang ' + c.nama + '" onclick="editCabang(\'' + c.kode + '\')"><i class="bi bi-pencil"></i></button>' +
+      '<button class="btn btn-sm btn-outline-danger" aria-label="Hapus cabang ' + c.nama + '" onclick="deleteCabang(\'' + c.kode + '\')"><i class="bi bi-trash"></i></button>' +
     '</div>' +
       '</div>'
     ).join('');
@@ -851,6 +855,10 @@
           '<div class="fw-bold">' + d.nama + '</div>' +
           '<small class="text-muted">' + d.id + ' • ' + d.cabang + '</small>' +
         '</div>' +
+        '<div>' +
+          '<button class="btn btn-sm btn-outline-primary me-2" aria-label="Edit supir ' + d.nama + '" onclick="editSupir(\'' + d.id + '\')"><i class="bi bi-pencil"></i></button>' +
+          '<button class="btn btn-sm btn-outline-danger" aria-label="Hapus supir ' + d.nama + '" onclick="deleteSupir(\'' + d.id + '\')"><i class="bi bi-trash"></i></button>' +
+        '</div>' +
       '</div>'
     ).join('');
   }
@@ -867,6 +875,10 @@
         '<div>' +
           '<div class="fw-bold">' + b.jenis + '</div>' +
           '<small class="text-muted">Rp ' + parseInt(b.harga).toLocaleString('id-ID') + '/L</small>' +
+        '</div>' +
+        '<div>' +
+          '<button class="btn btn-sm btn-outline-primary me-2" aria-label="Edit BBM ' + b.jenis + '" onclick="editBBM(\'' + b.id + '\')"><i class="bi bi-pencil"></i></button>' +
+          '<button class="btn btn-sm btn-outline-danger" aria-label="Hapus BBM ' + b.jenis + '" onclick="deleteBBM(\'' + b.id + '\')"><i class="bi bi-trash"></i></button>' +
         '</div>' +
       '</div>'
     ).join('');
