@@ -496,7 +496,7 @@
             "<td>" + row.tanggal + "</td>" +
             "<td>" + row.cabang + "</td>" +
             "<td>" + row.supir + "</td>" +
-            "<td>" + row.vehicle + "</td>" +
+            "<td>" + row.vehicle + odoWarningBadgeHtml(row.warning) + "</td>" +
             "<td class='text-center'>" + row.km_tempuh + " KM</td>" +
             "<td class='text-center'>" + row.liter + " L</td>" +
             "<td class='text-center'>" + (row.efisiensi ? row.efisiensi + " KM/L" + efisiensiBadge(row.status_efisiensi) : "-") + "</td>" +
@@ -517,6 +517,7 @@
             "</div>" +
             "<div class='card-body'>" +
               "<div class='mb-2'><strong>" + row.vehicle + "</strong></div>" +
+              odoWarningStripHtml(row.warning) +
               "<div class='mb-2 text-muted'><i class='bi bi-person me-1'></i> " + row.supir + "</div>" +
               "<div class='row g-2 mb-2'>" +
                 "<div class='col-6'>" +
@@ -560,6 +561,20 @@
     if (!status) return '';
     const warna = status === 'Boros' ? 'danger' : (status === 'Irit' ? 'info' : 'success');
     return " <span class='badge bg-" + warna + "'>" + status + "</span>";
+  }
+
+  function escapeAttr(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+  }
+
+  function odoWarningBadgeHtml(warning) {
+    if (!warning) return '';
+    return " <span class='badge bg-warning' title='" + escapeAttr(warning) + "'><i class='bi bi-exclamation-triangle'></i></span>";
+  }
+
+  function odoWarningStripHtml(warning) {
+    if (!warning) return '';
+    return "<div class='text-warning small mb-2'><i class='bi bi-exclamation-triangle me-1'></i>" + escapeAttr(warning) + "</div>";
   }
 
   function fotoThumbHtml(url, thumb, label) {

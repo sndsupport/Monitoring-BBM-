@@ -225,6 +225,7 @@ function getRecentTransactions(role, userCabang) {
       toll: row[21], 
       efisiensi: efisiensi, 
       status_efisiensi: statusEfisiensi,
+      warning: row[25] || '',
       supir: row[26] || '-',
       foto_odo_awal: row[8],
       foto_odo_akhir: row[12],
