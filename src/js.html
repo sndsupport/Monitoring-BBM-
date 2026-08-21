@@ -499,7 +499,6 @@
             "<td>" + row.vehicle + odoWarningBadgeHtml(row.warning) + "</td>" +
             "<td class='text-center'>" + row.km_tempuh + " KM</td>" +
             "<td class='text-center'>" + (row.efisiensi ? row.efisiensi + " KM/L" + (row.efisiensi_label ? " <small class='text-muted'>(" + row.efisiensi_label + ")</small>" : "") + efisiensiBadge(row.status_efisiensi) : "-") + "</td>" +
-            "<td class='text-center'>" + formatCurrency(row.toll) + "</td>" +
             "<td class='text-center'>" + links + "</td>";
           tbody.appendChild(tr);
         });
@@ -528,7 +527,6 @@
               "</div>" +
               "<div class='d-flex justify-content-between align-items-center'>" +
                 "<small><i class='bi bi-fuel-pump me-1'></i> " + (row.efisiensi ? row.efisiensi + " KM/L" + (row.efisiensi_label ? " <small class='text-muted'>(" + row.efisiensi_label + ")</small>" : "") + efisiensiBadge(row.status_efisiensi) : "-") + "</small>" +
-                "<small><i class='bi bi-signpost-2 me-1'></i> " + formatCurrency(row.toll) + "</small>" +
               "</div>" +
               "<div class='mt-2 pt-2 border-top d-flex justify-content-between align-items-center'>" +
                 fotoThumbHtml(row.foto_odo_awal, row.foto_odo_awal_thumb, 'KM Awal') +
