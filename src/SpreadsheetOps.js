@@ -108,16 +108,50 @@ function saveTransactionEndOfDay(payload) {
   if (literKonsumsi <= 0) literKonsumsi = liter;
   let efisiensi = literKonsumsi > 0 ? (km_tempuh / literKonsumsi).toFixed(2) : '';
 
+  let warning = '';
+  const prevTrx = getLastTransactionForVehicle(payload.vehicle_id);
+  if (prevTrx && km_awal !== prevTrx.km_akhir) {
+    warning = buildOdoWarning(km_awal, prevTrx.km_akhir, prevTrx.tanggal);
+  }
+
   let row = [
     transaction_id, new Date(), payload.tanggal, payload.userInfo.username, userName, trxCabang, payload.vehicle_id, platNomor,
     payload.serverData.files.odo_awal, payload.serverData.km_awal, km_awal, payload.bar_awal,
     payload.serverData.files.odo_akhir, payload.serverData.km_akhir, km_akhir, payload.bar_akhir,
     km_tempuh, (payload.bar_awal - payload.bar_akhir), liter, payload.biaya_bbm,
     payload.serverData.files.struk_bbm || '', payload.biaya_toll, payload.serverData.files.struk_toll || '',
-    efisiensi, 'COMPLETED', '', payload.nama_supir
+    efisiensi, 'COMPLETED', warning, payload.nama_supir
   ];
   sheet.appendRow(row);
   return { success: true };
+}
+
+function getLastTransactionForVehicle(vehicleId) {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('Penggunaan_BBM');
+  if (!sheet) return null;
+
+  const data = sheet.getDataRange().getValues();
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (data[i][6] === vehicleId) { // vehicle_id = kolom index 6
+      return {
+        km_akhir: parseFloat(data[i][14]) || 0, // km_akhir_confirmed = index 14
+        tanggal: data[i][2]                     // tanggal = index 2
+      };
+    }
+  }
+  return null;
+}
+
+function buildOdoWarning(kmAwalBaru, prevKmAkhir, prevTanggal) {
+  const selisih = kmAwalBaru - prevKmAkhir;
+  const tgl = prevTanggal instanceof Date
+    ? prevTanggal.toLocaleDateString('id-ID')
+    : String(prevTanggal || '-');
+  return 'SELISIH ODO: KM akhir terakhir ' + prevKmAkhir.toLocaleString('id-ID') +
+    ' (' + tgl + '), KM awal ' + kmAwalBaru.toLocaleString('id-ID') +
+    ', selisih ' + selisih.toLocaleString('id-ID') +
+    ' KM - indikasi pemakaian di luar jam kerja';
 }
 
 function driveThumbnail(url) {
