@@ -498,7 +498,6 @@
             "<td>" + row.supir + "</td>" +
             "<td>" + row.vehicle + odoWarningBadgeHtml(row.warning) + "</td>" +
             "<td class='text-center'>" + row.km_tempuh + " KM</td>" +
-            "<td class='text-center'>" + row.liter + " L</td>" +
             "<td class='text-center'>" + (row.efisiensi ? row.efisiensi + " KM/L" + (row.efisiensi_label ? " <small class='text-muted'>(" + row.efisiensi_label + ")</small>" : "") + efisiensiBadge(row.status_efisiensi) : "-") + "</td>" +
             "<td class='text-center'>" + formatCurrency(row.toll) + "</td>" +
             "<td class='text-center'>" + links + "</td>";
@@ -520,16 +519,10 @@
               odoWarningStripHtml(row.warning) +
               "<div class='mb-2 text-muted'><i class='bi bi-person me-1'></i> " + row.supir + "</div>" +
               "<div class='row g-2 mb-2'>" +
-                "<div class='col-6'>" +
+                "<div class='col-12'>" +
                   "<div class='stats-box'>" +
                     "<div class='stats-label'>KM Tempuh</div>" +
                     "<div class='stats-value'>" + row.km_tempuh + " KM</div>" +
-                  "</div>" +
-                "</div>" +
-                "<div class='col-6'>" +
-                  "<div class='stats-box'>" +
-                    "<div class='stats-label'>BBM</div>" +
-                    "<div class='stats-value'>" + row.liter + " L</div>" +
                   "</div>" +
                 "</div>" +
               "</div>" +
