@@ -24,7 +24,7 @@ Dashboard menampilkan **rata-rata efisiensi 7 hari** per kendaraan, dengan tetap
 | Cara agregasi liter dalam window | **Metode 2:** jumlahkan `literKonsumsi` harian hasil formula yang sudah ada per transaksi (`literBeli + (barAwal−barAkhir)×literPerBar`) |
 | Penyimpanan | **Tidak ada perubahan database.** Kolom `km_per_liter` tetap angka harian murni; `saveTransactionEndOfDay` TIDAK disentuh |
 | Tempat komputasi | On-the-fly di `getRecentTransactions`; angka harian dari DB diabaikan untuk tampilan |
-| Label tampilan | `9.57 KM/L (Rata-rata 7 Hari)` di table desktop & card mobile |
+| Label tampilan | `9.57 KM/L (15/8 - 21/8)` di table desktop & card mobile — menampilkan rentang tanggal aktual window 7 hari |
 | Status Boros/Normal/Irit | Tetap memakai threshold yang sama terhadap `standar_km_l`, tapi kini dari nilai rata-rata |
 
 Catatan: nama fungsi pada draf awal ("saveDailyTransaction") tidak eksis — fungsi simpan yang sebenarnya adalah `saveTransactionEndOfDay`, dan dengan keputusan ini tidak diubah sama sekali.
@@ -52,7 +52,7 @@ Untuk setiap baris tampilan (kendaraan V, tanggal D):
 - Helper baru `hitungEfisiensi7Hari(rowsKendaraan, tanggalD, literPerBar)` → `{ efisiensi: string, label: string }`.
 - Bangun map sekali di awal: `vehicle_id (row[6]) → array barisnya` dari `data` yang memang sudah dimuat penuh (Opsi A — index per kendaraan, tanpa scan berulang).
 - Blok perhitungan `efisiensiVal`/`statusEfisiensi` per baris diganti: panggil helper dengan map window, lalu tentukan status dari nilai rata-rata (threshold lama: `< standar` Boros, `≤ 1.3×standar` Normal, else Irit).
-- Field baru di objek result: `efisiensi_label`.
+- Field baru di objek result: `efisiensi_label` — berisi rentang tanggal window berformat `d/M - d/M` (mis. `15/8 - 21/8`).
 - Perhitungan `liter` (konsumsi harian, kolom L di dashboard) TETAP dari formula harian lama — tidak berubah.
 
 ### 4.2 `src/js.html` — render label

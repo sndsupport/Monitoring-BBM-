@@ -185,7 +185,10 @@ function hitungEfisiensi7Hari(rowsKendaraan, tanggalD, literPerBar) {
   });
 
   const efisiensi = (totalLiter > 0 && totalKm > 0) ? (totalKm / totalLiter).toFixed(2) : '';
-  return { efisiensi: efisiensi, label: efisiensi ? 'Rata-rata 7 Hari' : '' };
+  const label = efisiensi
+    ? awal.getDate() + '/' + (awal.getMonth() + 1) + ' - ' + akhir.getDate() + '/' + (akhir.getMonth() + 1)
+    : '';
+  return { efisiensi: efisiensi, label: label };
 }
 
 function getRecentTransactions(role, userCabang) {
