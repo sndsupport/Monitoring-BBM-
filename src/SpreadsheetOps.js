@@ -84,22 +84,23 @@ function saveTransactionEndOfDay(payload) {
   let efisiensi = liter > 0 ? (km_tempuh / liter).toFixed(2) : '';
   
   let userName = payload.userInfo.nama || payload.userInfo.username;
-  let userCabang = payload.userInfo.cabang;
 
   let platNomor = 'PLAT-UNKNOWN';
+  let trxCabang = payload.userInfo.cabang;
   const kendaraanSheet = ss.getSheetByName('Kendaraan');
   if (kendaraanSheet) {
     const kendaraanData = kendaraanSheet.getDataRange().getValues();
     for (let i = 1; i < kendaraanData.length; i++) {
       if (kendaraanData[i][0] === payload.vehicle_id) {
         platNomor = kendaraanData[i][1];
+        trxCabang = kendaraanData[i][9] || trxCabang;
         break;
       }
     }
   }
 
   let row = [
-    transaction_id, new Date(), payload.tanggal, payload.userInfo.username, userName, userCabang, payload.vehicle_id, platNomor,
+    transaction_id, new Date(), payload.tanggal, payload.userInfo.username, userName, trxCabang, payload.vehicle_id, platNomor,
     payload.serverData.files.odo_awal, payload.serverData.km_awal, km_awal, payload.bar_awal,
     payload.serverData.files.odo_akhir, payload.serverData.km_akhir, km_akhir, payload.bar_akhir,
     km_tempuh, (payload.bar_awal - payload.bar_akhir), liter, payload.biaya_bbm, 
@@ -116,6 +117,28 @@ function getRecentTransactions(role, userCabang) {
   if (!sheet) return [];
   
   const data = sheet.getDataRange().getValues();
+
+  let kendaraanMap = {};
+  const kendaraanSheet = ss.getSheetByName('Kendaraan');
+  if (kendaraanSheet) {
+    const kd = kendaraanSheet.getDataRange().getValues();
+    for (let i = 1; i < kd.length; i++) {
+      kendaraanMap[kd[i][0]] = {
+        kapasitas: parseFloat(kd[i][6]) || 0,
+        jumlah_bar: parseFloat(kd[i][7]) || 0
+      };
+    }
+  }
+
+  let cabangNamaMap = {};
+  const cabangSheet = ss.getSheetByName('Cabang');
+  if (cabangSheet) {
+    const cd = cabangSheet.getDataRange().getValues();
+    for (let i = 1; i < cd.length; i++) {
+      cabangNamaMap[cd[i][0]] = cd[i][1];
+    }
+  }
+
   const result = [];
   
   let start = data.length > 100 ? data.length - 100 : 1;
@@ -123,15 +146,26 @@ function getRecentTransactions(role, userCabang) {
     let row = data[i];
     if (role !== 'SUPERADMIN' && row[5] !== userCabang) continue;
     
+    let literBeli = parseFloat(row[18]) || 0;
+    let k = kendaraanMap[row[6]] || {};
+    let literPerBar = (k.kapasitas > 0 && k.jumlah_bar > 0) ? (k.kapasitas / k.jumlah_bar) : 0;
+    let barAwal = parseFloat(row[11]) || 0;
+    let barAkhir = parseFloat(row[15]) || 0;
+    let literKonsumsi = literBeli + ((barAwal - barAkhir) * literPerBar);
+    if (literKonsumsi <= 0) literKonsumsi = literBeli;
+    
+    let kmTempuh = parseFloat(row[16]) || 0;
+    let efisiensi = literKonsumsi > 0 ? (kmTempuh / literKonsumsi).toFixed(2) : '';
+    
     result.push({
       tanggal: new Date(row[2]).toLocaleDateString('id-ID'),
       user: row[4], 
-      cabang: row[5], 
+      cabang: cabangNamaMap[row[5]] || row[5], 
       vehicle: row[7],
-      km_tempuh: row[16], 
-      liter: row[18], 
+      km_tempuh: kmTempuh, 
+      liter: Math.round(literKonsumsi * 100) / 100, 
       toll: row[21], 
-      efisiensi: row[23], 
+      efisiensi: efisiensi, 
       supir: row[26] || '-',
       foto_odo_awal: row[8],
       foto_odo_akhir: row[12]
