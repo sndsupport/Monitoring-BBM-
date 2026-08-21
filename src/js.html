@@ -96,10 +96,11 @@
         if (btnLogoutMobile) btnLogoutMobile.style.display = 'flex';
 
         userRole = data.role;
-        var userSummary = data.user + ' (' + userRole + ' - ' + data.cabang + ')';
+        let displayRole = userRole === 'PIC CABANG' ? 'Admin' : userRole;
+        var userSummary = data.user + ' (' + displayRole + ' - ' + data.cabang + ')';
         document.getElementById('user-info').innerHTML = userSummary;
         var sidebarUserInfo = document.getElementById('sidebar-user-info');
-        if (sidebarUserInfo) sidebarUserInfo.innerHTML = '<strong>' + data.user + '</strong>' + userRole + ' &middot; ' + data.cabang;
+        if (sidebarUserInfo) sidebarUserInfo.innerHTML = '<strong>' + data.user + '</strong><br><span class="text-muted" style="font-size: 0.85rem;">' + displayRole + ' &middot; ' + data.cabang + '</span>';
 
         if (userRole === 'SUPERADMIN') {
           document.getElementById('nav-master').classList.remove('d-none');
@@ -114,12 +115,13 @@
         if (userRole === 'SUPERADMIN') {
           if(roleAlert) {
              roleAlert.className = 'alert alert-warning text-center';
-             roleAlert.innerHTML = '<small><i class="bi bi-shield-check me-1"></i> Anda login sebagai SUPERADMIN. Akses penuh ke seluruh cabang.</small>';
+             roleAlert.innerHTML = '<small><i class="bi bi-shield-check me-1"></i> Anda login sebagai SUPERADMIN. Akses penuh ke seluruh warehouse.</small>';
           }
         } else {
           if(roleAlert) {
+             let displayRole = userRole === 'PIC CABANG' ? 'Admin' : userRole;
              roleAlert.className = 'alert alert-info text-center';
-             roleAlert.innerHTML = '<small><i class="bi bi-info-circle me-1"></i> Anda login sebagai ' + userRole + '. Cabang: ' + data.cabang + '</small>';
+             roleAlert.innerHTML = '<small><i class="bi bi-info-circle me-1"></i> Anda login sebagai ' + displayRole + '. Warehouse: ' + data.cabang + '</small>';
           }
         }
 
@@ -138,7 +140,7 @@
           data.drivers.forEach(d => {
             let opt = document.createElement('option');
             opt.value = d.nama;
-            opt.text = d.nama + ' (' + d.id + ')';
+            opt.text = d.nama; // Sembunyikan ID agar lebih rapi
             selectSupir.appendChild(opt);
           });
         }
@@ -178,7 +180,7 @@
 
         let filterCabang = document.getElementById('filter-cabang');
         if (filterCabang && data.cabangList) {
-          filterCabang.innerHTML = '<option value="">Semua Cabang</option>';
+          filterCabang.innerHTML = '<option value="">Semua Warehouse</option>';
           data.cabangList.forEach(c => {
             let opt = document.createElement('option');
             opt.value = c.kode;
@@ -189,7 +191,7 @@
 
         let inputCabang = document.getElementById('input-cabang');
         if (inputCabang && data.cabangList) {
-          inputCabang.innerHTML = '<option value="">Semua Cabang</option>';
+          inputCabang.innerHTML = '<option value="">Semua Warehouse</option>';
           data.cabangList.forEach(c => {
             let opt = document.createElement('option');
             opt.value = c.kode;
@@ -214,8 +216,6 @@
           var logoHtml = '<img src="' + settings.logo_url + '" alt="Logo" style="max-height: 100px; max-width: 200px;">';
           var loginLogo = document.getElementById('login-logo');
           if (loginLogo) loginLogo.innerHTML = logoHtml;
-          var mainLogo = document.getElementById('main-logo');
-          if (mainLogo) { mainLogo.innerHTML = logoHtml; mainLogo.style.display = 'block'; }
         }
         if (settings.app_name) {
           document.getElementById('login-app-name').innerText = settings.app_name;
@@ -276,6 +276,68 @@
     }
   }
 
+  function validateStep(step) {
+    if (step === 1) {
+      let v = document.getElementById('vehicle');
+      let s = document.getElementById('nama_supir');
+      let t = document.getElementById('tanggal');
+      if (!v.checkValidity() || !s.checkValidity() || !t.checkValidity()) {
+        v.reportValidity();
+        s.reportValidity();
+        t.reportValidity();
+        return false;
+      }
+    } else if (step === 2) {
+      let ba = document.getElementById('bar_awal');
+      let bk = document.getElementById('bar_akhir');
+      let fo = document.getElementById('foto_odo_awal');
+      let fa = document.getElementById('foto_odo_akhir');
+      if (!ba.checkValidity() || !bk.checkValidity() || !fo.checkValidity() || !fa.checkValidity()) {
+        ba.reportValidity();
+        bk.reportValidity();
+        fo.reportValidity();
+        fa.reportValidity();
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function nextStep(currentStep) {
+    if (!validateStep(currentStep)) return;
+    document.getElementById('step-' + currentStep).style.display = 'none';
+    let next = currentStep + 1;
+    document.getElementById('step-' + next).style.display = 'block';
+    updateStepIndicator(next);
+  }
+
+  function prevStep(currentStep) {
+    document.getElementById('step-' + currentStep).style.display = 'none';
+    let prev = currentStep - 1;
+    document.getElementById('step-' + prev).style.display = 'block';
+    updateStepIndicator(prev);
+  }
+
+  function updateStepIndicator(step) {
+    let progress = step === 1 ? 0 : (step === 2 ? 50 : 100);
+    document.getElementById('step-progress').style.width = progress + '%';
+    
+    for(let i=1; i<=3; i++) {
+      let ind = document.getElementById('indicator-step-' + i);
+      if (!ind) continue;
+      let circle = ind.querySelector('.step-circle');
+      let text = ind.querySelector('small');
+      
+      if (i <= step) {
+        circle.className = 'step-circle bg-success text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-1 fw-bold shadow-sm border';
+        text.className = 'fw-bold text-success';
+      } else {
+        circle.className = 'step-circle bg-light text-muted rounded-circle d-flex align-items-center justify-content-center mx-auto mb-1 fw-bold border';
+        text.className = 'text-muted';
+      }
+    }
+  }
+
   function toggleBBM(value, btn) {
     document.getElementById('isi_bensin').value = value;
     document.getElementById('bbm-section').style.display = (value === 'Ya') ? 'block' : 'none';
@@ -317,6 +379,14 @@
       const span = u.querySelector('span');
       if (span) span.textContent = 'Tap untuk upload foto';
     });
+    
+    // Kembalikan ke step 1
+    if (typeof updateStepIndicator === 'function') {
+      document.getElementById('step-1').style.display = 'block';
+      document.getElementById('step-2').style.display = 'none';
+      document.getElementById('step-3').style.display = 'none';
+      updateStepIndicator(1);
+    }
 
     document.getElementById('km_awal_val').value = '';
     document.getElementById('km_akhir_val').value = '';
@@ -498,7 +568,7 @@
             "<td>" + row.supir + "</td>" +
             "<td>" + row.vehicle + odoWarningBadgeHtml(row.warning) + "</td>" +
             "<td class='text-center'>" + row.km_tempuh + " KM</td>" +
-            "<td class='text-center'>" + (row.efisiensi ? row.efisiensi + " KM/L" + (row.efisiensi_label ? " <small class='text-muted'>(" + row.efisiensi_label + ")</small>" : "") + efisiensiBadge(row.status_efisiensi) : "-") + "</td>" +
+            "<td class='text-center'>" + (row.status_efisiensi === 'Data Belum Cukup' ? efisiensiBadge(row.status_efisiensi) : (row.efisiensi ? row.efisiensi + " KM/L" + (row.efisiensi_label ? " <small class='text-muted'>(" + row.efisiensi_label + ")</small>" : "") + efisiensiBadge(row.status_efisiensi) : "-")) + "</td>" +
             "<td class='text-center'>" + links + "</td>";
           tbody.appendChild(tr);
         });
@@ -526,7 +596,7 @@
                 "</div>" +
               "</div>" +
               "<div class='d-flex justify-content-between align-items-center'>" +
-                "<small><i class='bi bi-fuel-pump me-1'></i> " + (row.efisiensi ? row.efisiensi + " KM/L" + (row.efisiensi_label ? " <small class='text-muted'>(" + row.efisiensi_label + ")</small>" : "") + efisiensiBadge(row.status_efisiensi) : "-") + "</small>" +
+                "<small><i class='bi bi-fuel-pump me-1'></i> " + (row.status_efisiensi === 'Data Belum Cukup' ? efisiensiBadge(row.status_efisiensi) : (row.efisiensi ? row.efisiensi + " KM/L" + (row.efisiensi_label ? " <small class='text-muted'>(" + row.efisiensi_label + ")</small>" : "") + efisiensiBadge(row.status_efisiensi) : "-")) + "</small>" +
               "</div>" +
               "<div class='mt-2 pt-2 border-top d-flex justify-content-between align-items-center'>" +
                 fotoThumbHtml(row.foto_odo_awal, row.foto_odo_awal_thumb, 'KM Awal') +
@@ -550,7 +620,7 @@
 
   function efisiensiBadge(status) {
     if (!status) return '';
-    const warna = status === 'Boros' ? 'danger' : (status === 'Irit' ? 'info' : 'success');
+    const warna = status === 'Boros' ? 'danger' : (status === 'Irit' ? 'info' : (status === 'Data Belum Cukup' ? 'secondary' : 'success'));
     return " <span class='badge bg-" + warna + "'>" + status + "</span>";
   }
 
@@ -610,7 +680,7 @@
     filteredD.forEach(d => {
       let opt = document.createElement('option');
       opt.value = d.nama;
-      opt.text = d.nama + ' (' + d.id + ')';
+      opt.text = d.nama; // Sembunyikan ID agar lebih rapi
       selectSupir.appendChild(opt);
     });
   }

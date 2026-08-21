@@ -161,20 +161,30 @@ function driveThumbnail(url) {
   return m ? 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=w200' : '';
 }
 
-function hitungEfisiensi7Hari(rowsKendaraan, tanggalD, literPerBar) {
+function hitungEfisiensi7Riwayat(rowsKendaraan, tanggalD, literPerBar) {
   const d = new Date(tanggalD);
-  if (isNaN(d.getTime())) return { efisiensi: '', label: '' };
-  const akhir = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const awal = new Date(akhir.getTime());
-  awal.setDate(awal.getDate() - 6);
+  if (isNaN(d.getTime())) return { efisiensi: '', label: '', isDataCukup: false };
+  const dWaktu = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+
+  let validRows = rowsKendaraan.filter(function (r) {
+    const t = new Date(r[2]); // tanggal index 2
+    if (isNaN(t.getTime())) return false;
+    const hari = new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime();
+    return hari <= dWaktu;
+  });
+
+  validRows.sort(function (a, b) {
+    const tA = new Date(a[2]).getTime();
+    const tB = new Date(b[2]).getTime();
+    return tB - tA; // descending, newest first
+  });
+
+  let recentRows = validRows.slice(0, 7);
+  let isDataCukup = recentRows.length >= 7;
 
   let totalKm = 0;
   let totalLiter = 0;
-  rowsKendaraan.forEach(function (r) {
-    const t = new Date(r[2]); // tanggal index 2
-    if (isNaN(t.getTime())) return;
-    const hari = new Date(t.getFullYear(), t.getMonth(), t.getDate());
-    if (hari < awal || hari > akhir) return;
+  recentRows.forEach(function (r) {
     totalKm += parseFloat(r[16]) || 0; // km_tempuh index 16
     const literBeli = parseFloat(r[18]) || 0; // liter_bbm index 18
     const barA = parseFloat(r[11]) || 0;      // bar_awal index 11
@@ -185,10 +195,8 @@ function hitungEfisiensi7Hari(rowsKendaraan, tanggalD, literPerBar) {
   });
 
   const efisiensi = (totalLiter > 0 && totalKm > 0) ? (totalKm / totalLiter).toFixed(2) : '';
-  const label = efisiensi
-    ? awal.getDate() + '/' + (awal.getMonth() + 1) + ' - ' + akhir.getDate() + '/' + (akhir.getMonth() + 1)
-    : '';
-  return { efisiensi: efisiensi, label: label };
+  const label = efisiensi ? 'Rata-rata 7 Trip' : '';
+  return { efisiensi: efisiensi, label: label, isDataCukup: isDataCukup };
 }
 
 function getRecentTransactions(role, userCabang) {
@@ -245,15 +253,24 @@ function getRecentTransactions(role, userCabang) {
     
     let kmTempuh = parseFloat(row[16]) || 0;
 
-    let roll = hitungEfisiensi7Hari(transaksiMap[row[6]] || [row], row[2], literPerBar);
+    let roll = hitungEfisiensi7Riwayat(transaksiMap[row[6]] || [row], row[2], literPerBar);
     let efisiensi = roll.efisiensi;
 
     let statusEfisiensi = '';
     let efisiensiVal = parseFloat(efisiensi);
-    if (efisiensiVal > 0 && k.standar > 0) {
-      if (efisiensiVal < k.standar) statusEfisiensi = 'Boros';
-      else if (efisiensiVal <= k.standar * 1.3) statusEfisiensi = 'Normal';
-      else statusEfisiensi = 'Irit';
+    
+    if (!roll.isDataCukup) {
+      statusEfisiensi = 'Data Belum Cukup';
+      efisiensi = ''; // Kosongkan angka efisiensi agar tidak muncul
+      roll.label = ''; // Kosongkan label agar tidak muncul
+    } else if (efisiensiVal > 0 && k.standar > 0) {
+      if (efisiensiVal < k.standar) {
+        statusEfisiensi = 'Boros';
+      } else if (efisiensiVal <= k.standar * 1.3) {
+        statusEfisiensi = 'Normal';
+      } else {
+        statusEfisiensi = 'Irit';
+      }
     }
     
     result.push({

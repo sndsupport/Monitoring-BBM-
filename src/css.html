@@ -110,7 +110,16 @@
     color: #8a5108 !important;
   }
 
-  .nav-pills .nav-link.active { background-color: var(--color-primary) !important; }
+  .nav-pills .nav-link.active { background-color: var(--color-primary) !important; color: white !important; }
+  .nav-pills .nav-link {
+    color: var(--color-text-secondary);
+    font-weight: 500;
+    transition: var(--transition-fast);
+  }
+  .nav-pills .nav-link:hover {
+    color: var(--color-primary);
+    background-color: var(--color-primary-light);
+  }
   .navbar-dark .navbar-brand { font-weight: 700; letter-spacing: 0.01em; }
 
   * { box-sizing: border-box; }
@@ -657,6 +666,7 @@
       display: flex;
       align-items: flex-start;
       gap: 28px;
+      width: 100%;
     }
 
     .app-sidebar {
@@ -670,7 +680,19 @@
       padding: 16px 12px;
     }
 
-    .app-main-content { flex: 1; min-width: 0; }
+    .app-main-content {
+      flex: 1 1 0%;
+      min-width: 0;
+      width: 100%;
+    }
+    
+    .app-main-content > div {
+      width: 100%;
+    }
+    
+    .app-main-content .card {
+      width: 100%;
+    }
   }
 
   @media (max-width: 768px) {

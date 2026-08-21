@@ -69,8 +69,6 @@
     </div>
 
     <div class='container mt-4' id='main-app' style='display:none;'>
-      
-      <div id='main-logo' class='text-center mb-3' style='display:none;'></div>
 
       <!-- BOTTOM NAVIGATION (Mobile) -->
       <nav class='bottom-nav fixed-bottom bg-white border-top d-md-none' id='bottom-nav' style='display:none;'>
@@ -132,16 +130,36 @@
               <i class='bi bi-pencil-square me-2'></i> Laporan Operasional Harian
             </h4>
             <div id='role-alert' class='alert alert-info text-center'>
-              <small>Anda login sebagai PIC Cabang. Anda hanya memasukkan laporan untuk kendaraan dan supir di cabang Anda.</small>
+              <small>Anda login sebagai Admin. Anda hanya memasukkan laporan untuk kendaraan dan supir di warehouse Anda.</small>
             </div>
             
             <form id='daily-form' onsubmit='return false;'>
 
-                <div id='input-cabang-filter' class='card shadow-sm border-0 rounded-4 mb-3' style='display:none;'>
-                  <div class='card-body'>
-                    <label class='form-label fw-bold text-muted small text-uppercase'>Pilih Cabang</label>
+                <!-- Step Indicator -->
+                <div id="step-indicator" class="d-flex justify-content-between mb-4 position-relative px-2">
+                  <div class="progress position-absolute" style="height: 4px; top: 40%; left: 5%; right: 5%; z-index: 1; transform: translateY(-50%);">
+                    <div id="step-progress" class="progress-bar bg-success" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                  </div>
+                  <div class="step-item text-center position-relative z-3 active" id="indicator-step-1">
+                    <div class="step-circle bg-success text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-1 fw-bold shadow-sm" style="width: 36px; height: 36px; border: 2px solid #fff;">1</div>
+                    <small class="fw-bold text-success" style="font-size: 0.75rem;">Kendaraan</small>
+                  </div>
+                  <div class="step-item text-center position-relative z-3" id="indicator-step-2">
+                    <div class="step-circle bg-light text-muted rounded-circle d-flex align-items-center justify-content-center mx-auto mb-1 fw-bold border" style="width: 36px; height: 36px; border-color: #dee2e6!important;">2</div>
+                    <small class="text-muted" style="font-size: 0.75rem;">Dasbor</small>
+                  </div>
+                  <div class="step-item text-center position-relative z-3" id="indicator-step-3">
+                    <div class="step-circle bg-light text-muted rounded-circle d-flex align-items-center justify-content-center mx-auto mb-1 fw-bold border" style="width: 36px; height: 36px; border-color: #dee2e6!important;">3</div>
+                    <small class="text-muted" style="font-size: 0.75rem;">Biaya</small>
+                  </div>
+                </div>
+
+                <div id="step-1" class="form-step">
+                  <div id='input-cabang-filter' class='card shadow-sm border-0 rounded-4 mb-3' style='display:none;'>
+                    <div class='card-body'>
+                    <label class='form-label fw-bold text-muted small text-uppercase'>Pilih Warehouse</label>
                     <select id='input-cabang' class='form-select' onchange='filterFormByCabang()'>
-                      <option value=''>Semua Cabang</option>
+                      <option value=''>Semua Warehouse</option>
                     </select>
                   </div>
                 </div>
@@ -171,6 +189,12 @@
                   </div>
                 </div>
                 
+                <button type="button" class="btn btn-primary btn-lg w-100 mb-2 rounded-4 shadow-sm fw-bold" onclick="nextStep(1)">
+                  Selanjutnya <i class="bi bi-arrow-right ms-1"></i>
+                </button>
+                </div> <!-- End Step 1 -->
+
+                <div id="step-2" class="form-step" style="display:none;">
                 <div class='row'>
                   <div class='col-md-6'>
                     <div class='card shadow-sm border-0 rounded-4 mb-4 h-100'>
@@ -184,6 +208,7 @@
                             <span class='input-group-text bg-light border-end-0'><i class='bi bi-speedometer2'></i></span>
                             <input type='number' id='bar_awal' class='form-control border-start-0' min='0' required placeholder='Misal: 8'>
                           </div>
+                          <small class='text-muted' style='font-size: 0.75rem;'>*Pastikan tidak melebihi batas maksimal bar indikator mobil</small>
                         </div>
                         <div class='mb-0'>
                           <label class='form-label fw-bold text-muted small text-uppercase'>Foto Dasbor Awal</label>
@@ -211,6 +236,7 @@
                             <span class='input-group-text bg-light border-end-0'><i class='bi bi-speedometer2'></i></span>
                             <input type='number' id='bar_akhir' class='form-control border-start-0' min='0' required placeholder='Misal: 5'>
                           </div>
+                          <small class='text-muted' style='font-size: 0.75rem;'>*Pastikan tidak melebihi batas maksimal bar indikator mobil</small>
                         </div>
                         <div class='mb-0'>
                           <label class='form-label fw-bold text-muted small text-uppercase'>Foto Dasbor Akhir</label>
@@ -228,6 +254,13 @@
                   </div>
                 </div>
                 
+                <div class="d-flex gap-2 mb-2">
+                  <button type="button" class="btn btn-outline-secondary w-50 rounded-4 fw-bold" onclick="prevStep(2)"><i class="bi bi-arrow-left me-1"></i> Kembali</button>
+                  <button type="button" class="btn btn-primary w-50 rounded-4 shadow-sm fw-bold" onclick="nextStep(2)">Selanjutnya <i class="bi bi-arrow-right ms-1"></i></button>
+                </div>
+                </div> <!-- End Step 2 -->
+
+                <div id="step-3" class="form-step" style="display:none;">
                 <div class='row'>
                   <div class='col-md-6'>
                     <div class='card shadow-sm border-0 rounded-4 mb-4 h-100'>
@@ -238,8 +271,8 @@
                         <div class='mb-3'>
                           <label class='form-label fw-bold text-muted small text-uppercase'>Ada struk BBM hari ini?</label>
                           <div class='toggle-group rounded-pill p-1 bg-light border'>
-                            <button type='button' class='toggle-btn active rounded-pill' onclick='toggleBBM("Tidak", this)'>Tidak</button>
-                            <button type='button' class='toggle-btn rounded-pill' onclick='toggleBBM("Ya", this)'>Ya</button>
+                            <button type='button' class='toggle-btn active rounded-pill' onclick='toggleBBM("Tidak", this)'><i class='bi bi-x-circle me-1'></i> Tidak</button>
+                            <button type='button' class='toggle-btn rounded-pill' onclick='toggleBBM("Ya", this)'><i class='bi bi-check-circle me-1'></i> Ya</button>
                           </div>
                           <input type='hidden' id='isi_bensin' value='Tidak'>
                         </div>
@@ -283,8 +316,8 @@
                         <div class='mb-3'>
                           <label class='form-label fw-bold text-muted small text-uppercase'>Ada struk Toll hari ini?</label>
                           <div class='toggle-group rounded-pill p-1 bg-light border'>
-                            <button type='button' class='toggle-btn active rounded-pill' onclick='toggleToll("Tidak", this)'>Tidak</button>
-                            <button type='button' class='toggle-btn rounded-pill' onclick='toggleToll("Ya", this)'>Ya</button>
+                            <button type='button' class='toggle-btn active rounded-pill' onclick='toggleToll("Tidak", this)'><i class='bi bi-x-circle me-1'></i> Tidak</button>
+                            <button type='button' class='toggle-btn rounded-pill' onclick='toggleToll("Ya", this)'><i class='bi bi-check-circle me-1'></i> Ya</button>
                           </div>
                           <input type='hidden' id='isi_toll' value='Tidak'>
                         </div>
@@ -309,10 +342,15 @@
                     </div>
                   </div>
                 </div>
+                </div>
                 
-                <button id='btn-process' class='btn btn-primary btn-full btn-lg mt-3' onclick='processDailyReport()'>
-                  <i class='bi bi-camera me-2'></i> Proses Foto & Simpan
-                </button>
+                <div class="d-flex gap-2 mt-2 mb-2">
+                  <button type="button" class="btn btn-outline-secondary w-50 rounded-4 fw-bold" onclick="prevStep(3)"><i class="bi bi-arrow-left me-1"></i> Kembali</button>
+                  <button id='btn-process' class='btn btn-success w-50 rounded-4 shadow-sm fw-bold' onclick='processDailyReport()'>
+                    <i class='bi bi-cloud-arrow-up me-1'></i> Simpan
+                  </button>
+                </div>
+                </div> <!-- End Step 3 -->
 
               </form>
           </div>
@@ -330,7 +368,7 @@
             <div class='row g-2 mb-4'>
               <div class='col-6 col-md-4'>
                 <select id='filter-cabang' class='form-select form-select-sm' onchange='loadDashboard()'>
-                  <option value=''>Semua Cabang</option>
+                  <option value=''>Semua Warehouse</option>
                 </select>
               </div>
               <div class='col-6 col-md-4'>
@@ -349,7 +387,7 @@
                   <thead class='table-dark align-middle text-center'>
                     <tr>
                       <th>Tanggal</th>
-                      <th>Cabang</th>
+                      <th>Warehouse</th>
                       <th>Supir</th>
                       <th>Kendaraan</th>
                       <th>KM Tempuh</th>
@@ -395,8 +433,7 @@
               </li>
               <li class='nav-item'>
                 <button class='nav-link' onclick='switchMasterTab("cabang")' data-tab='cabang'>
-                  <i class='bi bi-geo-alt me-1'></i> Cabang
-                </button>
+                  <i class='bi bi-geo-alt me-1'></i>Warehouse</button>
               </li>
               <li class='nav-item'>
                 <button class='nav-link' onclick='switchMasterTab("supir")' data-tab='supir'>
@@ -475,7 +512,7 @@
                           </div>
                         </div>
                         <div class='mb-3'>
-                          <label class='form-label'>Cabang</label>
+                          <label class='form-label'>Warehouse</label>
                           <select id='m_cabang' class='form-select' required></select>
                         </div>
                         <button type='submit' class='btn btn-primary btn-full' id='btn-add-vehicle'>
@@ -490,9 +527,9 @@
             <div class='master-tab-content' id='master-cabang' style='display:none;'>
               <div class='card mb-3'>
                 <div class='card-header d-flex justify-content-between align-items-center'>
-                  <div><i class='bi bi-list-ul me-1'></i> Daftar Cabang</div>
+                  <div><i class='bi bi-list-ul me-1'></i> Daftar Warehouse</div>
                   <button class='btn btn-sm btn-success'  data-bs-toggle='modal' data-bs-target='#modal-cabang'>
-                    <i class='bi bi-plus-circle me-1'></i> Tambah Cabang
+                    <i class='bi bi-plus-circle me-1'></i> Tambah Warehouse
                   </button>
                 </div>
                 <div class='card-body p-0'>
@@ -501,23 +538,23 @@
               </div>
             </div>
 
-            <!-- Modal Cabang -->
+            <!-- Modal Warehouse -->
             <div class='modal fade' id='modal-cabang' tabindex='-1'>
               <div class='modal-dialog modal-dialog-centered'>
                 <div class='modal-content border-success'>
                   <div class='modal-header bg-success text-white' >
-                    <h5 class='modal-title'><i class='bi bi-plus-circle me-2'></i>Tambah Cabang</h5>
+                    <h5 class='modal-title'><i class='bi bi-plus-circle me-2'></i>Tambah Warehouse</h5>
                     <button type='button' class='btn-close btn-close-white' data-bs-dismiss='modal' aria-label='Close'></button>
                   </div>
                   <div class='modal-body'>
                     <form id='form-cabang' onsubmit='addMasterCabang(); return false;'>
                         <input type='hidden' id='m_edit_old_kode_cabang'>
                         <div class='mb-3'>
-                          <label class='form-label'>Kode Cabang</label>
+                          <label class='form-label'>Kode Warehouse</label>
                           <input type='text' id='m_kode_cabang' class='form-control' required placeholder='CBG-JKT'>
                         </div>
                         <div class='mb-3'>
-                          <label class='form-label'>Nama Cabang</label>
+                          <label class='form-label'>Nama Warehouse</label>
                           <input type='text' id='m_nama_cabang' class='form-control' required placeholder='Jakarta'>
                         </div>
                         <div class='mb-3'>
@@ -525,7 +562,7 @@
                           <input type='text' id='m_lokasi_cabang' class='form-control' placeholder='Jl. Sudirman No. 1'>
                         </div>
                         <button type='submit' class='btn btn-success btn-full' id='btn-add-cabang'>
-                          <i class='bi bi-check-circle me-1'></i> Simpan Cabang
+                          <i class='bi bi-check-circle me-1'></i> Simpan Warehouse
                         </button>
                       </form>
                   </div>
@@ -563,7 +600,7 @@
                           <input type='text' id='m_nama_supir' class='form-control' required placeholder='Budi Santoso'>
                         </div>
                         <div class='mb-3'>
-                          <label class='form-label'>Cabang</label>
+                          <label class='form-label'>Warehouse</label>
                           <select id='m_cabang_supir' class='form-select' required onchange='filterKendaraanSupir()'></select>
                         </div>
                         <div class='mb-3'>
