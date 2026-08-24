@@ -275,10 +275,12 @@ function getRecentTransactions(role, userCabang) {
     
     result.push({
       tanggal: new Date(row[2]).toLocaleDateString('id-ID'),
+      timestamp: new Date(row[2]).getTime(),
       user: row[4], 
       cabang: cabangNamaMap[row[5]] || row[5], 
       vehicle: row[7],
       km_tempuh: kmTempuh, 
+      isi_bbm: parseFloat(row[18]) || 0,
       liter: Math.round(literKonsumsi * 100) / 100, 
       toll: row[21], 
       efisiensi: efisiensi, 

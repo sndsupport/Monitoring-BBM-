@@ -18,7 +18,7 @@
   <body>
     <!-- Navbar -->
     <nav class='navbar navbar-expand-lg navbar-dark bg-primary'>
-      <div class='container d-flex justify-content-between align-items-center flex-nowrap'>
+      <div class='container-fluid px-3 px-xl-5 d-flex justify-content-between align-items-center flex-nowrap'>
         <a class='navbar-brand mb-0' href='#'>BBM Operasional</a>
         <div class='d-flex align-items-center gap-2'>
           <span class='navbar-text text-light fw-bold mb-0' id='user-info'></span>
@@ -68,7 +68,7 @@
       </div>
     </div>
 
-    <div class='container mt-4' id='main-app' style='display:none;'>
+    <div class='container-fluid px-3 px-xl-5 mt-4' id='main-app' style='display:none;'>
 
       <!-- BOTTOM NAVIGATION (Mobile) -->
       <nav class='bottom-nav fixed-bottom bg-white border-top d-md-none' id='bottom-nav' style='display:none;'>
@@ -80,6 +80,10 @@
           <button class='btn-nav' onclick='switchTab("dashboard")' data-tab='dashboard'>
             <i class='bi bi-clock-history'></i>
             <span>History</span>
+          </button>
+          <button class='btn-nav' onclick='switchTab("gallery")' data-tab='gallery'>
+            <i class='bi bi-images'></i>
+            <span>Galeri</span>
           </button>
           <button class='btn-nav' onclick='switchTab("master")' data-tab='master' id='btn-nav-master' style='display:none;'>
             <i class='bi bi-gear'></i>
@@ -100,6 +104,9 @@
           </a>
           <a class='nav-link sidebar-link' id='tab-dashboard' href='#' onclick='switchTab("dashboard")'>
             <i class='bi bi-clock-history'></i> <span>History Laporan</span>
+          </a>
+          <a class='nav-link sidebar-link' id='tab-gallery' href='#' onclick='switchTab("gallery")'>
+            <i class='bi bi-images'></i> <span>Galeri Foto</span>
           </a>
           <div class='d-none sidebar-admin-group' id='nav-master'>
             <a class='nav-link sidebar-link' id='tab-master' href='#' onclick='switchTab("master")'>
@@ -342,7 +349,6 @@
                     </div>
                   </div>
                 </div>
-                </div>
                 
                 <div class="d-flex gap-2 mt-2 mb-2">
                   <button type="button" class="btn btn-outline-secondary w-50 rounded-4 fw-bold" onclick="prevStep(3)"><i class="bi bi-arrow-left me-1"></i> Kembali</button>
@@ -357,42 +363,55 @@
         </div>
       </div>
       
+      <!-- FILTER BERSAMA UNTUK DASHBOARD & GALERI -->
+      <div id='shared-filter-card' class='card mb-3' style='display:none;'>
+        <div class='card-body p-3'>
+          <div class='row g-2 align-items-center'>
+            <div class='col-12 col-md-auto flex-grow-1' id='wrapper-filter-cabang' style='display:none;'>
+              <select id='filter-cabang' class='form-select form-select-sm' onchange='loadDashboard()'>
+                <option value=''>Semua Warehouse</option>
+              </select>
+            </div>
+            <div class='col-12 col-md-auto flex-grow-1' id='wrapper-filter-supir'>
+              <select id='filter-supir' class='form-select form-select-sm' onchange='loadDashboard()'>
+                <option value=''>Semua Supir</option>
+              </select>
+            </div>
+            <div class='col-5 col-md-auto'>
+              <input type='date' id='filter-date-start' class='form-control form-control-sm' onchange='loadDashboard()' title='Dari Tanggal'>
+            </div>
+            <div class='col-5 col-md-auto'>
+              <input type='date' id='filter-date-end' class='form-control form-control-sm' onchange='loadDashboard()' title='Sampai Tanggal'>
+            </div>
+            <div class='col-2 col-md-auto'>
+              <button class='btn btn-outline-secondary btn-sm w-100' onclick='resetFilters()' title='Reset Filter'>
+                <i class='bi bi-x-circle'></i> <span class='d-none d-xl-inline'>Reset</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- HALAMAN 2: DASHBOARD (ADMIN & PIC) -->
       <div id='page-dashboard' style='display:none;'>
         <div class='card mb-4'>
           <div class='card-body p-4'>
-            <h4 class='mb-3'>
+            <h4 class='mb-4 pb-2 border-bottom text-primary'>
               <i class='bi bi-clock-history me-2'></i> Riwayat Operasional
             </h4>
-            
-            <div class='row g-2 mb-4'>
-              <div class='col-6 col-md-4'>
-                <select id='filter-cabang' class='form-select form-select-sm' onchange='loadDashboard()'>
-                  <option value=''>Semua Warehouse</option>
-                </select>
-              </div>
-              <div class='col-6 col-md-4'>
-                <input type='month' id='filter-bulan' class='form-control form-control-sm' onchange='loadDashboard()'>
-              </div>
-              <div class='col-12 col-md-4'>
-                <button class='btn btn-outline-secondary btn-sm w-100' onclick='resetFilters()'>
-                  <i class='bi bi-x-circle me-1'></i> Reset Filter
-                </button>
-              </div>
-            </div>
             
             <div id='dashboard-content'>
               <div class='d-none d-md-block table-responsive'>
                 <table class='table table-bordered table-striped table-hover'>
-                  <thead class='table-dark align-middle text-center'>
+                  <thead class='table-dark align-middle text-center text-nowrap'>
                     <tr>
                       <th>Tanggal</th>
                       <th>Warehouse</th>
                       <th>Supir</th>
                       <th>Kendaraan</th>
                       <th>KM Tempuh</th>
+                      <th>Isi BBM</th>
                       <th>Konsumsi BBM</th>
-                      <th>Foto</th>
                     </tr>
                   </thead>
                   <tbody id='dashboard-tbody'></tbody>
@@ -417,7 +436,36 @@
         </div>
       </div>
 
-      <!-- HALAMAN 3: DATA MASTER (SUPERADMIN ONLY) -->
+      <!-- HALAMAN 3: GALERI FOTO -->
+      <div id='page-gallery' style='display:none;'>
+        <div class='card mb-4'>
+          <div class='card-body p-4'>
+            <h4 class='card-title mb-4 pb-2 border-bottom text-primary'>
+              <i class='bi bi-images me-2'></i> Galeri Foto Odometer
+            </h4>
+            
+            <div id='gallery-content' class='row g-3'>
+              <!-- Foto-foto akan dimuat di sini -->
+            </div>
+            
+            <div id='gallery-empty' class='empty-state' style='display:none;'>
+              <i class='bi bi-image'></i>
+              <h5>Belum ada foto operasional</h5>
+              <p>Foto akan muncul setelah laporan harian dibuat.</p>
+            </div>
+            
+            <div id='gallery-loading' style='display:none;'>
+              <div class='row g-3'>
+                <div class='col-12 col-md-4'><div class='skeleton' style='height: 200px;'></div></div>
+                <div class='col-12 col-md-4'><div class='skeleton' style='height: 200px;'></div></div>
+                <div class='col-12 col-md-4'><div class='skeleton' style='height: 200px;'></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HALAMAN 4: DATA MASTER (SUPERADMIN ONLY) -->
       <div id='page-master' style='display:none;'>
         <div class='card mb-4'>
           <div class='card-body p-4'>
