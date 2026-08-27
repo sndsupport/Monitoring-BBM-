@@ -1,0 +1,672 @@
+<script>
+// ==========================================
+// FLAZZ SCRIPTS
+// ==========================================
+
+let flazzDataCache = null;
+
+function flazzUserInfo() {
+  var u = (typeof userInfo !== 'undefined' && userInfo) ? userInfo : {};
+  var loginName = document.getElementById('login_username') ? document.getElementById('login_username').value : '';
+  return { username: u.username || loginName || '', nama: u.nama || '' };
+}
+
+function loadFlazzDashboard() {
+  document.getElementById('flazz-dashboard-loading').style.display = 'block';
+  document.getElementById('flazz-dashboard-content').style.display = 'none';
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+       flazzDataCache = res;
+       document.getElementById('flazz-dashboard-loading').style.display = 'none';
+       document.getElementById('flazz-dashboard-content').style.display = 'block';
+       
+       renderFlazzDashboardCards(res);
+       renderFlazzMasterTable(res.cards);
+       populateFlazzDropdowns(res);
+       renderFlazzHistory(res);
+    })
+    .withFailureHandler(function(err) {
+       showToast("Gagal memuat data Flazz: " + err, 'error');
+       document.getElementById('flazz-dashboard-loading').style.display = 'none';
+    })
+    .apiGetFlazzDashboardData({
+       username: document.getElementById('login_username').value, 
+       role: userRole,
+       cabang: userRole === 'SUPERADMIN' ? '' : (document.getElementById('m_cabang_supir') ? document.getElementById('m_cabang_supir').value : '') 
+       // Note: the login context should actually pass the cabang from loadInitialData, but loadInitialData stores it where?
+       // We'll let the server side handle it via userInfo if we pass the right thing, or we can just fetch all if SUPERADMIN.
+       // The server needs userInfo object. Since we don't have userInfo global in js.html, we must construct it.
+       // Wait, in js.html: loadInitialData passes `uInfo` from login. 
+       // We can just rely on the server session if we didn't have one, but we are stateless.
+    });
+}
+
+// Override loadFlazzDashboard call in switchTab if needed. We can just patch switchTab to call this.
+function loadFlazzDataWrapper() {
+   let uInfo = {
+       username: document.getElementById('login_username') ? document.getElementById('login_username').value : '',
+       role: userRole,
+       cabang: document.getElementById('input-cabang-filter') ? document.getElementById('input-cabang-filter').value : '' // fallback
+   };
+   // If we already loaded data, we can use the cache, but let's just refresh.
+   document.getElementById('flazz-dashboard-loading').style.display = 'block';
+   document.getElementById('flazz-dashboard-content').style.display = 'none';
+
+   google.script.run
+    .withSuccessHandler(function(res) {
+       flazzDataCache = res;
+       document.getElementById('flazz-dashboard-loading').style.display = 'none';
+       document.getElementById('flazz-dashboard-content').style.display = 'block';
+       
+       renderFlazzDashboardCards(res);
+       renderFlazzMasterTable(res.cards);
+       populateFlazzDropdowns(res);
+       renderFlazzHistory(res);
+    })
+    .apiGetFlazzDashboardData(uInfo);
+}
+
+function renderFlazzDashboardCards(data) {
+  let cards = data.cards || [];
+  let totalCards = cards.length;
+  let activeCards = cards.filter(c => c.status === 'SEDANG_DIGUNAKAN').length;
+  let totalBalance = cards.reduce((sum, c) => sum + (parseFloat(c.last_balance) || 0), 0);
+
+  let html = `
+    <div class="col-md-4">
+       <div class="card bg-primary text-white border-0 shadow-sm rounded-4 h-100">
+         <div class="card-body">
+           <h6 class="text-white-50 mb-1">Total Kartu Aktif</h6>
+           <h3 class="fw-bold mb-0 text-white">${activeCards} <small class="fs-6 fw-normal text-white-50">dari ${totalCards}</small></h3>
+         </div>
+       </div>
+    </div>
+    <div class="col-md-4">
+       <div class="card bg-success text-white border-0 shadow-sm rounded-4 h-100">
+         <div class="card-body">
+           <h6 class="text-white-50 mb-1">Total Saldo (Seluruh Kartu)</h6>
+           <h3 class="fw-bold mb-0 text-white">${formatCurrency(totalBalance)}</h3>
+         </div>
+       </div>
+    </div>
+    <div class="col-md-4">
+       <div class="card bg-info text-white border-0 shadow-sm rounded-4 h-100">
+         <div class="card-body">
+           <h6 class="text-white-50 mb-1">Top Up Terakhir</h6>
+           <h5 class="fw-bold mb-0">${data.topups.length > 0 ? formatCurrency(data.topups[0].amount) + ' (' + formatDateShort(data.topups[0].date) + ')' : '-'}</h5>
+         </div>
+       </div>
+    </div>
+  `;
+  document.getElementById('flazz-summary-cards').innerHTML = html;
+
+  let tbody = document.getElementById('flazz-dashboard-table');
+  tbody.innerHTML = '';
+  cards.forEach(c => {
+    let tr = document.createElement('tr');
+    let badgeClass = c.status === 'SEDANG_DIGUNAKAN' ? 'bg-warning' : (c.status === 'TERSEDIA' ? 'bg-success' : 'bg-secondary');
+    tr.innerHTML = `
+      <td class="fw-bold">${c.card_number}</td>
+      <td>${c.card_type}</td>
+      <td>${c.driver_id || '-'}</td>
+      <td class="fw-bold">${formatCurrency(c.last_balance)}</td>
+      <td><span class="badge ${badgeClass}">${c.status}</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderFlazzMasterTable(cards) {
+  let tbody = document.getElementById('flazz-master-table');
+  if(!tbody) return;
+  tbody.innerHTML = '';
+  cards.forEach(c => {
+    let tr = document.createElement('tr');
+    let badgeClass = c.status === 'SEDANG_DIGUNAKAN' ? 'bg-warning' : (c.status === 'TERSEDIA' ? 'bg-success' : 'bg-secondary');
+    tr.innerHTML = `
+      <td><small class="text-muted">${c.id}</small></td>
+      <td class="fw-bold">${c.card_number}</td>
+      <td>${c.card_type}</td>
+      <td>${c.branch_id}</td>
+      <td class="fw-bold">${formatCurrency(c.last_balance)}</td>
+      <td><span class="badge ${badgeClass}">${c.status}</span></td>
+      <td class="text-end">
+         <button class="btn btn-sm btn-outline-primary" onclick="editFlazzCard('${c.id}')"><i class="bi bi-pencil"></i></button> <button class="btn btn-sm btn-outline-danger" onclick="deleteFlazzCardClient('${c.id}')"><i class="bi bi-trash"></i></button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function populateFlazzDropdowns(data) {
+  let cards = data.cards || [];
+  
+  // Usage form (hanya tersedia)
+  let uCard = document.getElementById('u_card_id');
+  if(uCard) {
+    uCard.innerHTML = '<option value="">Pilih Kartu...</option>';
+    cards.filter(c => c.status === 'TERSEDIA').forEach(c => {
+       uCard.innerHTML += `<option value="${c.id}">${c.card_number} (${c.card_type}) - Saldo: ${formatCurrency(c.last_balance)}</option>`;
+    });
+  }
+
+  // Topup & Tol form (semua aktif)
+  let tCard = document.getElementById('t_card_id');
+  let tolCard = document.getElementById('tol_card_id');
+  if(tCard) tCard.innerHTML = '<option value="">Pilih Kartu...</option>';
+  if(tolCard) tolCard.innerHTML = '<option value="">Pilih Kartu...</option>';
+  
+  cards.filter(c => c.status !== 'NONAKTIF').forEach(c => {
+     let opt = `<option value="${c.id}">${c.card_number} ${c.driver_id ? '['+c.driver_id+']' : ''} - ${formatCurrency(c.last_balance)}</option>`;
+     if(tCard) tCard.innerHTML += opt;
+     if(tolCard) tolCard.innerHTML += opt;
+  });
+
+  // Recon form (hanya yang sedang digunakan)
+  let rCard = document.getElementById('r_card_id');
+  if(rCard) {
+    rCard.innerHTML = '<option value="">Pilih Kartu...</option>';
+    cards.filter(c => c.status === 'SEDANG_DIGUNAKAN').forEach(c => {
+       rCard.innerHTML += `<option value="${c.id}" data-balance="${c.last_balance}">${c.card_number} [${c.driver_id}] - Saldo: ${formatCurrency(c.last_balance)}</option>`;
+    });
+  }
+}
+
+function onReconCardSelect() {
+  let select = document.getElementById('r_card_id');
+  let balance = 0;
+  if(select.selectedIndex > 0) {
+     balance = parseFloat(select.options[select.selectedIndex].dataset.balance) || 0;
+  }
+  document.getElementById('r_system_balance').value = balance;
+  calculateReconVariance();
+}
+
+function calculateReconVariance() {
+  let sys = parseFloat(document.getElementById('r_system_balance').value) || 0;
+  let act = parseFloat(document.getElementById('r_actual_balance').value) || 0;
+  let diff = act - sys;
+  let alert = document.getElementById('recon-variance-alert');
+  
+  if(diff === 0) {
+     alert.style.display = 'block';
+     alert.className = 'alert alert-success py-2 mb-3';
+     alert.innerHTML = '<i class="bi bi-check-circle me-1"></i> Saldo sesuai.';
+     document.getElementById('r_action').value = 'IGNORE';
+  } else if (diff < 0) {
+     alert.style.display = 'block';
+     alert.className = 'alert alert-warning py-2 mb-3';
+     alert.innerHTML = `<i class="bi bi-exclamation-triangle me-1"></i> Selisih kurang ${formatCurrency(Math.abs(diff))}. Ada pengeluaran belum tercatat?`;
+     document.getElementById('r_action').value = 'ADJUST';
+  } else {
+     alert.style.display = 'block';
+     alert.className = 'alert alert-info py-2 mb-3';
+     alert.innerHTML = `<i class="bi bi-info-circle me-1"></i> Selisih lebih ${formatCurrency(diff)}. Top up belum tercatat?`;
+     document.getElementById('r_action').value = 'ADJUST';
+  }
+}
+
+function showFlazzModal() {
+  document.getElementById('form-flazz-card').reset();
+  document.getElementById('f_card_id').value = '';
+  
+  let branchSelect = document.getElementById('f_branch_id');
+  branchSelect.innerHTML = document.getElementById('m_cabang') ? document.getElementById('m_cabang').innerHTML : '';
+  let driverSelect = document.getElementById('f_driver_id');
+  driverSelect.innerHTML = '<option value="">-- Tidak Ada / Kartu Bebas --</option>';
+  (allDrivers || []).forEach(d => driverSelect.innerHTML += '<option value="'+d.nama+'">'+d.nama+'</option>');
+  
+  new bootstrap.Modal(document.getElementById('modal-flazz-card')).show();
+}
+
+function saveFlazzCardForm(e) {
+  e.preventDefault();
+  let btn = document.getElementById('btn-save-flazz-card');
+  let orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = 'Menyimpan...';
+
+  let payload = {
+    id: document.getElementById('f_card_id').value,
+    card_number: document.getElementById('f_card_number').value,
+    card_type: document.getElementById('f_card_type').value,
+    branch_id: document.getElementById('f_branch_id').value,
+    driver_id: document.getElementById('f_driver_id').value,
+    notes: document.getElementById('f_notes').value
+  };
+
+  let uInfo = { username: document.getElementById('login_username') ? document.getElementById('login_username').value : 'admin' };
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+       btn.disabled = false;
+       btn.innerHTML = orig;
+       if(res.success) {
+         showToast(res.msg, 'success');
+         bootstrap.Modal.getInstance(document.getElementById('modal-flazz-card')).hide();
+         loadFlazzDataWrapper();
+       } else {
+         showToast(res.msg, 'error');
+       }
+    })
+    .apiSaveFlazzCard(payload, uInfo);
+}
+
+// ... Additional forms for usage, topup, tol, recon will follow the same pattern:
+// Build payload -> google.script.run -> showToast -> loadFlazzDataWrapper()
+
+function saveFlazzTopUpForm(e) {
+  e.preventDefault();
+  let btn = document.getElementById('btn-save-topup');
+  let orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = 'Memproses...';
+
+  let file = document.getElementById('t_foto_bukti').files[0];
+  
+  let payload = {
+    card_id: document.getElementById('t_card_id').value,
+    amount: document.getElementById('t_amount').value,
+    notes: document.getElementById('t_notes').value,
+    userInfo: flazzUserInfo(),
+    foto_bukti_name: file.name
+  };
+
+  let reader = new FileReader();
+  reader.onload = function(event) {
+     payload.foto_bukti = event.target.result;
+     google.script.run
+      .withSuccessHandler(res => {
+         btn.disabled = false;
+         btn.innerHTML = orig;
+         if(res.success) {
+           showToast(res.msg, 'success');
+           document.getElementById('form-flazz-topup').reset();
+           loadFlazzDataWrapper();
+         } else showToast(res.msg, 'error');
+      }).apiSaveFlazzTopUp(payload);
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveFlazzTolForm(e) {
+  e.preventDefault();
+  let btn = document.getElementById('btn-save-tol');
+  let orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = 'Memproses...';
+
+  let file = document.getElementById('tol_foto_bukti').files[0];
+  
+  let payload = {
+    card_id: document.getElementById('tol_card_id').value,
+    driver_id: document.getElementById('tol_driver_id').value,
+    vehicle_id: document.getElementById('tol_vehicle_id').value,
+    amount: document.getElementById('tol_amount').value,
+    notes: document.getElementById('tol_notes').value,
+    userInfo: flazzUserInfo(),
+    foto_bukti_name: file.name
+  };
+
+  let reader = new FileReader();
+  reader.onload = function(event) {
+     payload.foto_bukti = event.target.result;
+     google.script.run
+      .withSuccessHandler(res => {
+         btn.disabled = false;
+         btn.innerHTML = orig;
+         if(res.success) {
+           showToast(res.msg, 'success');
+           document.getElementById('form-flazz-tol').reset();
+           loadFlazzDataWrapper();
+         } else showToast(res.msg, 'error');
+      }).apiSaveFlazzTol(payload);
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveFlazzUsageForm(e) {
+  e.preventDefault();
+  let btn = document.getElementById('btn-save-usage');
+  let orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = 'Menyimpan...';
+
+  let payload = {
+    card_id: document.getElementById('u_card_id').value,
+    driver_id: document.getElementById('u_driver_id').value,
+    vehicle_id: document.getElementById('u_vehicle_id').value,
+    usage_type: document.getElementById('u_usage_type').value,
+    notes: document.getElementById('u_notes').value,
+    userInfo: flazzUserInfo()
+  };
+
+  google.script.run
+    .withSuccessHandler(res => {
+       btn.disabled = false;
+       btn.innerHTML = orig;
+       if(res.success) {
+         showToast(res.msg, 'success');
+         document.getElementById('form-flazz-usage').reset();
+         loadFlazzDataWrapper();
+       } else showToast(res.msg, 'error');
+    }).apiSaveFlazzUsage(payload);
+}
+
+function saveFlazzReconForm(e) {
+  e.preventDefault();
+  let btn = document.getElementById('btn-save-recon');
+  let orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = 'Memproses...';
+
+  let file = document.getElementById('r_foto_bukti').files[0];
+  
+  let payload = {
+    card_id: document.getElementById('r_card_id').value,
+    system_balance: document.getElementById('r_system_balance').value,
+    actual_balance: document.getElementById('r_actual_balance').value,
+    action: document.getElementById('r_action').value,
+    notes: document.getElementById('r_notes').value,
+    userInfo: flazzUserInfo()
+  };
+
+  let submitRecon = function() {
+    google.script.run
+      .withSuccessHandler(res => {
+         btn.disabled = false;
+         btn.innerHTML = orig;
+         if(res.success) {
+           showToast(res.msg, 'success');
+           document.getElementById('form-flazz-recon').reset();
+           document.getElementById('recon-variance-alert').style.display = 'none';
+           loadFlazzDataWrapper();
+         } else showToast(res.msg, 'error');
+      }).apiSaveFlazzRecon(payload);
+  };
+
+  if (file) {
+    let reader = new FileReader();
+    reader.onload = function(event) {
+       payload.foto_bukti = event.target.result;
+       payload.foto_bukti_name = file.name;
+       submitRecon();
+    };
+    reader.readAsDataURL(file);
+  } else {
+    submitRecon();
+  }
+}
+
+function showHistoryTab(type, e) {
+  if(e) e.preventDefault();
+  document.querySelectorAll('#historyFlazzTabs .nav-link').forEach(el => el.classList.remove('active'));
+  if(e) e.target.classList.add('active');
+  
+  document.getElementById('hist-topup-container').style.display = 'none';
+  document.getElementById('hist-tol-container').style.display = 'none';
+  document.getElementById('hist-bbm-container').style.display = 'none';
+  document.getElementById('hist-usage-container').style.display = 'none';
+  
+  document.getElementById('hist-' + type + '-container').style.display = 'block';
+}
+
+function renderFlazzHistory(data) {
+  let tbTopup = document.getElementById('tb-hist-topup');
+  let tbTol = document.getElementById('tb-hist-tol');
+  let tbBbm = document.getElementById('tb-hist-bbm');
+  let tbUsage = document.getElementById('tb-hist-usage');
+  
+  tbTopup.innerHTML = '';
+  data.topups.forEach(t => {
+     let cardStr = data.cards.find(c => c.id === t.card_id)?.card_number || t.card_id;
+     tbTopup.innerHTML += `<tr>
+       <td>${formatDateShort(t.date)}</td>
+       <td>${cardStr}</td>
+       <td class="fw-bold text-success">+${formatCurrency(t.amount)}</td>
+       <td><a href="${t.evidence_url}" target="_blank">Lihat Bukti</a></td>
+       <td>${t.notes}</td>
+       <td class="text-end text-nowrap">
+         <button class="btn btn-sm btn-outline-primary" onclick="editTopUp('${t.id}')"><i class="bi bi-pencil"></i></button>
+         <button class="btn btn-sm btn-outline-danger" onclick="deleteTopUp('${t.id}')"><i class="bi bi-trash"></i></button>
+       </td>
+     </tr>`;
+  });
+
+  tbTol.innerHTML = '';
+  data.tols.forEach(t => {
+     let cardStr = data.cards.find(c => c.id === t.card_id)?.card_number || t.card_id;
+     tbTol.innerHTML += `<tr>
+       <td>${formatDateShort(t.date)}</td>
+       <td>${cardStr}</td>
+       <td>${t.driver_id} / ${t.vehicle_id}</td>
+       <td class="fw-bold text-danger">-${formatCurrency(t.amount)}</td>
+       <td><a href="${t.evidence_url}" target="_blank">Lihat Bukti</a></td>
+       <td>${t.notes}</td>
+       <td class="text-end text-nowrap">
+         <button class="btn btn-sm btn-outline-primary" onclick="editTol('${t.id}')"><i class="bi bi-pencil"></i></button>
+         <button class="btn btn-sm btn-outline-danger" onclick="deleteTol('${t.id}')"><i class="bi bi-trash"></i></button>
+       </td>
+     </tr>`;
+  });
+
+  tbUsage.innerHTML = '';
+  data.usages.forEach(t => {
+     let cardStr = data.cards.find(c => c.id === t.card_id)?.card_number || t.card_id;
+     tbUsage.innerHTML += `<tr>
+       <td>${formatDateShort(t.date)}</td>
+       <td>${cardStr}</td>
+       <td>${t.driver_id} / ${t.vehicle_id}</td>
+       <td><span class="badge bg-secondary">${t.usage_type}</span></td>
+       <td>${t.notes}</td>
+     </tr>`;
+  });
+  
+  tbBbm.innerHTML = '';
+  data.bbmFlazz.forEach(t => {
+     let cardStr = data.cards.find(c => c.id === t.card_id)?.card_number || t.card_id;
+     tbBbm.innerHTML += `<tr>
+       <td>${formatDateShort(t.tanggal)}</td>
+       <td>${cardStr}</td>
+       <td>${t.driver} / ${t.vehicle}</td>
+       <td class="fw-bold text-danger">-${formatCurrency(t.amount)}</td>
+       <td><a href="${t.evidence}" target="_blank">Struk BBM</a></td>
+       <td class="text-end">
+         <button class="btn btn-sm btn-outline-danger" onclick="deleteBBMFlazz('${t.transaction_id}')"><i class="bi bi-trash"></i></button>
+       </td>
+     </tr>`;
+  });
+}
+
+function editTopUp(id) {
+  let t = (flazzDataCache && flazzDataCache.topups || []).find(x => x.id === id);
+  if(!t) return showToast('Data tidak ditemukan', 'error');
+  let cards = (flazzDataCache && flazzDataCache.cards) || [];
+  document.getElementById('et_card_id').innerHTML = cards.map(c => '<option value="'+c.id+'">'+c.card_number+'</option>').join('');
+  document.getElementById('et_id').value = t.id;
+  document.getElementById('et_card_id').value = t.card_id;
+  document.getElementById('et_amount').value = t.amount;
+  document.getElementById('et_notes').value = t.notes || '';
+  new bootstrap.Modal(document.getElementById('modal-edit-topup')).show();
+}
+function saveEditTopUp(e) {
+  e.preventDefault();
+  let payload = {
+    id: document.getElementById('et_id').value,
+    card_id: document.getElementById('et_card_id').value,
+    amount: document.getElementById('et_amount').value,
+    notes: document.getElementById('et_notes').value,
+    userInfo: flazzUserInfo()
+  };
+  google.script.run.withSuccessHandler(res => {
+    if(res.success){ showToast(res.msg, 'success'); bootstrap.Modal.getInstance(document.getElementById('modal-edit-topup')).hide(); loadFlazzDataWrapper(); }
+    else showToast(res.msg, 'error');
+  }).apiEditFlazzTopUp(payload);
+}
+function deleteTopUp(id) {
+  if(!confirm('Yakin menghapus top up ini? Saldo kartu akan dikurangi nominal tersebut.')) return;
+  google.script.run.withSuccessHandler(res => {
+    if(res.success){ showToast(res.msg, 'success'); loadFlazzDataWrapper(); }
+    else showToast(res.msg, 'error');
+  }).apiDeleteFlazzTopUp(id);
+}
+function editTol(id) {
+  let t = (flazzDataCache && flazzDataCache.tols || []).find(x => x.id === id);
+  if(!t) return showToast('Data tidak ditemukan', 'error');
+  let cards = (flazzDataCache && flazzDataCache.cards) || [];
+  document.getElementById('etol_card_id').innerHTML = cards.map(c => '<option value="'+c.id+'">'+c.card_number+'</option>').join('');
+  document.getElementById('etol_id').value = t.id;
+  document.getElementById('etol_card_id').value = t.card_id;
+  document.getElementById('etol_amount').value = t.amount;
+  document.getElementById('etol_notes').value = t.notes || '';
+  new bootstrap.Modal(document.getElementById('modal-edit-tol')).show();
+}
+function saveEditTol(e) {
+  e.preventDefault();
+  let payload = {
+    id: document.getElementById('etol_id').value,
+    card_id: document.getElementById('etol_card_id').value,
+    amount: document.getElementById('etol_amount').value,
+    notes: document.getElementById('etol_notes').value,
+    userInfo: flazzUserInfo()
+  };
+  google.script.run.withSuccessHandler(res => {
+    if(res.success){ showToast(res.msg, 'success'); bootstrap.Modal.getInstance(document.getElementById('modal-edit-tol')).hide(); loadFlazzDataWrapper(); }
+    else showToast(res.msg, 'error');
+  }).apiEditFlazzTol(payload);
+}
+function deleteTol(id) {
+  if(!confirm('Yakin menghapus tol ini? Saldo kartu akan dikembalikan nominal tersebut.')) return;
+  google.script.run.withSuccessHandler(res => {
+    if(res.success){ showToast(res.msg, 'success'); loadFlazzDataWrapper(); }
+    else showToast(res.msg, 'error');
+  }).apiDeleteFlazzTol(id);
+}
+function deleteBBMFlazz(trxId) {
+  let mode = confirm('Pilih: klik OK untuk HAPUS TOTAL baris BBM, atau Cancel untuk LEPAS DARI FLAZZ saja.') ? 'full' : 'detach';
+  let msg = mode === 'full' ? 'Yakin menghapus total baris BBM ini? Laporan BBM harian hari itu akan berubah.' : 'Lepas transaksi ini dari Flazz tanpa menghapus laporan BBM?';
+  if(!confirm(msg)) return;
+  google.script.run.withSuccessHandler(res => {
+    if(res.success){ showToast(res.msg, 'success'); loadFlazzDataWrapper(); }
+    else showToast(res.msg, 'error');
+  }).apiDeleteFlazzBBM(trxId, mode);
+}
+
+function formatDateShort(val) {
+   if(!val) return '-';
+   let d = new Date(val);
+   return d.toLocaleDateString('id-ID') + ' ' + d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+}
+function editFlazzCard(id) {
+  if (!flazzDataCache || !flazzDataCache.cards) return;
+  let card = flazzDataCache.cards.find(c => c.id === id);
+  if(!card) return;
+  
+  document.getElementById('f_card_id').value = card.id;
+  document.getElementById('f_card_number').value = card.card_number;
+  document.getElementById('f_card_type').value = card.card_type;
+  
+  let branchSelect = document.getElementById('f_branch_id');
+  branchSelect.innerHTML = document.getElementById('m_cabang') ? document.getElementById('m_cabang').innerHTML : '';
+  let driverSelect = document.getElementById('f_driver_id');
+  driverSelect.innerHTML = '<option value="">-- Tidak Ada / Kartu Bebas --</option>';
+  (allDrivers || []).forEach(d => driverSelect.innerHTML += '<option value="'+d.nama+'">'+d.nama+'</option>');
+  branchSelect.value = card.branch_id;
+  document.getElementById('f_driver_id').value = card.driver_id || '';
+  
+  document.getElementById('f_notes').value = card.notes || '';
+  
+  new bootstrap.Modal(document.getElementById('modal-flazz-card')).show();
+}
+</script>
+<script>
+function populateFlazzDriverVehicle() {
+  let drivers = allDrivers || [];
+  let vehicles = allVehicles || [];
+  
+  let uDriver = document.getElementById('u_driver_id');
+  let tolDriver = document.getElementById('tol_driver_id');
+  if(uDriver) uDriver.innerHTML = '<option value="">Pilih Supir...</option>';
+  if(tolDriver) tolDriver.innerHTML = '<option value="">Pilih Supir...</option>';
+  drivers.forEach(d => {
+    if(uDriver) uDriver.innerHTML += '<option value="' + d.nama + '">' + d.nama + '</option>';
+    if(tolDriver) tolDriver.innerHTML += '<option value="' + d.nama + '">' + d.nama + '</option>';
+  });
+  
+  let uVehicle = document.getElementById('u_vehicle_id');
+  let tolVehicle = document.getElementById('tol_vehicle_id');
+  if(uVehicle) uVehicle.innerHTML = '<option value="">Pilih Kendaraan...</option>';
+  if(tolVehicle) tolVehicle.innerHTML = '<option value="">Pilih Kendaraan...</option>';
+  vehicles.forEach(v => {
+    let txt = v.plat_nomor + ' - ' + v.nama;
+    if(uVehicle) uVehicle.innerHTML += '<option value="' + v.vehicle_id + '">' + txt + '</option>';
+    if(tolVehicle) tolVehicle.innerHTML += '<option value="' + v.vehicle_id + '">' + txt + '</option>';
+  });
+}
+
+// Override populateFlazzDropdowns to call this
+let origPopulateFlazzDropdowns = populateFlazzDropdowns;
+populateFlazzDropdowns = function(data) {
+  origPopulateFlazzDropdowns(data);
+  populateFlazzDriverVehicle();
+};
+</script>
+<script>
+function deleteFlazzCardClient(id) {
+  if(!confirm('Anda yakin ingin menghapus kartu ini? Pastikan saldo 0 dan tidak sedang digunakan.')) return;
+  google.script.run
+    .withSuccessHandler(res => {
+       if(res.success) { showToast(res.msg, 'success'); loadFlazzDataWrapper(); }
+       else { showToast(res.msg, 'error'); }
+    })
+    .apiDeleteFlazzCard(id);
+}
+</script><script>
+function onTolCardSelect() {
+  let cardId = document.getElementById('tol_card_id').value;
+  if(!cardId || !flazzDataCache) return;
+  let card = flazzDataCache.cards.find(c => c.id === cardId);
+  if(card && card.driver_id) {
+     let driverSelect = document.getElementById('tol_driver_id');
+     driverSelect.value = card.driver_id;
+     let drv = (typeof allDrivers !== 'undefined' ? allDrivers : []).find(d => d.nama === card.driver_id);
+     if(drv && drv.default_vehicle_id) {
+         document.getElementById('tol_vehicle_id').value = drv.default_vehicle_id;
+     }
+  }
+}
+
+function onUsageCardSelect() {
+  let cardId = document.getElementById('u_card_id').value;
+  if(!cardId || !flazzDataCache) return;
+  let card = flazzDataCache.cards.find(c => c.id === cardId);
+  if(card && card.driver_id) {
+     let driverSelect = document.getElementById('u_driver_id');
+     driverSelect.value = card.driver_id;
+     let drv = (typeof allDrivers !== 'undefined' ? allDrivers : []).find(d => d.nama === card.driver_id);
+     if(drv && drv.default_vehicle_id) {
+         document.getElementById('u_vehicle_id').value = drv.default_vehicle_id;
+     }
+  }
+}
+</script>
+<script>
+function onTolDriverChange() {
+  let driverName = document.getElementById('tol_driver_id').value;
+  if(!driverName) return;
+  let drv = (typeof allDrivers !== 'undefined' ? allDrivers : []).find(d => d.nama === driverName);
+  if(drv && drv.default_vehicle_id) {
+      document.getElementById('tol_vehicle_id').value = drv.default_vehicle_id;
+  }
+}
+
+function onUsageDriverChange() {
+  let driverName = document.getElementById('u_driver_id').value;
+  if(!driverName) return;
+  let drv = (typeof allDrivers !== 'undefined' ? allDrivers : []).find(d => d.nama === driverName);
+  if(drv && drv.default_vehicle_id) {
+      document.getElementById('u_vehicle_id').value = drv.default_vehicle_id;
+  }
+}
+</script>

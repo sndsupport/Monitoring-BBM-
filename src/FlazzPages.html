@@ -1,0 +1,353 @@
+<div id='page-flazz-dashboard' style='display:none;' class='fade-in'>
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class='mb-0 text-primary fw-bold'><i class='bi bi-credit-card-2-front me-2'></i>Dashboard Flazz</h4>
+    <button class="btn btn-outline-primary btn-sm" onclick="loadFlazzDashboard()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+  </div>
+  <div id='flazz-dashboard-loading' class='text-center py-5'>
+    <div class='spinner-border text-primary' role='status'></div>
+    <div class='mt-2 text-muted'>Memuat data flazz...</div>
+  </div>
+  <div id='flazz-dashboard-content' style="display:none;">
+    <div class="row g-3 mb-4" id="flazz-summary-cards">
+       <!-- cards injected here -->
+    </div>
+    
+    <div class="card shadow-sm border-0 rounded-4 mb-4">
+      <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+         <h5 class="fw-bold"><i class="bi bi-card-list me-2"></i>Status Kartu Saat Ini</h5>
+      </div>
+      <div class="card-body">
+         <div class="table-responsive">
+           <table class="table table-hover align-middle">
+             <thead class="table-light">
+               <tr>
+                 <th>Nomor Kartu</th>
+                 <th>Tipe</th>
+                 <th>Driver/Kendaraan</th>
+                 <th>Saldo Terakhir</th>
+                 <th>Status</th>
+               </tr>
+             </thead>
+             <tbody id="flazz-dashboard-table"></tbody>
+           </table>
+         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Master Kartu Flazz -->
+<div class='modal fade' id='modal-flazz-card' tabindex='-1'>
+  <div class='modal-dialog modal-dialog-centered'>
+    <div class='modal-content border-0 rounded-4 shadow'>
+      <div class='modal-header bg-primary text-white border-0'>
+        <h5 class='modal-title fw-bold'><i class='bi bi-credit-card me-2'></i>Form Kartu Flazz</h5>
+        <button type='button' class='btn-close btn-close-white' data-bs-dismiss='modal'></button>
+      </div>
+      <div class='modal-body p-4'>
+        <form id='form-flazz-card' onsubmit='saveFlazzCardForm(event)'>
+          <input type='hidden' id='f_card_id'>
+          <div class='mb-3'>
+            <label class='form-label text-muted small fw-bold'>Nomor Kartu</label>
+            <input type='text' id='f_card_number' class='form-control' required placeholder='ex: 0123456789'>
+          </div>
+          <div class='mb-3'>
+            <label class='form-label text-muted small fw-bold'>Tipe Kartu</label>
+            <select id='f_card_type' class='form-select' required>
+              <option value='BCA_FLAZZ'>BCA Flazz</option>
+              <option value='MANDIRI_EMONEY'>Mandiri E-Money</option>
+              <option value='BRI_BRIZZI'>BRI Brizzi</option>
+              <option value='BNI_TAPCASH'>BNI TapCash</option>
+            </select>
+          </div>
+          <div class='mb-3'>
+            <label class='form-label text-muted small fw-bold'>Cabang</label>
+            <select id='f_branch_id' class='form-select' required></select>
+          </div>
+          <div class='mb-3'>
+            <label class='form-label text-muted small fw-bold'>Supir Pemegang (Default)</label>
+            <select id='f_driver_id' class='form-select'>
+               <option value="">-- Tidak Ada / Kartu Bebas --</option>
+            </select>
+            <small class="text-muted" style="font-size:0.75rem">Kosongkan jika ini kartu cadangan atau bisa dipakai siapa saja.</small>
+          </div>
+          <div class='mb-3'>
+            <label class='form-label text-muted small fw-bold'>Keterangan Tambahan</label>
+            <textarea id='f_notes' class='form-control' rows='2'></textarea>
+          </div>
+          <button type='submit' class='btn btn-primary w-100 rounded-pill' id='btn-save-flazz-card'>Simpan Kartu</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div id='page-flazz-usage' style='display:none;' class='fade-in'>
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+      <div class="card shadow-sm border-0 rounded-4">
+        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+          <h4 class='mb-0 text-primary fw-bold'><i class='bi bi-arrow-left-right me-2'></i>Penyerahan Kartu ke Supir</h4>
+        </div>
+        <div class="card-body p-4">
+          <form id='form-flazz-usage' onsubmit='saveFlazzUsageForm(event)'>
+            <div class='mb-3'>
+              <label class='form-label text-muted small fw-bold'>Pilih Kartu Flazz (Status Tersedia)</label>
+              <select id='u_card_id' class='form-select' required onchange='onUsageCardSelect()'></select>
+            </div>
+            <div class='mb-3'>
+              <label class='form-label text-muted small fw-bold'>Supir yang Menerima</label>
+              <select id='u_driver_id' class='form-select' required onchange='onUsageDriverChange()'></select>
+            </div>
+            <div class='mb-3'>
+              <label class='form-label text-muted small fw-bold'>Tujuan Kendaraan</label>
+              <select id='u_vehicle_id' class='form-select' required></select>
+            </div>
+            <div class='mb-3'>
+              <label class='form-label text-muted small fw-bold'>Tipe Penggunaan</label>
+              <select id='u_usage_type' class='form-select' required>
+                <option value='PRIMARY'>Kartu Utama</option>
+                <option value='BACKUP'>Kartu Cadangan</option>
+              </select>
+            </div>
+            <div class='mb-4'>
+              <label class='form-label text-muted small fw-bold'>Catatan</label>
+              <input type='text' id='u_notes' class='form-control' placeholder='Cth: Diberikan untuk rute luar kota'>
+            </div>
+            <button type='submit' class='btn btn-primary w-100 rounded-pill py-2' id='btn-save-usage'>Catat Penyerahan</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div id='page-flazz-topup' style='display:none;' class='fade-in'>
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+      <div class="card shadow-sm border-0 rounded-4">
+        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+          <h4 class='mb-0 text-success fw-bold'><i class='bi bi-wallet2 me-2'></i>Top Up Saldo Flazz</h4>
+        </div>
+        <div class="card-body p-4">
+          <form id='form-flazz-topup' onsubmit='saveFlazzTopUpForm(event)'>
+            <div class='mb-3'>
+              <label class='form-label text-muted small fw-bold'>Pilih Kartu</label>
+              <select id='t_card_id' class='form-select' required></select>
+            </div>
+            <div class='mb-3'>
+              <label class='form-label text-muted small fw-bold'>Nominal Top Up</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light border-end-0 fw-bold">Rp</span>
+                <input type='number' id='t_amount' class='form-control border-start-0' required placeholder='100000'>
+              </div>
+            </div>
+            <div class='mb-3'>
+              <label class='form-label text-muted small fw-bold'>Bukti Top Up (Screenshot M-Banking dsb)</label>
+              <input type='file' id='t_foto_bukti' class='form-control' required accept='image/*'>
+            </div>
+            <div class='mb-4'>
+              <label class='form-label text-muted small fw-bold'>Catatan</label>
+              <input type='text' id='t_notes' class='form-control'>
+            </div>
+            <button type='submit' class='btn btn-success w-100 rounded-pill py-2' id='btn-save-topup'>Proses Top Up</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div id='page-flazz-tol' style='display:none;' class='fade-in'>
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+      <div class="card shadow-sm border-0 rounded-4">
+        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+          <h4 class='mb-0 text-info fw-bold'><i class='bi bi-signpost-2 me-2'></i>Catat Pengeluaran Tol</h4>
+          <p class="text-muted small mt-1">Gunakan form ini jika driver melapor struk tol secara manual atau saat closing harian.</p>
+        </div>
+        <div class="card-body p-4 pt-2">
+          <form id='form-flazz-tol' onsubmit='saveFlazzTolForm(event)'>
+            <div class='mb-3'>
+              <label class='form-label text-muted small fw-bold'>Pilih Kartu Flazz</label>
+              <select id='tol_card_id' class='form-select' required onchange='onTolCardSelect()'></select>
+            </div>
+            <div class='row g-2 mb-3'>
+              <div class="col-6">
+                <label class='form-label text-muted small fw-bold'>Supir</label>
+                <select id='tol_driver_id' class='form-select' required onchange='onTolDriverChange()'></select>
+              </div>
+              <div class="col-6">
+                <label class='form-label text-muted small fw-bold'>Kendaraan</label>
+                <select id='tol_vehicle_id' class='form-select' required></select>
+              </div>
+            </div>
+            <div class='mb-3'>
+              <label class='form-label text-muted small fw-bold'>Nominal Tol</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light border-end-0 fw-bold">Rp</span>
+                <input type='number' id='tol_amount' class='form-control border-start-0' required placeholder='25000'>
+              </div>
+            </div>
+            <div class='mb-3'>
+              <label class='form-label text-muted small fw-bold'>Foto Struk Tol</label>
+              <input type='file' id='tol_foto_bukti' class='form-control' required accept='image/*'>
+            </div>
+            <div class='mb-4'>
+              <label class='form-label text-muted small fw-bold'>Keterangan (ex: Gerbang Tol)</label>
+              <input type='text' id='tol_notes' class='form-control'>
+            </div>
+            <button type='submit' class='btn btn-info text-white w-100 rounded-pill py-2' id='btn-save-tol'>Catat Tol</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div id='page-flazz-recon' style='display:none;' class='fade-in'>
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+      <div class="card shadow-sm border-0 rounded-4">
+        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+          <h4 class='mb-0 text-danger fw-bold'><i class='bi bi-check2-all me-2'></i>Pengembalian & Rekonsiliasi</h4>
+          <p class="text-muted small mt-1">Form untuk mengembalikan kartu dari supir, mengecek sisa saldo fisik, dan menetralkan kembali kartu.</p>
+        </div>
+        <div class="card-body p-4 pt-2">
+          <form id='form-flazz-recon' onsubmit='saveFlazzReconForm(event)'>
+            <div class='mb-3'>
+              <label class='form-label text-muted small fw-bold'>Kartu (Yang Sedang Digunakan)</label>
+              <select id='r_card_id' class='form-select' onchange='onReconCardSelect()' required></select>
+            </div>
+            <div class='row g-2 mb-3'>
+              <div class="col-6">
+                <label class='form-label text-muted small fw-bold'>Saldo Di Sistem</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light">Rp</span>
+                  <input type='number' id='r_system_balance' class='form-control bg-light' readonly>
+                </div>
+              </div>
+              <div class="col-6">
+                <label class='form-label text-muted small fw-bold'>Saldo Fisik / Cek Asli</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light">Rp</span>
+                  <input type='number' id='r_actual_balance' class='form-control' oninput='calculateReconVariance()' required>
+                </div>
+              </div>
+            </div>
+            <div id="recon-variance-alert" class="alert alert-info py-2" style="display:none;"></div>
+            
+            <div class='mb-3'>
+              <label class='form-label text-muted small fw-bold'>Bukti Cek Saldo (Jika ada selisih)</label>
+              <input type='file' id='r_foto_bukti' class='form-control' accept='image/*'>
+            </div>
+            <div class='mb-3'>
+              <label class='form-label text-muted small fw-bold'>Tindakan pada Selisih</label>
+              <select id='r_action' class='form-select'>
+                <option value='ADJUST'>Ubah saldo sistem mengikuti saldo fisik (Adjust)</option>
+                <option value='IGNORE'>Abaikan selisih (Saldo sistem tetap)</option>
+              </select>
+            </div>
+            <div class='mb-4'>
+              <label class='form-label text-muted small fw-bold'>Catatan (Alasan selisih dsb)</label>
+              <input type='text' id='r_notes' class='form-control'>
+            </div>
+            <button type='submit' class='btn btn-danger w-100 rounded-pill py-2' id='btn-save-recon'>Selesaikan Rekonsiliasi</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id='page-flazz-history' style='display:none;' class='fade-in'>
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class='mb-0 text-primary fw-bold'><i class='bi bi-journal-text me-2'></i>Riwayat Flazz</h4>
+  </div>
+  <div class="card shadow-sm border-0 rounded-4 mb-4">
+     <div class="card-header bg-white">
+        <ul class="nav nav-tabs card-header-tabs" id="historyFlazzTabs">
+          <li class="nav-item">
+            <a class="nav-link active" href="#" onclick="showHistoryTab('topup', event)">Top Up</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" onclick="showHistoryTab('tol', event)">Tol</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" onclick="showHistoryTab('bbm', event)">BBM (Flazz)</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" onclick="showHistoryTab('usage', event)">Pemakaian</a>
+          </li>
+        </ul>
+     </div>
+     <div class="card-body p-0">
+        <div id="hist-topup-container" class="table-responsive p-2">
+           <table class="table align-middle"><tbody id="tb-hist-topup"></tbody></table>
+        </div>
+        <div id="hist-tol-container" class="table-responsive p-2" style="display:none;">
+           <table class="table align-middle"><tbody id="tb-hist-tol"></tbody></table>
+        </div>
+        <div id="hist-bbm-container" class="table-responsive p-2" style="display:none;">
+           <table class="table align-middle"><tbody id="tb-hist-bbm"></tbody></table>
+        </div>
+        <div id="hist-usage-container" class="table-responsive p-2" style="display:none;">
+           <table class="table align-middle"><tbody id="tb-hist-usage"></tbody></table>
+        </div>
+     </div>
+  </div>
+
+  <!-- Modal Edit Top Up -->
+  <div class="modal fade" id="modal-edit-topup" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Edit Top Up</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <form onsubmit="saveEditTopUp(event)">
+          <div class="modal-body">
+            <input type="hidden" id="et_id">
+            <div class="mb-2"><label class="form-label small">Kartu</label>
+              <select id="et_card_id" class="form-select"></select></div>
+            <div class="mb-2"><label class="form-label small">Nominal</label>
+              <input id="et_amount" type="number" class="form-control" required></div>
+            <div class="mb-2"><label class="form-label small">Catatan</label>
+              <input id="et_notes" class="form-control"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+            <button type="submit" class="btn btn-primary">Simpan</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Edit Tol -->
+  <div class="modal fade" id="modal-edit-tol" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Edit Tol</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <form onsubmit="saveEditTol(event)">
+          <div class="modal-body">
+            <input type="hidden" id="etol_id">
+            <div class="mb-2"><label class="form-label small">Kartu</label>
+              <select id="etol_card_id" class="form-select"></select></div>
+            <div class="mb-2"><label class="form-label small">Nominal</label>
+              <input id="etol_amount" type="number" class="form-control" required></div>
+            <div class="mb-2"><label class="form-label small">Catatan</label>
+              <input id="etol_notes" class="form-control"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+            <button type="submit" class="btn btn-primary">Simpan</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
