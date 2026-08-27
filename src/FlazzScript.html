@@ -412,71 +412,119 @@ function showHistoryTab(type, e) {
   document.getElementById('hist-' + type + '-container').style.display = 'block';
 }
 
+const HIST_PER = 10;
+let __flazzHist = null;
+let __histPage = { topup: 1, tol: 1, bbm: 1, usage: 1 };
+
 function renderFlazzHistory(data) {
-  let tbTopup = document.getElementById('tb-hist-topup');
-  let tbTol = document.getElementById('tb-hist-tol');
-  let tbBbm = document.getElementById('tb-hist-bbm');
-  let tbUsage = document.getElementById('tb-hist-usage');
-  
-  tbTopup.innerHTML = '';
-  data.topups.forEach(t => {
-     let cardStr = data.cards.find(c => c.id === t.card_id)?.card_number || t.card_id;
-     tbTopup.innerHTML += `<tr>
-       <td>${formatDateShort(t.date)}</td>
-       <td>${cardStr}</td>
-       <td class="fw-bold text-success">+${formatCurrency(t.amount)}</td>
-       <td><a href="${t.evidence_url}" target="_blank">Lihat Bukti</a></td>
-       <td>${t.notes}</td>
-       <td class="text-end text-nowrap">
-         <button class="btn btn-sm btn-outline-primary" onclick="editTopUp('${t.id}')"><i class="bi bi-pencil"></i></button>
-         <button class="btn btn-sm btn-outline-danger" onclick="deleteTopUp('${t.id}')"><i class="bi bi-trash"></i></button>
-       </td>
-     </tr>`;
+  __flazzHist = data;
+  __histPage = { topup: 1, tol: 1, bbm: 1, usage: 1 };
+  renderHistSection('topup');
+  renderHistSection('tol');
+  renderHistSection('bbm');
+  renderHistSection('usage');
+}
+
+function renderHistSection(type) {
+  let data = __flazzHist;
+  if(!data) return;
+  let list = [];
+  if (type === 'topup') list = data.topups || [];
+  else if (type === 'tol') list = data.tols || [];
+  else if (type === 'bbm') list = data.bbmFlazz || [];
+  else if (type === 'usage') list = data.usages || [];
+
+  let tbody = document.getElementById('tb-hist-' + type);
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  let totalPages = Math.max(1, Math.ceil(list.length / HIST_PER));
+  if (__histPage[type] > totalPages) __histPage[type] = totalPages;
+  let start = (__histPage[type] - 1) * HIST_PER;
+  let pageData = list.slice(start, start + HIST_PER);
+
+  pageData.forEach(t => {
+    if (type === 'topup') {
+      let cardStr = data.cards.find(c => c.id === t.card_id)?.card_number || t.card_id;
+      tbody.innerHTML += `<tr>
+        <td>${formatDateShort(t.date)}</td>
+        <td>${cardStr}</td>
+        <td class="fw-bold text-success">+${formatCurrency(t.amount)}</td>
+        <td><a href="${t.evidence_url}" target="_blank">Lihat Bukti</a></td>
+        <td>${t.notes}</td>
+        <td class="text-end text-nowrap">
+          <button class="btn btn-sm btn-outline-primary" onclick="editTopUp('${t.id}')"><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteTopUp('${t.id}')"><i class="bi bi-trash"></i></button>
+        </td>
+      </tr>`;
+    } else if (type === 'tol') {
+      let cardStr = data.cards.find(c => c.id === t.card_id)?.card_number || t.card_id;
+      tbody.innerHTML += `<tr>
+        <td>${formatDateShort(t.date)}</td>
+        <td>${cardStr}</td>
+        <td>${t.driver_id} / ${t.vehicle_id}</td>
+        <td class="fw-bold text-danger">-${formatCurrency(t.amount)}</td>
+        <td><a href="${t.evidence_url}" target="_blank">Lihat Bukti</a></td>
+        <td>${t.notes}</td>
+        <td class="text-end text-nowrap">
+          <button class="btn btn-sm btn-outline-primary" onclick="editTol('${t.id}')"><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteTol('${t.id}')"><i class="bi bi-trash"></i></button>
+        </td>
+      </tr>`;
+    } else if (type === 'usage') {
+      let cardStr = data.cards.find(c => c.id === t.card_id)?.card_number || t.card_id;
+      tbody.innerHTML += `<tr>
+        <td>${formatDateShort(t.date)}</td>
+        <td>${cardStr}</td>
+        <td>${t.driver_id} / ${t.vehicle_id}</td>
+        <td><span class="badge bg-secondary">${t.usage_type}</span></td>
+        <td>${t.notes}</td>
+      </tr>`;
+    } else if (type === 'bbm') {
+      let cardStr = data.cards.find(c => c.id === t.card_id)?.card_number || t.card_id;
+      tbody.innerHTML += `<tr>
+        <td>${formatDateShort(t.tanggal)}</td>
+        <td>${cardStr}</td>
+        <td>${t.driver} / ${t.vehicle}</td>
+        <td class="fw-bold text-danger">-${formatCurrency(t.amount)}</td>
+        <td><a href="${t.evidence}" target="_blank">Struk BBM</a></td>
+        <td class="text-end">
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteBBMFlazz('${t.transaction_id}')"><i class="bi bi-trash"></i></button>
+        </td>
+      </tr>`;
+    }
   });
 
-  tbTol.innerHTML = '';
-  data.tols.forEach(t => {
-     let cardStr = data.cards.find(c => c.id === t.card_id)?.card_number || t.card_id;
-     tbTol.innerHTML += `<tr>
-       <td>${formatDateShort(t.date)}</td>
-       <td>${cardStr}</td>
-       <td>${t.driver_id} / ${t.vehicle_id}</td>
-       <td class="fw-bold text-danger">-${formatCurrency(t.amount)}</td>
-       <td><a href="${t.evidence_url}" target="_blank">Lihat Bukti</a></td>
-       <td>${t.notes}</td>
-       <td class="text-end text-nowrap">
-         <button class="btn btn-sm btn-outline-primary" onclick="editTol('${t.id}')"><i class="bi bi-pencil"></i></button>
-         <button class="btn btn-sm btn-outline-danger" onclick="deleteTol('${t.id}')"><i class="bi bi-trash"></i></button>
-       </td>
-     </tr>`;
-  });
+  renderHistPagination(type, totalPages);
+}
 
-  tbUsage.innerHTML = '';
-  data.usages.forEach(t => {
-     let cardStr = data.cards.find(c => c.id === t.card_id)?.card_number || t.card_id;
-     tbUsage.innerHTML += `<tr>
-       <td>${formatDateShort(t.date)}</td>
-       <td>${cardStr}</td>
-       <td>${t.driver_id} / ${t.vehicle_id}</td>
-       <td><span class="badge bg-secondary">${t.usage_type}</span></td>
-       <td>${t.notes}</td>
-     </tr>`;
-  });
-  
-  tbBbm.innerHTML = '';
-  data.bbmFlazz.forEach(t => {
-     let cardStr = data.cards.find(c => c.id === t.card_id)?.card_number || t.card_id;
-     tbBbm.innerHTML += `<tr>
-       <td>${formatDateShort(t.tanggal)}</td>
-       <td>${cardStr}</td>
-       <td>${t.driver} / ${t.vehicle}</td>
-       <td class="fw-bold text-danger">-${formatCurrency(t.amount)}</td>
-       <td><a href="${t.evidence}" target="_blank">Struk BBM</a></td>
-       <td class="text-end">
-         <button class="btn btn-sm btn-outline-danger" onclick="deleteBBMFlazz('${t.transaction_id}')"><i class="bi bi-trash"></i></button>
-       </td>
-     </tr>`;
-  });
+function renderHistPagination(type, totalPages) {
+  let ul = document.getElementById('hist-page-' + type);
+  if(!ul) return;
+  if(totalPages <= 1){ ul.innerHTML = ''; return; }
+  let cur = __histPage[type] || 1;
+  let html = '';
+  html += "<li class='page-item" + (cur===1?" disabled":"") + "'><a class='page-link' href='#' onclick='histGotoPage(\"" + type + "\", " + (cur-1) + "); return false;'>&laquo;</a></li>";
+  for (let p = 1; p <= totalPages; p++) {
+    html += "<li class='page-item" + (p===cur?" active":"") + "'><a class='page-link' href='#' onclick='histGotoPage(\"" + type + "\", " + p + "); return false;'>" + p + "</a></li>";
+  }
+  html += "<li class='page-item" + (cur===totalPages?" disabled":"") + "'><a class='page-link' href='#' onclick='histGotoPage(\"" + type + "\", " + (cur+1) + "); return false;'>&raquo;</a></li>";
+  ul.innerHTML = html;
+}
+
+function histGotoPage(type, n) {
+  if(!__flazzHist) return;
+  let data = __flazzHist;
+  let len = 0;
+  if (type === 'topup') len = (data.topups||[]).length;
+  else if (type === 'tol') len = (data.tols||[]).length;
+  else if (type === 'bbm') len = (data.bbmFlazz||[]).length;
+  else if (type === 'usage') len = (data.usages||[]).length;
+  let total = Math.max(1, Math.ceil(len / HIST_PER));
+  if(n < 1) n = 1;
+  if(n > total) n = total;
+  __histPage[type] = n;
+  renderHistSection(type);
 }
 
 function editTopUp(id) {
