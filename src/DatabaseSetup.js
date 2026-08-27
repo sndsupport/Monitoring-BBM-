@@ -13,13 +13,19 @@ function setupDatabase() {
     { name: 'BBM', headers: ['bbm_id', 'jenis_bbm', 'harga_per_liter', 'status'] },
     { name: 'Pengguna', headers: ['user_id', 'username', 'password', 'nama', 'role', 'kode_cabang', 'status'] },
     { name: 'Kendaraan', headers: ['vehicle_id', 'plat_nomor', 'nama_kendaraan', 'jenis_kendaraan', 'merk', 'model', 'kapasitas_tangki', 'jumlah_bar', 'standar_km_l', 'kode_cabang', 'status'] },
-    { name: 'Penggunaan_BBM', headers: ['transaction_id', 'timestamp', 'tanggal', 'user_id', 'nama_pengguna', 'kode_cabang', 'vehicle_id', 'plat_nomor', 'foto_km_awal', 'ocr_km_awal', 'km_awal_confirmed', 'bar_awal', 'foto_km_akhir', 'ocr_km_akhir', 'km_akhir_confirmed', 'bar_akhir', 'km_tempuh', 'perubahan_bar', 'liter_bbm', 'biaya_bbm', 'foto_struk_bbm', 'biaya_toll', 'foto_struk_toll', 'km_per_liter', 'status', 'warning', 'nama_supir'] },
+    { name: 'Penggunaan_BBM', headers: ['transaction_id', 'timestamp', 'tanggal', 'user_id', 'nama_pengguna', 'kode_cabang', 'vehicle_id', 'plat_nomor', 'foto_km_awal', 'ocr_km_awal', 'km_awal_confirmed', 'bar_awal', 'foto_km_akhir', 'ocr_km_akhir', 'km_akhir_confirmed', 'bar_akhir', 'km_tempuh', 'perubahan_bar', 'liter_bbm', 'biaya_bbm', 'foto_struk_bbm', 'biaya_toll', 'foto_struk_toll', 'km_per_liter', 'status', 'warning', 'nama_supir', 'metode_pembayaran', 'flazz_card_id'] },
     { name: 'Pengisian_BBM', headers: ['fuel_id', 'timestamp', 'tanggal', 'vehicle_id', 'plat_nomor', 'user_id', 'km', 'jenis_bbm', 'liter', 'harga_per_liter', 'total_biaya', 'nama_spbu', 'foto_struk', 'status'] },
     { name: 'Foto_Evidence', headers: ['evidence_id', 'transaction_id', 'tipe_foto', 'file_url', 'file_id', 'timestamp'] },
     { name: 'Audit_Log', headers: ['log_id', 'timestamp', 'user_id', 'action', 'modul', 'keterangan', 'data_sebelum', 'data_sesudah'] },
     { name: 'Konfigurasi', headers: ['key', 'value', 'keterangan'] },
     { name: 'Dashboard', headers: ['Metrics', 'Value'] },
-    { name: 'Pengaturan', headers: ['key', 'value', 'updated_at'] }
+    { name: 'Pengaturan', headers: ['key', 'value', 'updated_at'] },
+    // --- FLAZZ MODULE SHEETS ---
+    { name: 'Flazz_Card', headers: ['id', 'card_number', 'card_type', 'branch_id', 'driver_id', 'last_balance', 'status', 'notes', 'created_at', 'updated_at'] },
+    { name: 'Flazz_Usage', headers: ['id', 'date', 'card_id', 'driver_id', 'vehicle_id', 'usage_type', 'primary_card_id', 'backup_card_id', 'reason', 'opening_balance', 'used_at', 'returned_at', 'status', 'created_by', 'created_at'] },
+    { name: 'Flazz_TopUp', headers: ['id', 'date', 'card_id', 'amount', 'evidence_url', 'notes', 'created_by', 'created_at'] },
+    { name: 'Flazz_Tol', headers: ['id', 'date', 'card_id', 'driver_id', 'vehicle_id', 'amount', 'evidence_url', 'notes', 'created_by', 'created_at'] },
+    { name: 'Flazz_Reconciliation', headers: ['id', 'date', 'card_id', 'driver_id', 'vehicle_id', 'opening_balance', 'total_topup', 'total_bbm_flazz', 'total_tol', 'total_expense', 'flazz_balance', 'actual_balance', 'difference', 'reconciliation_status', 'notes', 'reconciled_by', 'reconciled_at'] }
   ];
 
   sheets.forEach(sheetInfo => {
