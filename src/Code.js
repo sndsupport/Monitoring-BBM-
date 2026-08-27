@@ -124,31 +124,3 @@ function apiGetFlazzDashboardData(userInfo) { return getFlazzDashboardData(userI
 function apiDeleteFlazzCard(cardId) { return deleteFlazzCard(cardId); }
 function apiEditFlazzTopUp(payload) { return editFlazzTopUp(payload); }
 function apiDeleteFlazzTopUp(id) { return deleteFlazzTopUp(id); }
-function debugEvidenceUrl() {
-  var ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
-  var sheet = ss.getSheetByName('Flazz_TopUp');
-  var data = sheet.getDataRange().getValues();
-  if (data.length > 1) {
-    return data[data.length - 1][4]; // evidence_url index is 4
-  }
-  return 'no data';
-}
-function testUploadDummy() {
-  const dummyBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-  let res = uploadImageToDrive(dummyBase64, 'test_dummy.png', 'Flazz_TopUp');
-  return res;
-}
-function testFetchTopUpUrl() {
-  const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
-  const sheet = ss.getSheetByName('Flazz_TopUp');
-  const data = sheet.getDataRange().getValues();
-  if (data.length <= 1) return 'No data';
-  return data[data.length - 1][4];
-}
-function apiTestFetchTopUpUrl() {
-  const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
-  const sheet = ss.getSheetByName('Flazz_TopUp');
-  const data = sheet.getDataRange().getValues();
-  if (data.length <= 1) return 'No data';
-  return data[data.length - 1][4];
-}
