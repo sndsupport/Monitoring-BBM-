@@ -119,10 +119,25 @@ function saveTransactionEndOfDay(payload) {
     payload.serverData.files.odo_awal, payload.serverData.km_awal, km_awal, payload.bar_awal,
     payload.serverData.files.odo_akhir, payload.serverData.km_akhir, km_akhir, payload.bar_akhir,
     km_tempuh, (payload.bar_awal - payload.bar_akhir), liter, payload.biaya_bbm,
-    payload.serverData.files.struk_bbm || '', payload.biaya_toll, payload.serverData.files.struk_toll || '',
-    efisiensi, 'COMPLETED', warning, payload.nama_supir
+    payload.serverData.files.struk_bbm || '', 0, '',
+    efisiensi, 'COMPLETED', warning, payload.nama_supir,
+    payload.metode_pembayaran || 'TUNAI', payload.flazz_card_id || ''
   ];
   sheet.appendRow(row);
+  
+  // Jika menggunakan Flazz, potong saldo dan catat log
+  if (payload.metode_pembayaran === 'FLAZZ' && payload.flazz_card_id && parseFloat(payload.biaya_bbm) > 0) {
+    try {
+       // Logika pemotongan Flazz akan didelegasikan ke FlazzOps
+       // Jika FlazzOps.js di-load, panggil pengurangan saldo
+       if (typeof recordFlazzExpense === 'function') {
+           recordFlazzExpense(payload.flazz_card_id, 'BBM', parseFloat(payload.biaya_bbm), payload.serverData.files.struk_bbm, payload.tanggal);
+       }
+    } catch (e) {
+       Logger.log("Gagal memotong saldo flazz: " + e.toString());
+    }
+  }
+  
   return { success: true };
 }
 
@@ -288,6 +303,10 @@ function getRecentTransactions(role, userCabang) {
       efisiensi_label: roll.label,
       warning: row[25] || '',
       supir: row[26] || '-',
+      transaction_id: row[0],
+      biaya_bbm: parseFloat(row[19]) || 0,
+      metode_pembayaran: row[27] || 'TUNAI',
+      flazz_card_id: row[28] || '',
       foto_odo_awal: row[8],
       foto_odo_akhir: row[12],
       foto_odo_awal_thumb: driveThumbnail(row[8]),
@@ -295,6 +314,98 @@ function getRecentTransactions(role, userCabang) {
     });
   }
   return result;
+}
+
+function editDailyTransaction(payload) {
+  try {
+    const ss = getDB();
+    const sheet = ss.getSheetByName('Penggunaan_BBM');
+    if (!sheet) throw new Error('Sheet Penggunaan_BBM tidak ditemukan.');
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idxTrx = headers.indexOf('transaction_id');
+    const idxMetode = headers.indexOf('metode_pembayaran');
+    const idxCard = headers.indexOf('flazz_card_id');
+    const idxBiaya = headers.indexOf('biaya_bbm');
+    const idxNama = headers.indexOf('nama_supir');
+    const idxTgl = headers.indexOf('tanggal');
+
+    let rowIndex = -1, oldMetode = '', oldCard = null, oldBiaya = 0;
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][idxTrx]) === String(payload.transaction_id)) {
+        rowIndex = i + 1;
+        oldMetode = data[i][idxMetode];
+        oldCard = data[i][idxCard];
+        oldBiaya = parseFloat(data[i][idxBiaya]) || 0;
+        break;
+      }
+    }
+    if (rowIndex === -1) throw new Error('Transaksi tidak ditemukan.');
+
+    const newMetode = payload.metode_pembayaran || oldMetode;
+    const newCard = payload.flazz_card_id || '';
+    const newBiaya = parseFloat(payload.biaya_bbm) || 0;
+
+    sheet.getRange(rowIndex, idxMetode + 1).setValue(newMetode);
+    sheet.getRange(rowIndex, idxCard + 1).setValue(newCard);
+    sheet.getRange(rowIndex, idxBiaya + 1).setValue(newBiaya);
+    if (payload.nama_supir) sheet.getRange(rowIndex, idxNama + 1).setValue(payload.nama_supir);
+
+    const wasFlazz = oldMetode === 'FLAZZ' && oldCard;
+    const isFlazz = newMetode === 'FLAZZ' && newCard;
+    if (wasFlazz && isFlazz) {
+      if (oldCard === newCard) {
+        setCardBalance(newCard, (getCardBalance(newCard) || 0) + (oldBiaya - newBiaya));
+      } else {
+        setCardBalance(oldCard, (getCardBalance(oldCard) || 0) + oldBiaya);
+        setCardBalance(newCard, (getCardBalance(newCard) || 0) - newBiaya);
+      }
+    } else if (wasFlazz && !isFlazz) {
+      setCardBalance(oldCard, (getCardBalance(oldCard) || 0) + oldBiaya);
+    } else if (!wasFlazz && isFlazz) {
+      setCardBalance(newCard, (getCardBalance(newCard) || 0) - newBiaya);
+    }
+
+    return { success: true, msg: 'Transaksi BBM berhasil diperbarui.' };
+  } catch (err) {
+    return { success: false, msg: err.message };
+  }
+}
+
+function deleteDailyTransaction(transactionId) {
+  try {
+    const ss = getDB();
+    const sheet = ss.getSheetByName('Penggunaan_BBM');
+    if (!sheet) throw new Error('Sheet Penggunaan_BBM tidak ditemukan.');
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idxTrx = headers.indexOf('transaction_id');
+    const idxMetode = headers.indexOf('metode_pembayaran');
+    const idxCard = headers.indexOf('flazz_card_id');
+    const idxBiaya = headers.indexOf('biaya_bbm');
+
+    let rowIndex = -1, isFlazz = false, cardId = null, biaya = 0;
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][idxTrx]) === String(transactionId)) {
+        rowIndex = i + 1;
+        isFlazz = data[i][idxMetode] === 'FLAZZ';
+        cardId = data[i][idxCard];
+        biaya = parseFloat(data[i][idxBiaya]) || 0;
+        break;
+      }
+    }
+    if (rowIndex === -1) throw new Error('Transaksi tidak ditemukan.');
+
+    sheet.deleteRow(rowIndex);
+    if (isFlazz && cardId) {
+      setCardBalance(cardId, (getCardBalance(cardId) || 0) + biaya);
+    }
+    return { success: true, msg: 'Transaksi BBM dihapus.' };
+  } catch (err) {
+    return { success: false, msg: err.message };
+  }
 }
 
 function insertCabang(data) {
