@@ -126,3 +126,4 @@ function apiEditFlazzTopUp(payload) { return editFlazzTopUp(payload); }
 function apiDeleteFlazzTopUp(id) { return deleteFlazzTopUp(id); }
 function apiEditFlazzTol(payload) { return editFlazzTol(payload); }
 function apiDeleteFlazzTol(id) { return deleteFlazzTol(id); }
+function apiDeleteFlazzBBM(transactionId, mode) { return deleteFlazzBBM(transactionId, mode); }

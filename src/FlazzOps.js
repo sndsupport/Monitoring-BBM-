@@ -538,6 +538,7 @@ function getFlazzDashboardData(userRole, cabangId) {
        // transaction_id=0 ... metode_pembayaran is 27, flazz_card_id is 28.
        // It's safer to map by header.
        const headers = bbmData[0];
+       const trxIdx = headers.indexOf('transaction_id');
        const metodeIdx = headers.indexOf('metode_pembayaran');
        const cardIdx = headers.indexOf('flazz_card_id');
        const tglIdx = headers.indexOf('tanggal');
@@ -550,6 +551,7 @@ function getFlazzDashboardData(userRole, cabangId) {
          let row = bbmData[i];
          if (metodeIdx > -1 && row[metodeIdx] === 'FLAZZ' && cardIds.includes(row[cardIdx])) {
             bbmFlazz.push({
+               transaction_id: row[trxIdx],
                tanggal: (row[tglIdx] instanceof Date) ? row[tglIdx].toISOString() : row[tglIdx],
                card_id: row[cardIdx],
                amount: row[bbmIdx],
@@ -598,6 +600,51 @@ function deleteFlazzCard(cardId) {
     
     sheet.deleteRow(rowIndex);
     return { success: true, msg: 'Kartu berhasil dihapus.' };
+  } catch (err) {
+    return { success: false, msg: err.message };
+  }
+}
+
+// Hapus/lepas transaksi BBM Flazz dari Penggunaan_BBM
+// mode 'full'   : hapus baris total + kembalikan saldo
+// mode 'detach' : kosongkan metode_pembayaran & flazz_card_id, baris tetap, kembalikan saldo
+function deleteFlazzBBM(transactionId, mode) {
+  try {
+    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const sheet = ss.getSheetByName('Penggunaan_BBM');
+    if (!sheet) throw new Error('Sheet Penggunaan_BBM tidak ditemukan.');
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idxTrx = headers.indexOf('transaction_id');
+    const idxMetode = headers.indexOf('metode_pembayaran');
+    const idxCard = headers.indexOf('flazz_card_id');
+    const idxBiaya = headers.indexOf('biaya_bbm');
+
+    let rowIndex = -1, isFlazz = false, biaya = 0, cardId = null;
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][idxTrx]) === String(transactionId)) {
+        rowIndex = i + 1;
+        isFlazz = data[i][idxMetode] === 'FLAZZ';
+        biaya = parseFloat(data[i][idxBiaya]) || 0;
+        cardId = data[i][idxCard];
+        break;
+      }
+    }
+    if (rowIndex === -1) throw new Error('Transaksi BBM tidak ditemukan.');
+
+    if (mode === 'detach') {
+      sheet.getRange(rowIndex, idxMetode + 1).setValue('');
+      sheet.getRange(rowIndex, idxCard + 1).setValue('');
+    } else {
+      sheet.deleteRow(rowIndex);
+    }
+
+    if (isFlazz && cardId) {
+      setCardBalance(cardId, (getCardBalance(cardId) || 0) + biaya);
+    }
+
+    return { success: true, msg: mode === 'detach' ? 'Transaksi dilepas dari Flazz dan saldo dikembalikan.' : 'Transaksi BBM dihapus dan saldo dikembalikan.' };
   } catch (err) {
     return { success: false, msg: err.message };
   }
