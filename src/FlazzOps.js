@@ -324,6 +324,87 @@ function saveFlazzTol(payload) {
   }
 }
 
+// Edit Tol Flazz (sesuaikan saldo dengan selisih nominal, tanda terbalik karena mengurangi saldo)
+function editFlazzTol(payload) {
+  try {
+    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const sheet = ss.getSheetByName('Flazz_Tol');
+    if (!sheet) throw new Error('Sheet Flazz_Tol tidak ditemukan.');
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idxId = headers.indexOf('id');
+    const idxAmount = headers.indexOf('amount');
+    const idxNotes = headers.indexOf('notes');
+    const idxDate = headers.indexOf('date');
+    const idxCard = headers.indexOf('card_id');
+
+    let rowIndex = -1, oldAmount = 0, oldCard = null;
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][idxId] === payload.id) {
+        rowIndex = i + 1;
+        oldAmount = parseFloat(data[i][idxAmount]) || 0;
+        oldCard = data[i][idxCard];
+        break;
+      }
+    }
+    if (rowIndex === -1) throw new Error('Tol tidak ditemukan.');
+
+    const newCard = payload.card_id || oldCard;
+    const newAmount = parseFloat(payload.amount) || 0;
+    const diff = oldAmount - newAmount; // tambah saldo jika nominal berkurang
+
+    sheet.getRange(rowIndex, idxAmount + 1).setValue(newAmount);
+    sheet.getRange(rowIndex, idxNotes + 1).setValue(payload.notes || '');
+    if (payload.date) sheet.getRange(rowIndex, idxDate + 1).setValue(payload.date);
+    if (newCard !== oldCard) sheet.getRange(rowIndex, idxCard + 1).setValue(newCard);
+
+    if (newCard !== oldCard) {
+      setCardBalance(oldCard, (getCardBalance(oldCard) || 0) + oldAmount);
+      setCardBalance(newCard, (getCardBalance(newCard) || 0) - newAmount);
+    } else {
+      setCardBalance(newCard, (getCardBalance(newCard) || 0) + diff);
+    }
+
+    return { success: true, msg: 'Tol berhasil diperbarui.' };
+  } catch (err) {
+    return { success: false, msg: err.message };
+  }
+}
+
+// Hapus Tol Flazz (kembalikan saldo)
+function deleteFlazzTol(id) {
+  try {
+    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const sheet = ss.getSheetByName('Flazz_Tol');
+    if (!sheet) throw new Error('Sheet Flazz_Tol tidak ditemukan.');
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idxId = headers.indexOf('id');
+    const idxAmount = headers.indexOf('amount');
+    const idxCard = headers.indexOf('card_id');
+
+    let rowIndex = -1, oldAmount = 0, oldCard = null;
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][idxId] === id) {
+        rowIndex = i + 1;
+        oldAmount = parseFloat(data[i][idxAmount]) || 0;
+        oldCard = data[i][idxCard];
+        break;
+      }
+    }
+    if (rowIndex === -1) throw new Error('Tol tidak ditemukan.');
+
+    sheet.deleteRow(rowIndex);
+    if (oldCard) setCardBalance(oldCard, (getCardBalance(oldCard) || 0) + oldAmount);
+
+    return { success: true, msg: 'Tol berhasil dihapus dan saldo disesuaikan.' };
+  } catch (err) {
+    return { success: false, msg: err.message };
+  }
+}
+
 // Rekonsiliasi Flazz (Return & Closing)
 function saveFlazzRecon(payload) {
   try {

@@ -124,3 +124,5 @@ function apiGetFlazzDashboardData(userInfo) { return getFlazzDashboardData(userI
 function apiDeleteFlazzCard(cardId) { return deleteFlazzCard(cardId); }
 function apiEditFlazzTopUp(payload) { return editFlazzTopUp(payload); }
 function apiDeleteFlazzTopUp(id) { return deleteFlazzTopUp(id); }
+function apiEditFlazzTol(payload) { return editFlazzTol(payload); }
+function apiDeleteFlazzTol(id) { return deleteFlazzTol(id); }
