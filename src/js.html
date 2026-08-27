@@ -102,16 +102,31 @@
         var sidebarUserInfo = document.getElementById('sidebar-user-info');
         if (sidebarUserInfo) sidebarUserInfo.innerHTML = '<strong>' + data.user + '</strong><br><span class="text-muted" style="font-size: 0.85rem;">' + displayRole + ' &middot; ' + data.cabang + '</span>';
 
-        if (userRole === 'SUPERADMIN') {
+        if (userRole === 'SUPERADMIN' || userRole === 'PIC CABANG') {
           document.getElementById('nav-master').classList.remove('d-none');
-          document.getElementById('nav-settings').classList.remove('d-none');
           document.getElementById('btn-nav-master').style.display = 'flex';
+          
+          if (userRole !== 'SUPERADMIN') {
+             // Sembunyikan tab cabang dan BBM dari DOM dengan CSS inject atau hide element
+             let masterTabs = document.getElementById('master-tabs');
+             if (masterTabs) {
+                let btnCabang = masterTabs.querySelector('button[data-tab="cabang"]');
+                if (btnCabang) btnCabang.parentElement.style.display = 'none';
+                let btnBBM = masterTabs.querySelector('button[data-tab="bbm"]');
+                if (btnBBM) btnBBM.parentElement.style.display = 'none';
+             }
+          }
+        }
+
+        if (userRole === 'SUPERADMIN') {
+          document.getElementById('nav-settings').classList.remove('d-none');
           document.getElementById('btn-nav-settings').style.display = 'flex';
           var inputCabangFilter = document.getElementById('input-cabang-filter');
           if (inputCabangFilter) inputCabangFilter.style.display = 'block';
           var wrapperFilterCabang = document.getElementById('wrapper-filter-cabang');
           if (wrapperFilterCabang) wrapperFilterCabang.style.display = 'block';
         }
+
         
         let roleAlert = document.getElementById('role-alert');
         if (userRole === 'SUPERADMIN') {
@@ -189,6 +204,22 @@
           });
         }
 
+        let selectFlazz = document.getElementById('flazz_card_id');
+        if (selectFlazz && data.flazzCards) {
+          selectFlazz.innerHTML = '<option value="">Pilih Kartu...</option>';
+          data.flazzCards.forEach(f => {
+             // Hanya kartu yang status SEDANG_DIGUNAKAN (Atau biarkan admin pilih yang mana saja tapi disarankan SEDANG_DIGUNAKAN, 
+             // Untuk mempermudah, kita filter status SEDANG_DIGUNAKAN atau biarkan semua muncul jika role admin. Kita tampilkan semua aktif saja)
+             if(f.status !== 'NONAKTIF') {
+                let opt = document.createElement('option');
+                opt.value = f.id;
+                let driverName = f.driver_id ? ` [${f.driver_id}]` : '';
+                opt.text = f.card_number + ' - ' + f.card_type + driverName;
+                selectFlazz.appendChild(opt);
+             }
+          });
+        }
+
         let filterCabang = document.getElementById('filter-cabang');
         if (filterCabang && data.cabangList) {
           filterCabang.innerHTML = '<option value="">Semua Warehouse</option>';
@@ -247,6 +278,12 @@
     document.getElementById('page-master').style.display = 'none';
     document.getElementById('page-settings').style.display = 'none';
     
+    let flazzPages = ['dashboard', 'master', 'usage', 'topup', 'tol', 'recon', 'history'];
+    flazzPages.forEach(p => {
+       let el = document.getElementById('page-flazz-' + p);
+       if(el) el.style.display = 'none';
+    });
+    
     let sharedFilter = document.getElementById('shared-filter-card');
     if(sharedFilter) sharedFilter.style.display = (tab === 'dashboard' || tab === 'gallery') ? 'block' : 'none';
     
@@ -264,6 +301,11 @@
     } else if (tab === 'settings') {
       document.getElementById('page-settings').style.display = 'block';
       if (typeof loadSettings === 'function') loadSettings();
+    } else if (tab.startsWith('flazz-')) {
+      let flazzTab = tab.substring(6);
+      let pageEl = document.getElementById('page-flazz-' + flazzTab);
+      if(pageEl) pageEl.style.display = 'block';
+      if(typeof loadFlazzDataWrapper === 'function') loadFlazzDataWrapper();
     }
     
     document.querySelectorAll('.sidebar-link').forEach(el => el.classList.remove('active'));
@@ -359,11 +401,9 @@
     btn.classList.add('active');
   }
 
-  function toggleToll(value, btn) {
-    document.getElementById('isi_toll').value = value;
-    document.getElementById('toll-section').style.display = (value === 'Ya') ? 'block' : 'none';
-    btn.parentElement.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+  function toggleFlazzCardSelection() {
+    var metode = document.getElementById('metode_pembayaran').value;
+    document.getElementById('flazz-card-section').style.display = (metode === 'FLAZZ') ? 'block' : 'none';
   }
 
   function toggleSection(id, val) {
@@ -373,9 +413,8 @@
   function resetDailyForm() {
     document.getElementById('daily-form').reset();
     document.getElementById('isi_bensin').value = 'Tidak';
-    document.getElementById('isi_toll').value = 'Tidak';
     document.getElementById('bbm-section').style.display = 'none';
-    document.getElementById('toll-section').style.display = 'none';
+    document.getElementById('flazz-card-section').style.display = 'none';
 
     document.querySelectorAll('#daily-form .toggle-group').forEach(group => {
       group.querySelectorAll('.toggle-btn').forEach((b, idx) => b.classList.toggle('active', idx === 0));
@@ -423,11 +462,18 @@
     let odoAwal = document.getElementById('foto_odo_awal').files[0];
     let odoAkhir = document.getElementById('foto_odo_akhir').files[0];
     let strukBBM = document.getElementById('foto_struk_bbm').files[0];
-    let strukToll = document.getElementById('foto_struk_toll').files[0];
 
     if (!document.getElementById('daily-form').checkValidity()) {
       document.getElementById('daily-form').reportValidity();
       return;
+    }
+    
+    let metode_pembayaran = document.getElementById('metode_pembayaran') ? document.getElementById('metode_pembayaran').value : 'TUNAI';
+    let flazz_card_id = document.getElementById('flazz_card_id') ? document.getElementById('flazz_card_id').value : '';
+    
+    if (document.getElementById('isi_bensin').value === 'Ya' && metode_pembayaran === 'FLAZZ' && !flazz_card_id) {
+       showToast('Harap pilih Kartu Flazz jika metode pembayaran menggunakan Flazz.', 'error');
+       return;
     }
 
     let btn = document.getElementById('btn-process');
@@ -438,7 +484,7 @@
     try {
       let bbmSelect = document.getElementById('jenis_bbm');
       let bbmNama = '';
-      if(bbmSelect.selectedIndex > 0) {
+      if(bbmSelect && bbmSelect.selectedIndex > 0) {
         bbmNama = bbmSelect.options[bbmSelect.selectedIndex].dataset.jenis;
       }
 
@@ -448,18 +494,17 @@
         tanggal: document.getElementById('tanggal').value,
         bar_awal: document.getElementById('bar_awal').value,
         bar_akhir: document.getElementById('bar_akhir').value,
-        liter_bbm: document.getElementById('liter_bbm').value || 0,
-        biaya_bbm: document.getElementById('biaya_bbm').value || 0,
+        liter_bbm: document.getElementById('liter_bbm') ? document.getElementById('liter_bbm').value || 0 : 0,
+        biaya_bbm: document.getElementById('biaya_bbm') ? document.getElementById('biaya_bbm').value || 0 : 0,
         jenis_bbm_nama: bbmNama,
-        biaya_toll: document.getElementById('biaya_toll').value || 0,
+        metode_pembayaran: metode_pembayaran,
+        flazz_card_id: flazz_card_id,
         foto_odo_awal: await getBase64(odoAwal),
         foto_odo_awal_name: odoAwal.name,
         foto_odo_akhir: await getBase64(odoAkhir),
         foto_odo_akhir_name: odoAkhir.name,
         foto_struk_bbm: strukBBM ? await getBase64(strukBBM) : null,
-        foto_struk_bbm_name: strukBBM ? strukBBM.name : null,
-        foto_struk_toll: strukToll ? await getBase64(strukToll) : null,
-        foto_struk_toll_name: strukToll ? strukToll.name : null
+        foto_struk_bbm_name: strukBBM ? strukBBM.name : null
       };
 
       google.script.run
@@ -473,7 +518,6 @@
               delete formDataPayload.foto_odo_awal;
               delete formDataPayload.foto_odo_akhir;
               delete formDataPayload.foto_struk_bbm;
-              delete formDataPayload.foto_struk_toll;
               updateOCRSummary();
               ocrModal.show();
            } else {
@@ -503,15 +547,13 @@
       document.getElementById('summary-km').textContent = kmTempuh + ' KM';
       document.getElementById('ocr-summary').style.display = 'block';
       
-      var literBBM = parseFloat(document.getElementById('liter_bbm').value) || 0;
-      var biayaBBM = parseFloat(document.getElementById('biaya_bbm').value) || 0;
-      var biayaToll = parseFloat(document.getElementById('biaya_toll').value) || 0;
+      var literBBM = parseFloat(document.getElementById('liter_bbm') ? document.getElementById('liter_bbm').value : 0) || 0;
+      var biayaBBM = parseFloat(document.getElementById('biaya_bbm') ? document.getElementById('biaya_bbm').value : 0) || 0;
       
-      var totalBiaya = biayaBBM + biayaToll;
+      var totalBiaya = biayaBBM; // Toll is removed
       
       document.getElementById('summary-bbm').textContent = literBBM ? literBBM + ' L' : '-';
       document.getElementById('summary-bbm-cost').textContent = biayaBBM ? formatCurrency(biayaBBM) : '-';
-      document.getElementById('summary-toll').textContent = biayaToll ? formatCurrency(biayaToll) : '-';
       document.getElementById('summary-total').textContent = formatCurrency(totalBiaya);
     } else {
       document.getElementById('ocr-summary').style.display = 'none';
@@ -590,6 +632,7 @@
           if (endTimestamp && row.timestamp > endTimestamp) return false;
           return true;
         });
+        window.__recent = data;
         
         if (data.length === 0) {
           emptyState.style.display = 'block';
@@ -606,7 +649,11 @@
             "<td class='text-nowrap'>" + row.vehicle + odoWarningBadgeHtml(row.warning) + "</td>" +
             "<td class='text-center text-nowrap'>" + row.km_tempuh + " KM</td>" +
             "<td class='text-center text-nowrap'>" + (row.isi_bbm > 0 ? row.isi_bbm + " L" : "-") + "</td>" +
-            "<td class='text-center'>" + (row.status_efisiensi === 'Data Belum Cukup' ? efisiensiBadge(row.status_efisiensi) : (row.efisiensi ? row.efisiensi + " KM/L" + (row.efisiensi_label ? " <small class='text-muted'>(" + row.efisiensi_label + ")</small>" : "") + efisiensiBadge(row.status_efisiensi) : "-")) + "</td>";
+            "<td class='text-center'>" + (row.status_efisiensi === 'Data Belum Cukup' ? efisiensiBadge(row.status_efisiensi) : (row.efisiensi ? row.efisiensi + " KM/L" + (row.efisiensi_label ? " <small class='text-muted'>(" + row.efisiensi_label + ")</small>" : "") + efisiensiBadge(row.status_efisiensi) : "-")) + "</td>" +
+            "<td class='text-end text-nowrap'>" +
+              "<button class='btn btn-sm btn-outline-primary' onclick='editDaily(" + JSON.stringify(row.transaction_id) + ")'><i class='bi bi-pencil'></i></button> " +
+              "<button class='btn btn-sm btn-outline-danger' onclick='deleteDaily(" + JSON.stringify(row.transaction_id) + ")'><i class='bi bi-trash'></i></button>" +
+            "</td>";
           tbody.appendChild(tr);
         });
         
@@ -640,6 +687,10 @@
               "</div>" +
               "<div class='d-flex justify-content-between align-items-center'>" +
                 "<small><i class='bi bi-fuel-pump me-1'></i> " + (row.status_efisiensi === 'Data Belum Cukup' ? efisiensiBadge(row.status_efisiensi) : (row.efisiensi ? row.efisiensi + " KM/L" + (row.efisiensi_label ? " <small class='text-muted'>(" + row.efisiensi_label + ")</small>" : "") + efisiensiBadge(row.status_efisiensi) : "-")) + "</small>" +
+              "</div>" +
+              "<div class='d-flex justify-content-end gap-2 mt-2'>" +
+                "<button class='btn btn-sm btn-outline-primary' onclick='editDaily(\"" + row.transaction_id + "\")'><i class='bi bi-pencil'></i> Edit</button> " +
+                "<button class='btn btn-sm btn-outline-danger' onclick='deleteDaily(\"" + row.transaction_id + "\")'><i class='bi bi-trash'></i> Hapus</button>" +
               "</div>" +
             "</div>";
           cardsContainer.appendChild(card);
@@ -685,6 +736,51 @@
         showToast('Gagal memuat dashboard: ' + err.message, 'error');
       })
       .getDashboardData(userInfo);
+  }
+
+  function editDaily(id) {
+    let row = (window.__recent || []).find(r => String(r.transaction_id) === String(id));
+    if(!row) return showToast('Data tidak ditemukan', 'error');
+    document.getElementById('ed_trx').value = row.transaction_id;
+    document.getElementById('ed_nama_supir').value = row.supir || '';
+    document.getElementById('ed_biaya').value = row.biaya_bbm || '';
+    let metode = document.getElementById('ed_metode');
+    if(metode){
+      metode.value = row.metode_pembayaran || 'TUNAI';
+      toggleEditFlazz();
+    }
+    let flazz = document.getElementById('ed_flazz_card_id');
+    if(flazz){
+      flazz.innerHTML = '<option value="">-- Pilih Kartu --</option>' + (flazzDataCache && flazzDataCache.cards ? flazzDataCache.cards.map(c=>'<option value="'+c.id+'">'+c.card_number+'</option>').join('') : '');
+      flazz.value = row.flazz_card_id || '';
+    }
+    new bootstrap.Modal(document.getElementById('modal-edit-daily')).show();
+  }
+  function toggleEditFlazz(){
+    let m = document.getElementById('ed_metode').value;
+    let f = document.getElementById('ed_flazz_row');
+    if(f) f.style.display = (m === 'FLAZZ') ? 'block' : 'none';
+  }
+  function saveEditDaily(e){
+    e.preventDefault();
+    let payload = {
+      transaction_id: document.getElementById('ed_trx').value,
+      nama_supir: document.getElementById('ed_nama_supir').value,
+      biaya_bbm: document.getElementById('ed_biaya').value,
+      metode_pembayaran: document.getElementById('ed_metode').value,
+      flazz_card_id: document.getElementById('ed_metode').value === 'FLAZZ' ? document.getElementById('ed_flazz_card_id').value : ''
+    };
+    google.script.run.withSuccessHandler(res => {
+      if(res.success){ showToast(res.msg, 'success'); bootstrap.Modal.getInstance(document.getElementById('modal-edit-daily')).hide(); loadDashboard(); }
+      else showToast(res.msg, 'error');
+    }).apiEditDailyTransaction(payload);
+  }
+  function deleteDaily(id){
+    if(!confirm('Yakin menghapus transaksi BBM ini? Jika ber-Flazz, saldo kartu akan dikembalikan.')) return;
+    google.script.run.withSuccessHandler(res => {
+      if(res.success){ showToast(res.msg, 'success'); loadDashboard(); }
+      else showToast(res.msg, 'error');
+    }).apiDeleteDailyTransaction(id);
   }
 
   function formatCurrency(value) {
@@ -959,6 +1055,13 @@
   }
 
   function loadMasterData(tab) {
+    tab = tab || 'kendaraan';
+    
+    if (tab === 'flazz') {
+       if (typeof loadFlazzDataWrapper === 'function') loadFlazzDataWrapper();
+       return;
+    }
+    
     google.script.run
       .withSuccessHandler(function(data) {
         if (tab === 'kendaraan') {
