@@ -1,4 +1,4 @@
-﻿function getFolderByNameOrCreate(folderName, parentFolder = DriveApp.getRootFolder()) {
+function getFolderByNameOrCreate(folderName, parentFolder = DriveApp.getRootFolder()) {
   let folders = parentFolder.getFoldersByName(folderName);
   if (folders.hasNext()) {
     return folders.next();
@@ -22,7 +22,11 @@ function uploadImageToDrive(base64Data, filename, subfolderName) {
     let mainFolder = getFolderByNameOrCreate('BBM_OPERASIONAL');
     // Simplified logic, in real use we navigate to proper subfolder
     
-    let blob = Utilities.newBlob(Utilities.base64Decode(base64Data.split(',')[1]), 'image/jpeg', filename);
+    let mimeType = 'image/jpeg';
+    let match = base64Data.match(/^data:(.*?);base64,/);
+    if (match) mimeType = match[1];
+    let base64String = match ? base64Data.split(',')[1] : base64Data;
+    let blob = Utilities.newBlob(Utilities.base64Decode(base64String), mimeType, filename);
     let file = mainFolder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     
