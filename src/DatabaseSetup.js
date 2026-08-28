@@ -12,8 +12,8 @@ function setupDatabase() {
     { name: 'Supir', headers: ['supir_id', 'nama_supir', 'kode_cabang', 'status'] },
     { name: 'BBM', headers: ['bbm_id', 'jenis_bbm', 'harga_per_liter', 'status'] },
     { name: 'Pengguna', headers: ['user_id', 'username', 'password', 'nama', 'role', 'kode_cabang', 'status'] },
-    { name: 'Kendaraan', headers: ['vehicle_id', 'plat_nomor', 'nama_kendaraan', 'jenis_kendaraan', 'merk', 'model', 'kapasitas_tangki', 'jumlah_bar', 'standar_km_l', 'kode_cabang', 'status'] },
-    { name: 'Penggunaan_BBM', headers: ['transaction_id', 'timestamp', 'tanggal', 'user_id', 'nama_pengguna', 'kode_cabang', 'vehicle_id', 'plat_nomor', 'foto_km_awal', 'ocr_km_awal', 'km_awal_confirmed', 'bar_awal', 'foto_km_akhir', 'ocr_km_akhir', 'km_akhir_confirmed', 'bar_akhir', 'km_tempuh', 'perubahan_bar', 'liter_bbm', 'biaya_bbm', 'foto_struk_bbm', 'biaya_toll', 'foto_struk_toll', 'km_per_liter', 'status', 'warning', 'nama_supir', 'metode_pembayaran', 'flazz_card_id'] },
+    { name: 'Kendaraan', headers: ['vehicle_id', 'plat_nomor', 'nama_kendaraan', 'jenis_kendaraan', 'merk', 'model', 'kapasitas_tangki', 'jumlah_bar', 'standar_km_l', 'kode_cabang', 'status', 'jenis_indikator'] },
+    { name: 'Penggunaan_BBM', headers: ['transaction_id', 'timestamp', 'tanggal', 'user_id', 'nama_pengguna', 'kode_cabang', 'vehicle_id', 'plat_nomor', 'foto_km_awal', 'ocr_km_awal', 'km_awal_confirmed', 'bar_awal', 'foto_km_akhir', 'ocr_km_akhir', 'km_akhir_confirmed', 'bar_akhir', 'km_tempuh', 'perubahan_bar', 'liter_bbm', 'biaya_bbm', 'foto_struk_bbm', 'biaya_toll', 'foto_struk_toll', 'km_per_liter', 'status', 'warning', 'nama_supir', 'metode_pembayaran', 'flazz_card_id', 'foto_indikator', 'level_bbm', 'confidence_bbm', 'level_status', 'keterangan'] },
     { name: 'Pengisian_BBM', headers: ['fuel_id', 'timestamp', 'tanggal', 'vehicle_id', 'plat_nomor', 'user_id', 'km', 'jenis_bbm', 'liter', 'harga_per_liter', 'total_biaya', 'nama_spbu', 'foto_struk', 'status'] },
     { name: 'Foto_Evidence', headers: ['evidence_id', 'transaction_id', 'tipe_foto', 'file_url', 'file_id', 'timestamp'] },
     { name: 'Audit_Log', headers: ['log_id', 'timestamp', 'user_id', 'action', 'modul', 'keterangan', 'data_sebelum', 'data_sesudah'] },
@@ -21,10 +21,10 @@ function setupDatabase() {
     { name: 'Dashboard', headers: ['Metrics', 'Value'] },
     { name: 'Pengaturan', headers: ['key', 'value', 'updated_at'] },
     // --- FLAZZ MODULE SHEETS ---
-    { name: 'Flazz_Card', headers: ['id', 'card_number', 'card_type', 'branch_id', 'driver_id', 'last_balance', 'status', 'notes', 'created_at', 'updated_at'] },
+    { name: 'Flazz_Card', headers: ['id', 'card_number', 'card_name', 'card_type', 'card_role', 'branch_id', 'driver_id', 'last_balance', 'status', 'notes', 'created_at', 'updated_at'] },
     { name: 'Flazz_Usage', headers: ['id', 'date', 'card_id', 'driver_id', 'vehicle_id', 'usage_type', 'primary_card_id', 'backup_card_id', 'reason', 'opening_balance', 'used_at', 'returned_at', 'status', 'created_by', 'created_at'] },
-    { name: 'Flazz_TopUp', headers: ['id', 'date', 'card_id', 'amount', 'evidence_url', 'notes', 'created_by', 'created_at'] },
-    { name: 'Flazz_Tol', headers: ['id', 'date', 'card_id', 'driver_id', 'vehicle_id', 'amount', 'evidence_url', 'notes', 'created_by', 'created_at'] },
+    { name: 'Flazz_TopUp', headers: ['id', 'date', 'card_id', 'amount', 'evidence_url', 'notes', 'created_by', 'created_at', 'is_deleted'] },
+    { name: 'Flazz_Tol', headers: ['id', 'date', 'card_id', 'driver_id', 'vehicle_id', 'amount', 'evidence_url', 'notes', 'created_by', 'created_at', 'is_deleted'] },
     { name: 'Flazz_Reconciliation', headers: ['id', 'date', 'card_id', 'driver_id', 'vehicle_id', 'opening_balance', 'total_topup', 'total_bbm_flazz', 'total_tol', 'total_expense', 'flazz_balance', 'actual_balance', 'difference', 'reconciliation_status', 'notes', 'reconciled_by', 'reconciled_at'] }
   ];
 
@@ -38,6 +38,21 @@ function setupDatabase() {
       sheet.getRange(1, 1, 1, sheetInfo.headers.length).setValues([sheetInfo.headers]);
       sheet.getRange(1, 1, 1, sheetInfo.headers.length).setFontWeight('bold').setBackground('#f3f3f3');
       sheet.setFrozenRows(1);
+    } else if (sheet.getLastRow() > 0 && sheetInfo.headers.length > 0) {
+      // Migrasi aman: tambahkan kolom baru (yang belum ada) di ujung kanan, tanpa menggeser data lama
+      const lastCol = sheet.getLastColumn();
+      const current = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+      const currentSet = {};
+      current.forEach((h, i) => { if (h !== '') currentSet[String(h)] = i + 1; });
+      let colIndex = lastCol;
+      sheetInfo.headers.forEach(h => {
+        if (h === '') return;
+        if (currentSet[String(h)] === undefined) {
+          colIndex += 1;
+          sheet.getRange(1, colIndex).setValues([[h]]);
+          sheet.getRange(1, colIndex).setFontWeight('bold').setBackground('#f3f3f3');
+        }
+      });
     }
   });
 
@@ -46,7 +61,7 @@ function setupDatabase() {
     pengaturanSheet.appendRow(['logo_url', '', new Date()]);
     pengaturanSheet.appendRow(['app_name', 'Monitoring BBM Operasional', new Date()]);
     pengaturanSheet.appendRow(['company_name', '', new Date()]);
-    pengaturanSheet.appendRow(['footer_text', '', new Date()]);
+    pengaturanSheet.appendRow(['footer_text', '© 2026 Tridaya Sinergi Indonesia', new Date()]);
   }
 
   Logger.log('Setup database selesai.');
@@ -101,12 +116,12 @@ function getAppSettings() {
   var sheet = ss.getSheetByName('Pengaturan');
 
   if (!sheet) {
-    return {
-      logo_url: '',
-      app_name: 'Monitoring BBM Operasional',
-      company_name: '',
-      footer_text: ''
-    };
+  return {
+    logo_url: '',
+    app_name: 'Monitoring BBM Operasional',
+    company_name: '',
+    footer_text: '© 2026 Tridaya Sinergi Indonesia'
+  };
   }
 
   var data = sheet.getDataRange().getValues();
@@ -120,7 +135,7 @@ function getAppSettings() {
     logo_url: settings.logo_url || '',
     app_name: settings.app_name || 'Monitoring BBM Operasional',
     company_name: settings.company_name || '',
-    footer_text: settings.footer_text || ''
+    footer_text: settings.footer_text || '© 2026 Tridaya Sinergi Indonesia'
   };
 }
 

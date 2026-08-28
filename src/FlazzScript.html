@@ -43,13 +43,21 @@ function loadFlazzDashboard() {
 }
 
 // Override loadFlazzDashboard call in switchTab if needed. We can just patch switchTab to call this.
-function loadFlazzDataWrapper() {
+function loadFlazzDataWrapper(force) {
+   if (!force && flazzDataCache) {
+      document.getElementById('flazz-dashboard-loading').style.display = 'none';
+      document.getElementById('flazz-dashboard-content').style.display = 'block';
+      renderFlazzDashboardCards(flazzDataCache);
+      renderFlazzMasterTable(flazzDataCache.cards);
+      populateFlazzDropdowns(flazzDataCache);
+      renderFlazzHistory(flazzDataCache);
+      return;
+   }
    let uInfo = {
        username: document.getElementById('login_username') ? document.getElementById('login_username').value : '',
        role: userRole,
        cabang: document.getElementById('input-cabang-filter') ? document.getElementById('input-cabang-filter').value : '' // fallback
    };
-   // If we already loaded data, we can use the cache, but let's just refresh.
    document.getElementById('flazz-dashboard-loading').style.display = 'block';
    document.getElementById('flazz-dashboard-content').style.display = 'none';
 
@@ -70,7 +78,7 @@ function loadFlazzDataWrapper() {
 function renderFlazzDashboardCards(data) {
   let cards = data.cards || [];
   let totalCards = cards.length;
-  let activeCards = cards.filter(c => c.status === 'SEDANG_DIGUNAKAN').length;
+  let activeCards = cards.filter(c => c.status !== 'NONAKTIF').length;
   let totalBalance = cards.reduce((sum, c) => sum + (parseFloat(c.last_balance) || 0), 0);
 
   let html = `
@@ -127,10 +135,13 @@ function renderFlazzMasterTable(cards) {
     tr.innerHTML = `
       <td><small class="text-muted">${c.id}</small></td>
       <td class="fw-bold">${c.card_number}</td>
-      <td>${c.card_type}</td>
+      <td>${c.card_name || '-'}</td>
+      <td>${c.card_type || '-'}</td>
+      <td><span class="badge ${c.card_role === 'UTAMA' ? 'bg-primary' : 'bg-secondary'}">${c.card_role || 'CADANGAN'}</span></td>
       <td>${c.branch_id}</td>
       <td class="fw-bold">${formatCurrency(c.last_balance)}</td>
       <td><span class="badge ${badgeClass}">${c.status}</span></td>
+      <td>${c.notes || ''}</td>
       <td class="text-end">
          <button class="btn btn-sm btn-outline-primary" onclick="editFlazzCard('${c.id}')"><i class="bi bi-pencil"></i></button> <button class="btn btn-sm btn-outline-danger" onclick="deleteFlazzCardClient('${c.id}')"><i class="bi bi-trash"></i></button>
       </td>
@@ -147,19 +158,27 @@ function populateFlazzDropdowns(data) {
   if(uCard) {
     uCard.innerHTML = '<option value="">Pilih Kartu...</option>';
     cards.filter(c => c.status === 'TERSEDIA').forEach(c => {
-       uCard.innerHTML += `<option value="${c.id}">${c.card_number} (${c.card_type}) - Saldo: ${formatCurrency(c.last_balance)}</option>`;
+       let pemegang = c.driver_id ? c.driver_id : 'Belum Ada Pemegang';
+       let info = c.card_number + ' - Pemegang: ' + pemegang;
+       if (c.notes) info += ' - Ket: ' + c.notes;
+       uCard.innerHTML += `<option value="${c.id}">${info}</option>`;
     });
   }
 
-  // Topup & Tol form (semua aktif)
+  // Topup & Tol form
   let tCard = document.getElementById('t_card_id');
   let tolCard = document.getElementById('tol_card_id');
   if(tCard) tCard.innerHTML = '<option value="">Pilih Kartu...</option>';
   if(tolCard) tolCard.innerHTML = '<option value="">Pilih Kartu...</option>';
   
+  // Top up: semua kartu aktif (bisa top up kapan saja)
   cards.filter(c => c.status !== 'NONAKTIF').forEach(c => {
      let opt = `<option value="${c.id}">${c.card_number} ${c.driver_id ? '['+c.driver_id+']' : ''} - ${formatCurrency(c.last_balance)}</option>`;
      if(tCard) tCard.innerHTML += opt;
+  });
+  // Tol: hanya kartu yang sedang digunakan supir
+  cards.filter(c => c.status === 'SEDANG_DIGUNAKAN').forEach(c => {
+     let opt = `<option value="${c.id}">${c.card_number} [${c.driver_id || '-'}] - ${formatCurrency(c.last_balance)}</option>`;
      if(tolCard) tolCard.innerHTML += opt;
   });
 
@@ -230,7 +249,9 @@ function saveFlazzCardForm(e) {
   let payload = {
     id: document.getElementById('f_card_id').value,
     card_number: document.getElementById('f_card_number').value,
+    card_name: document.getElementById('f_card_name').value,
     card_type: document.getElementById('f_card_type').value,
+    card_role: document.getElementById('f_card_role').value,
     branch_id: document.getElementById('f_branch_id').value,
     driver_id: document.getElementById('f_driver_id').value,
     notes: document.getElementById('f_notes').value
@@ -245,7 +266,7 @@ function saveFlazzCardForm(e) {
        if(res.success) {
          showToast(res.msg, 'success');
          bootstrap.Modal.getInstance(document.getElementById('modal-flazz-card')).hide();
-         loadFlazzDataWrapper();
+         loadFlazzDataWrapper(true);
        } else {
          showToast(res.msg, 'error');
        }
@@ -268,6 +289,7 @@ function saveFlazzTopUpForm(e) {
   let payload = {
     card_id: document.getElementById('t_card_id').value,
     amount: document.getElementById('t_amount').value,
+    tanggal: document.getElementById('t_date').value,
     notes: document.getElementById('t_notes').value,
     userInfo: flazzUserInfo(),
     foto_bukti_name: file.name
@@ -283,7 +305,7 @@ function saveFlazzTopUpForm(e) {
          if(res.success) {
            showToast(res.msg, 'success');
            document.getElementById('form-flazz-topup').reset();
-           loadFlazzDataWrapper();
+           loadFlazzDataWrapper(true);
          } else showToast(res.msg, 'error');
       }).apiSaveFlazzTopUp(payload);
   };
@@ -304,6 +326,7 @@ function saveFlazzTolForm(e) {
     driver_id: document.getElementById('tol_driver_id').value,
     vehicle_id: document.getElementById('tol_vehicle_id').value,
     amount: document.getElementById('tol_amount').value,
+    tanggal: document.getElementById('tol_date').value,
     notes: document.getElementById('tol_notes').value,
     userInfo: flazzUserInfo(),
     foto_bukti_name: file.name
@@ -319,7 +342,7 @@ function saveFlazzTolForm(e) {
          if(res.success) {
            showToast(res.msg, 'success');
            document.getElementById('form-flazz-tol').reset();
-           loadFlazzDataWrapper();
+           loadFlazzDataWrapper(true);
          } else showToast(res.msg, 'error');
       }).apiSaveFlazzTol(payload);
   };
@@ -333,12 +356,17 @@ function saveFlazzUsageForm(e) {
   btn.disabled = true;
   btn.innerHTML = 'Menyimpan...';
 
+  let usageType = document.getElementById('u_usage_type').value;
+  let notes = document.getElementById('u_notes').value;
   let payload = {
     card_id: document.getElementById('u_card_id').value,
     driver_id: document.getElementById('u_driver_id').value,
     vehicle_id: document.getElementById('u_vehicle_id').value,
-    usage_type: document.getElementById('u_usage_type').value,
-    notes: document.getElementById('u_notes').value,
+    usage_type: usageType,
+    primary_card_id: usageType === 'PRIMARY' ? document.getElementById('u_card_id').value : '',
+    backup_card_id: usageType === 'BACKUP' ? document.getElementById('u_card_id').value : '',
+    reason: notes,
+    notes: notes,
     userInfo: flazzUserInfo()
   };
 
@@ -349,7 +377,7 @@ function saveFlazzUsageForm(e) {
        if(res.success) {
          showToast(res.msg, 'success');
          document.getElementById('form-flazz-usage').reset();
-         loadFlazzDataWrapper();
+         loadFlazzDataWrapper(true);
        } else showToast(res.msg, 'error');
     }).apiSaveFlazzUsage(payload);
 }
@@ -381,7 +409,7 @@ function saveFlazzReconForm(e) {
            showToast(res.msg, 'success');
            document.getElementById('form-flazz-recon').reset();
            document.getElementById('recon-variance-alert').style.display = 'none';
-           loadFlazzDataWrapper();
+           loadFlazzDataWrapper(true);
          } else showToast(res.msg, 'error');
       }).apiSaveFlazzRecon(payload);
   };
@@ -408,21 +436,23 @@ function showHistoryTab(type, e) {
   document.getElementById('hist-tol-container').style.display = 'none';
   document.getElementById('hist-bbm-container').style.display = 'none';
   document.getElementById('hist-usage-container').style.display = 'none';
+  document.getElementById('hist-recon-container').style.display = 'none';
   
   document.getElementById('hist-' + type + '-container').style.display = 'block';
 }
 
 const HIST_PER = 10;
 let __flazzHist = null;
-let __histPage = { topup: 1, tol: 1, bbm: 1, usage: 1 };
+let __histPage = { topup: 1, tol: 1, bbm: 1, usage: 1, recon: 1 };
 
 function renderFlazzHistory(data) {
   __flazzHist = data;
-  __histPage = { topup: 1, tol: 1, bbm: 1, usage: 1 };
+  __histPage = { topup: 1, tol: 1, bbm: 1, usage: 1, recon: 1 };
   renderHistSection('topup');
   renderHistSection('tol');
   renderHistSection('bbm');
   renderHistSection('usage');
+  renderHistSection('recon');
 }
 
 function renderHistSection(type) {
@@ -433,6 +463,7 @@ function renderHistSection(type) {
   else if (type === 'tol') list = data.tols || [];
   else if (type === 'bbm') list = data.bbmFlazz || [];
   else if (type === 'usage') list = data.usages || [];
+  else if (type === 'recon') list = data.recons || [];
 
   let tbody = document.getElementById('tb-hist-' + type);
   if (!tbody) return;
@@ -492,6 +523,24 @@ function renderHistSection(type) {
           <button class="btn btn-sm btn-outline-danger" onclick="deleteBBMFlazz('${t.transaction_id}')"><i class="bi bi-trash"></i></button>
         </td>
       </tr>`;
+    } else if (type === 'recon') {
+      let cardStr = data.cards.find(c => c.id === t.card_id)?.card_number || t.card_id;
+      let statClass = t.reconciliation_status === 'SESUAI' ? 'bg-success' : 'bg-danger';
+      tbody.innerHTML += `<tr>
+        <td>${formatDateShort(t.date)}</td>
+        <td>${cardStr}</td>
+        <td>${t.driver_id ? t.driver_id + ' / ' : ''}${t.vehicle_id || ''}</td>
+        <td>${formatCurrency(t.opening_balance)}</td>
+        <td class="text-success">+${formatCurrency(t.total_topup)}</td>
+        <td class="text-danger">-${formatCurrency(t.total_bbm_flazz + t.total_tol)}</td>
+        <td class="fw-bold">${formatCurrency(t.flazz_balance)}</td>
+        <td>${formatCurrency(t.actual_balance)}</td>
+        <td class="${t.difference < 0 ? 'text-success' : 'text-danger'}">${formatCurrency(t.difference)}</td>
+        <td><span class="badge ${statClass}">${t.reconciliation_status}</span></td>
+        <td>${t.notes || ''}</td>
+        <td>${t.reconciled_by || ''}</td>
+        <td>${t.reconciled_at ? formatDateShort(t.reconciled_at) : '-'}</td>
+      </tr>`;
     }
   });
 
@@ -520,6 +569,7 @@ function histGotoPage(type, n) {
   else if (type === 'tol') len = (data.tols||[]).length;
   else if (type === 'bbm') len = (data.bbmFlazz||[]).length;
   else if (type === 'usage') len = (data.usages||[]).length;
+  else if (type === 'recon') len = (data.recons||[]).length;
   let total = Math.max(1, Math.ceil(len / HIST_PER));
   if(n < 1) n = 1;
   if(n > total) n = total;
@@ -530,11 +580,12 @@ function histGotoPage(type, n) {
 function editTopUp(id) {
   let t = (flazzDataCache && flazzDataCache.topups || []).find(x => x.id === id);
   if(!t) return showToast('Data tidak ditemukan', 'error');
-  let cards = (flazzDataCache && flazzDataCache.cards) || [];
+  let cards = ((flazzDataCache && flazzDataCache.cards) || []).filter(c => c.status !== 'NONAKTIF');
   document.getElementById('et_card_id').innerHTML = cards.map(c => '<option value="'+c.id+'">'+c.card_number+'</option>').join('');
   document.getElementById('et_id').value = t.id;
   document.getElementById('et_card_id').value = t.card_id;
   document.getElementById('et_amount').value = t.amount;
+  document.getElementById('et_date').value = t.date ? String(t.date).substring(0,10) : '';
   document.getElementById('et_notes').value = t.notes || '';
   new bootstrap.Modal(document.getElementById('modal-edit-topup')).show();
 }
@@ -544,29 +595,31 @@ function saveEditTopUp(e) {
     id: document.getElementById('et_id').value,
     card_id: document.getElementById('et_card_id').value,
     amount: document.getElementById('et_amount').value,
+    date: document.getElementById('et_date').value,
     notes: document.getElementById('et_notes').value,
     userInfo: flazzUserInfo()
   };
   google.script.run.withSuccessHandler(res => {
-    if(res.success){ showToast(res.msg, 'success'); bootstrap.Modal.getInstance(document.getElementById('modal-edit-topup')).hide(); loadFlazzDataWrapper(); }
+    if(res.success){ showToast(res.msg, 'success'); bootstrap.Modal.getInstance(document.getElementById('modal-edit-topup')).hide(); loadFlazzDataWrapper(true); }
     else showToast(res.msg, 'error');
   }).apiEditFlazzTopUp(payload);
 }
 function deleteTopUp(id) {
   if(!confirm('Yakin menghapus top up ini? Saldo kartu akan dikurangi nominal tersebut.')) return;
   google.script.run.withSuccessHandler(res => {
-    if(res.success){ showToast(res.msg, 'success'); loadFlazzDataWrapper(); }
+    if(res.success){ showToast(res.msg, 'success'); loadFlazzDataWrapper(true); }
     else showToast(res.msg, 'error');
   }).apiDeleteFlazzTopUp(id);
 }
 function editTol(id) {
   let t = (flazzDataCache && flazzDataCache.tols || []).find(x => x.id === id);
   if(!t) return showToast('Data tidak ditemukan', 'error');
-  let cards = (flazzDataCache && flazzDataCache.cards) || [];
+  let cards = ((flazzDataCache && flazzDataCache.cards) || []).filter(c => c.status !== 'NONAKTIF');
   document.getElementById('etol_card_id').innerHTML = cards.map(c => '<option value="'+c.id+'">'+c.card_number+'</option>').join('');
   document.getElementById('etol_id').value = t.id;
   document.getElementById('etol_card_id').value = t.card_id;
   document.getElementById('etol_amount').value = t.amount;
+  document.getElementById('etol_date').value = t.date ? String(t.date).substring(0,10) : '';
   document.getElementById('etol_notes').value = t.notes || '';
   new bootstrap.Modal(document.getElementById('modal-edit-tol')).show();
 }
@@ -576,29 +629,28 @@ function saveEditTol(e) {
     id: document.getElementById('etol_id').value,
     card_id: document.getElementById('etol_card_id').value,
     amount: document.getElementById('etol_amount').value,
+    date: document.getElementById('etol_date').value,
     notes: document.getElementById('etol_notes').value,
     userInfo: flazzUserInfo()
   };
   google.script.run.withSuccessHandler(res => {
-    if(res.success){ showToast(res.msg, 'success'); bootstrap.Modal.getInstance(document.getElementById('modal-edit-tol')).hide(); loadFlazzDataWrapper(); }
+    if(res.success){ showToast(res.msg, 'success'); bootstrap.Modal.getInstance(document.getElementById('modal-edit-tol')).hide(); loadFlazzDataWrapper(true); }
     else showToast(res.msg, 'error');
   }).apiEditFlazzTol(payload);
 }
 function deleteTol(id) {
   if(!confirm('Yakin menghapus tol ini? Saldo kartu akan dikembalikan nominal tersebut.')) return;
   google.script.run.withSuccessHandler(res => {
-    if(res.success){ showToast(res.msg, 'success'); loadFlazzDataWrapper(); }
+    if(res.success){ showToast(res.msg, 'success'); loadFlazzDataWrapper(true); }
     else showToast(res.msg, 'error');
   }).apiDeleteFlazzTol(id);
 }
 function deleteBBMFlazz(trxId) {
-  let mode = confirm('Pilih: klik OK untuk HAPUS TOTAL baris BBM, atau Cancel untuk LEPAS DARI FLAZZ saja.') ? 'full' : 'detach';
-  let msg = mode === 'full' ? 'Yakin menghapus total baris BBM ini? Laporan BBM harian hari itu akan berubah.' : 'Lepas transaksi ini dari Flazz tanpa menghapus laporan BBM?';
-  if(!confirm(msg)) return;
+  if(!confirm('Lepas transaksi BBM ini dari Flazz? Laporan harian tetap tersimpan, saldo kartu dikembalikan.')) return;
   google.script.run.withSuccessHandler(res => {
-    if(res.success){ showToast(res.msg, 'success'); loadFlazzDataWrapper(); }
+    if(res.success){ showToast(res.msg, 'success'); loadFlazzDataWrapper(true); }
     else showToast(res.msg, 'error');
-  }).apiDeleteFlazzBBM(trxId, mode);
+  }).apiDeleteFlazzBBM(trxId, 'detach');
 }
 
 function formatDateShort(val) {
@@ -613,7 +665,9 @@ function editFlazzCard(id) {
   
   document.getElementById('f_card_id').value = card.id;
   document.getElementById('f_card_number').value = card.card_number;
+  document.getElementById('f_card_name').value = card.card_name || '';
   document.getElementById('f_card_type').value = card.card_type;
+  document.getElementById('f_card_role').value = card.card_role || 'CADANGAN';
   
   let branchSelect = document.getElementById('f_branch_id');
   branchSelect.innerHTML = document.getElementById('m_cabang') ? document.getElementById('m_cabang').innerHTML : '';
@@ -662,10 +716,10 @@ populateFlazzDropdowns = function(data) {
 </script>
 <script>
 function deleteFlazzCardClient(id) {
-  if(!confirm('Anda yakin ingin menghapus kartu ini? Pastikan saldo 0 dan tidak sedang digunakan.')) return;
+  if(!confirm('Anda yakin ingin menonaktifkan kartu ini? Pastikan saldo 0 dan tidak sedang digunakan. Kartu tidak akan terhapus permanen.')) return;
   google.script.run
     .withSuccessHandler(res => {
-       if(res.success) { showToast(res.msg, 'success'); loadFlazzDataWrapper(); }
+       if(res.success) { showToast(res.msg, 'success'); loadFlazzDataWrapper(true); }
        else { showToast(res.msg, 'error'); }
     })
     .apiDeleteFlazzCard(id);

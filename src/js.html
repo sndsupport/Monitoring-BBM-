@@ -80,11 +80,22 @@
 
     google.script.run
       .withFailureHandler(function(err) {
-         showToast('Terjadi kesalahan server: ' + err.message, 'error');
+         console.error('SERVER FAILURE:', err && err.stack || err);
+         var msg = err && err.message ? err.message : (err ? String(err) : 'unknown');
+         showToast('Terjadi kesalahan server: ' + msg, 'error');
          logout();
       })
       .withSuccessHandler(function(data) {
-        if (data.error) {
+        var isInvalidData = !data || typeof data !== 'object' || (Array.isArray && Array.isArray(data));
+        if (data && data.error) {
+           console.error('processInitialData error payload:', data);
+           showToast('Error server: ' + data.error, 'error');
+           logout();
+           return;
+        }
+        if (isInvalidData) {
+           console.error('processInitialData returned invalid data:', data);
+           showToast('Data server tidak valid (respons null). Coba muat ulang atau hubungi admin.', 'error');
            logout();
            return;
         }
@@ -247,6 +258,7 @@
 
         loadAppSettings();
         switchTab('form');
+        prefillFormFromLast(uInfo);
       })
       .processInitialData(uInfo);
   }
@@ -266,6 +278,16 @@
         }
         if (settings.company_name) {
           document.getElementById('login-company-name').innerText = settings.company_name;
+        }
+        if (settings.footer_text !== undefined && settings.footer_text !== null) {
+          var footer = document.getElementById('app-footer');
+          var footerText = document.getElementById('app-footer-text');
+          if (footer && footerText) {
+            if (settings.footer_text !== '') {
+              footerText.innerText = settings.footer_text;
+              footer.style.display = 'block';
+            }
+          }
         }
       })
       .getAppSettings();
@@ -420,7 +442,7 @@
       group.querySelectorAll('.toggle-btn').forEach((b, idx) => b.classList.toggle('active', idx === 0));
     });
 
-    ['preview-awal', 'preview-akhir'].forEach(id => {
+    ['preview-awal', 'preview-akhir', 'preview-indikator'].forEach(id => {
       const p = document.getElementById(id);
       p.style.display = 'none';
       const img = p.querySelector('img');
@@ -448,6 +470,45 @@
     formDataPayload = {};
   }
 
+  function prefillFormFromLast(userInfo) {
+    if (!userInfo || !userInfo.username) return;
+    var tglInput = document.getElementById('tanggal');
+    if (tglInput) {
+      var today = new Date();
+      tglInput.value = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+    }
+    google.script.run
+      .withFailureHandler(function () {})
+      .withSuccessHandler(function (res) {
+        if (!res || !res.pref) return;
+        var p = res.pref;
+        var vehSel = document.getElementById('vehicle');
+        if (vehSel) vehSel.value = p.vehicle_id || '';
+        var supirSel = document.getElementById('nama_supir');
+        if (supirSel) supirSel.value = p.nama_supir || '';
+        if (tglInput && p.tanggal) tglInput.value = p.tanggal;
+        var ba = document.getElementById('bar_awal');
+        if (ba) ba.value = p.bar_awal != null ? p.bar_awal : '';
+        var bk = document.getElementById('bar_akhir');
+        if (bk) bk.value = p.bar_akhir != null ? p.bar_akhir : '';
+        var bb = document.getElementById('biaya_bbm');
+        if (bb) bb.value = p.biaya_bbm || '';
+        var lit = document.getElementById('liter_bbm');
+        if (lit) lit.value = p.liter_bbm || '';
+        var met = document.getElementById('metode_pembayaran');
+        if (met) met.value = p.metode_pembayaran || 'TUNAI';
+        var fc = document.getElementById('flazz_card_id');
+        if (fc) fc.value = p.flazz_card_id || '';
+        var ket = document.getElementById('keterangan');
+        if (ket) ket.value = p.keterangan || '';
+        if (typeof toggleFlazzCardSelection === 'function') toggleFlazzCardSelection();
+        if (p.biaya_bbm > 0 && document.getElementById('isi_bensin')) {
+          var yaBtn = document.querySelector('#daily-form .toggle-group button:nth-of-type(2)');
+          if (yaBtn) toggleBBM('Ya', yaBtn);
+        }
+      }).getLastLaporanPrefill(userInfo);
+  }
+
   function getBase64(file) {
     return new Promise((resolve, reject) => {
       if (!file) { resolve(null); return; }
@@ -462,6 +523,7 @@
     let odoAwal = document.getElementById('foto_odo_awal').files[0];
     let odoAkhir = document.getElementById('foto_odo_akhir').files[0];
     let strukBBM = document.getElementById('foto_struk_bbm').files[0];
+    let fotoIndikator = document.getElementById('foto_indikator') ? document.getElementById('foto_indikator').files[0] : null;
 
     if (!document.getElementById('daily-form').checkValidity()) {
       document.getElementById('daily-form').reportValidity();
@@ -504,7 +566,12 @@
         foto_odo_akhir: await getBase64(odoAkhir),
         foto_odo_akhir_name: odoAkhir.name,
         foto_struk_bbm: strukBBM ? await getBase64(strukBBM) : null,
-        foto_struk_bbm_name: strukBBM ? strukBBM.name : null
+        foto_struk_bbm_name: strukBBM ? strukBBM.name : null,
+        foto_indikator: fotoIndikator ? await getBase64(fotoIndikator) : null,
+        foto_indikator_name: fotoIndikator ? fotoIndikator.name : null,
+        level_bbm: document.getElementById('level_bbm') ? document.getElementById('level_bbm').value : '',
+        confidence_bbm: document.getElementById('confidence_bbm') ? document.getElementById('confidence_bbm').value : '',
+        keterangan: document.getElementById('keterangan') ? document.getElementById('keterangan').value : ''
       };
 
       google.script.run
@@ -513,13 +580,31 @@
            btn.innerHTML = originalText;
            if(res.success) {
              document.getElementById('km_awal_val').value = res.km_awal || '';
-             document.getElementById('km_akhir_val').value = res.km_akhir || '';
-              formDataPayload.serverData = res;
-              delete formDataPayload.foto_odo_awal;
-              delete formDataPayload.foto_odo_akhir;
-              delete formDataPayload.foto_struk_bbm;
-              updateOCRSummary();
-              ocrModal.show();
+              document.getElementById('km_akhir_val').value = res.km_akhir || '';
+               formDataPayload.serverData = res;
+               delete formDataPayload.foto_odo_awal;
+               delete formDataPayload.foto_odo_akhir;
+               delete formDataPayload.foto_struk_bbm;
+               delete formDataPayload.foto_indikator;
+               delete formDataPayload.foto_indikator_name;
+
+               if (res.level_bbm !== undefined && res.level_bbm !== null && res.level_bbm !== '') {
+                 var lvlEl = document.getElementById('level_bbm');
+                 var confEl = document.getElementById('confidence_bbm');
+                 if (lvlEl) lvlEl.value = res.level_bbm;
+                 if (confEl && res.confidence_bbm !== undefined && res.confidence_bbm !== null && res.confidence_bbm !== '') {
+                   confEl.value = res.confidence_bbm;
+                 }
+                 var st = res.level_status || 'NOT_DETECTED';
+                 if (st === 'SUCCESS' || st === 'LOW_CONFIDENCE') {
+                   showToast(st === 'SUCCESS' ? ('Level BBM terdeteksi: ' + res.level_bbm + '%') : ('Level BBM terdeteksi (confidence rendah): ' + res.level_bbm + '%'), 'success');
+                 } else {
+                   showToast('Level indikator tidak terdeteksi otomatis. Isi manual jika diketahui.', 'warning');
+                 }
+               }
+
+               updateOCRSummary();
+               ocrModal.show();
            } else {
               showToast('Terjadi kesalahan memproses foto: ' + res.error, 'error');
            }
@@ -888,7 +973,10 @@
 
   function efisiensiBadge(status) {
     if (!status) return '';
-    const warna = status === 'Boros' ? 'danger' : (status === 'Irit' ? 'info' : (status === 'Data Belum Cukup' ? 'secondary' : 'success'));
+    let warna = 'success';
+    if (status === 'Di bawah standar') warna = 'danger';
+    else if (status === 'Di atas standar') warna = 'info';
+    else if (status === 'Data Belum Cukup') warna = 'secondary';
     return " <span class='badge bg-" + warna + "'>" + status + "</span>";
   }
 
@@ -976,6 +1064,7 @@
       document.getElementById('m_kapasitas').value = v.kapasitas_tangki || '';
       document.getElementById('m_bar').value = v.jumlah_bar || '';
       document.getElementById('m_standar').value = v.standar_km_l || '';
+      document.getElementById('m_jenis_indikator').value = v.jenis_indikator || 'DIGITAL_BAR';
       document.getElementById('m_cabang').value = v.cabang;
       var modal = new bootstrap.Modal(document.getElementById('modal-kendaraan'));
       modal.show();
@@ -1074,6 +1163,7 @@
       kapasitas_tangki: document.getElementById('m_kapasitas') ? document.getElementById('m_kapasitas').value : '',
       jumlah_bar: document.getElementById('m_bar') ? document.getElementById('m_bar').value : '',
       standar_km_l: document.getElementById('m_standar') ? document.getElementById('m_standar').value : '',
+      jenis_indikator: document.getElementById('m_jenis_indikator') ? document.getElementById('m_jenis_indikator').value : 'DIGITAL_BAR',
       cabang: document.getElementById('m_cabang').value
     };
     let editId = document.getElementById('m_edit_id_kendaraan').value;
@@ -1162,6 +1252,11 @@
     
     google.script.run
       .withSuccessHandler(function(data) {
+        if (!data || typeof data !== 'object') {
+           console.error('getMasterData returned invalid data:', data);
+           showToast('Gagal memuat data master: respons server tidak valid', 'error');
+           return;
+        }
         if (tab === 'kendaraan') {
           renderKendaraanList(data.vehicles || []);
         } else if (tab === 'cabang') {
@@ -1185,17 +1280,26 @@
       container.innerHTML = '<div class="list-group-item text-center text-muted py-4">Belum ada data kendaraan</div>';
       return;
     }
-    container.innerHTML = vehicles.map(v => 
-      '<div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3">' +
+    container.innerHTML = vehicles.map(v => {
+      let ind = v.jenis_indikator || 'DIGITAL_BAR';
+      let indLabel = ind === 'ANALOG_JARUM' ? 'Analog/Jarum' : ind === 'DIGITAL_ANGKA' ? 'Digital Angka' : ind === 'TIDAK_ADA' ? 'Tidak Ada' : ind === 'LAINNYA' ? 'Lainnya' : 'Digital Bar';
+      let estimasi = 0;
+      let k = parseFloat(v.kapasitas_tangki) || 0;
+      let s = parseFloat(v.standar_km_l) || 0;
+      if (k > 0 && s > 0) estimasi = Math.round(k * s);
+      let info = v.jenis + ' - ' + v.cabang;
+      if (estimasi > 0) info += ' · Est. jarak satu tangki: ±' + estimasi + ' KM';
+      return '<div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3">' +
         '<div class="d-flex align-items-center">' +
           '<div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 48px; height: 48px;">' +
             '<i class="bi ' + (v.jenis === 'Motor' ? 'bi-bicycle' : 'bi-car-front-fill') + ' fs-5"></i>' +
           '</div>' +
           '<div>' +
             '<div class="fw-bold mb-1 fs-6">' + v.plat_nomor + '</div>' +
-            '<div class="d-flex align-items-center small text-muted">' +
+            '<div class="d-flex align-items-center small text-muted flex-wrap">' +
               '<span class="badge bg-secondary me-2">' + v.nama + '</span>' +
-              '<span>' + v.jenis + ' - ' + v.cabang + '</span>' +
+              '<span class="me-2">' + info + '</span>' +
+              '<span class="badge bg-info text-dark">' + indLabel + '</span>' +
             '</div>' +
           '</div>' +
         '</div>' +
@@ -1203,8 +1307,8 @@
           '<button class="btn btn-sm btn-outline-primary me-2" aria-label="Edit kendaraan ' + v.plat_nomor + '" onclick="editKendaraan(\'' + v.vehicle_id + '\')"><i class="bi bi-pencil"></i></button>' +
           '<button class="btn btn-sm btn-outline-danger" aria-label="Hapus kendaraan ' + v.plat_nomor + '" onclick="deleteKendaraan(\'' + v.vehicle_id + '\')"><i class="bi bi-trash"></i></button>' +
         '</div>' +
-      '</div>'
-    ).join('');
+      '</div>';
+    }).join('');
   }
 
   function renderCabangList(cabangList) {

@@ -64,7 +64,8 @@ function getActiveVehicles(role, userCabang) {
         kapasitas_tangki: row[6],
         jumlah_bar: row[7],
         standar_km_l: row[8],
-        cabang: row[9]
+        cabang: row[9],
+        jenis_indikator: row[11] || 'DIGITAL_BAR'
       });
     }
   }
@@ -121,7 +122,11 @@ function saveTransactionEndOfDay(payload) {
     km_tempuh, (payload.bar_awal - payload.bar_akhir), liter, payload.biaya_bbm,
     payload.serverData.files.struk_bbm || '', 0, '',
     efisiensi, 'COMPLETED', warning, payload.nama_supir,
-    payload.metode_pembayaran || 'TUNAI', payload.flazz_card_id || ''
+    payload.metode_pembayaran || 'TUNAI', payload.flazz_card_id || '',
+    (payload.serverData && payload.serverData.files && payload.serverData.files.indikator) || '',
+    payload.level_bbm || '', payload.confidence_bbm || '',
+    (payload.serverData && payload.serverData.level_status) || (payload.level_bbm ? 'SUCCESS' : ''),
+    payload.keterangan || ''
   ];
   sheet.appendRow(row);
   
@@ -280,11 +285,11 @@ function getRecentTransactions(role, userCabang) {
       roll.label = ''; // Kosongkan label agar tidak muncul
     } else if (efisiensiVal > 0 && k.standar > 0) {
       if (efisiensiVal < k.standar) {
-        statusEfisiensi = 'Boros';
+        statusEfisiensi = 'Di bawah standar';
       } else if (efisiensiVal <= k.standar * 1.3) {
-        statusEfisiensi = 'Normal';
+        statusEfisiensi = 'Sesuai standar';
       } else {
-        statusEfisiensi = 'Irit';
+        statusEfisiensi = 'Di atas standar';
       }
     }
     
@@ -417,7 +422,7 @@ function insertCabang(data) {
 function insertKendaraan(data) {
   const ss = getDB();
   let id = 'V-' + new Date().getTime();
-  ss.getSheetByName('Kendaraan').appendRow([id, data.plat, data.nama, data.jenis || 'Mobil', data.merk || '', data.model || '', data.kapasitas_tangki || '', data.jumlah_bar || '', data.standar_km_l || '', data.cabang, 'Aktif']);
+  ss.getSheetByName('Kendaraan').appendRow([id, data.plat, data.nama, data.jenis || 'Mobil', data.merk || '', data.model || '', data.kapasitas_tangki || '', data.jumlah_bar || '', data.standar_km_l || '', data.cabang, 'Aktif', data.jenis_indikator || 'DIGITAL_BAR']);
   return { msg: 'Kendaraan Berhasil Ditambahkan' };
 }
 
@@ -504,6 +509,7 @@ function updateKendaraan(data) {
         data.merk || '', data.model || '', data.kapasitas_tangki || '',
         data.jumlah_bar || '', data.standar_km_l || '', data.cabang
       ]]);
+      sheet.getRange(i + 1, 12).setValue(data.jenis_indikator || 'DIGITAL_BAR');
       return { msg: 'Kendaraan Berhasil Diupdate' };
     }
   }

@@ -52,13 +52,26 @@
             <input type='text' id='f_card_number' class='form-control' required placeholder='ex: 0123456789'>
           </div>
           <div class='mb-3'>
-            <label class='form-label text-muted small fw-bold'>Tipe Kartu</label>
+            <label class='form-label text-muted small fw-bold'>Nama Kartu</label>
+            <input type='text' id='f_card_name' class='form-control' placeholder='ex: Flazz Operasional Jakarta'>
+            <small class="text-muted" style="font-size:0.75rem">Nama/seri kartu agar mudah dikenali (opsional, wajib untuk kartu UTAMA).</small>
+          </div>
+          <div class='mb-3'>
+            <label class='form-label text-muted small fw-bold'>Tipe Kartu (Jenis Fisik)</label>
             <select id='f_card_type' class='form-select' required>
               <option value='BCA_FLAZZ'>BCA Flazz</option>
               <option value='MANDIRI_EMONEY'>Mandiri E-Money</option>
               <option value='BRI_BRIZZI'>BRI Brizzi</option>
               <option value='BNI_TAPCASH'>BNI TapCash</option>
             </select>
+          </div>
+          <div class='mb-3'>
+            <label class='form-label text-muted small fw-bold'>Peran Kartu</label>
+            <select id='f_card_role' class='form-select' required>
+              <option value='CADANGAN'>Kartu Cadangan</option>
+              <option value='UTAMA'>Kartu Utama</option>
+            </select>
+            <small class="text-muted" style="font-size:0.75rem">Kartu Utama = kartu yang dipegang oleh satu kendaraan/supir secara rutin.</small>
           </div>
           <div class='mb-3'>
             <label class='form-label text-muted small fw-bold'>Cabang</label>
@@ -145,6 +158,11 @@
               </div>
             </div>
             <div class='mb-3'>
+              <label class='form-label text-muted small fw-bold'>Tanggal Top Up</label>
+              <input type='date' id='t_date' class='form-control'>
+              <small class="text-muted" style="font-size:0.75rem">Kosongkan jika sama dengan hari ini.</small>
+            </div>
+            <div class='mb-3'>
               <label class='form-label text-muted small fw-bold'>Bukti Top Up (Screenshot M-Banking dsb)</label>
               <input type='file' id='t_foto_bukti' class='form-control' required accept='image/*'>
             </div>
@@ -193,6 +211,11 @@
               </div>
             </div>
             <div class='mb-3'>
+              <label class='form-label text-muted small fw-bold'>Tanggal</label>
+              <input type='date' id='tol_date' class='form-control'>
+              <small class="text-muted" style="font-size:0.75rem">Kosongkan jika sama dengan hari ini.</small>
+            </div>
+            <div class='mb-3'>
               <label class='form-label text-muted small fw-bold'>Foto Struk Tol</label>
               <input type='file' id='tol_foto_bukti' class='form-control' required accept='image/*'>
             </div>
@@ -225,11 +248,12 @@
             </div>
             <div class='row g-2 mb-3'>
               <div class="col-6">
-                <label class='form-label text-muted small fw-bold'>Saldo Di Sistem</label>
+                <label class='form-label text-muted small fw-bold'>Saldo Di Sistem (Hitung Otomatis)</label>
                 <div class="input-group">
                   <span class="input-group-text bg-light">Rp</span>
                   <input type='number' id='r_system_balance' class='form-control bg-light' readonly>
                 </div>
+                <div class="form-text mt-1">Dihitung dari ledger (topup + saldo awal - BBM - tol) hingga periode ini.</div>
               </div>
               <div class="col-6">
                 <label class='form-label text-muted small fw-bold'>Saldo Fisik / Cek Asli</label>
@@ -283,6 +307,9 @@
           <li class="nav-item">
             <a class="nav-link" href="#" onclick="showHistoryTab('usage', event)">Pemakaian</a>
           </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" onclick="showHistoryTab('recon', event)">Rekonsiliasi</a>
+          </li>
         </ul>
      </div>
      <div class="card-body p-0">
@@ -302,6 +329,19 @@
            <table class="table align-middle"><tbody id="tb-hist-usage"></tbody></table>
            <nav class="mt-2"><ul class="pagination pagination-sm justify-content-center flex-wrap mb-0" id="hist-page-usage"></ul></nav>
         </div>
+        <div id="hist-recon-container" class="table-responsive p-2" style="display:none;">
+           <table class="table align-middle">
+             <thead class="table-light">
+               <tr>
+                 <th>Tanggal</th><th>Kartu</th><th>Pemegang</th><th>Saldo Awal</th>
+                 <th>Top Up</th><th>BBM+Tol</th><th>Saldo Sistem</th><th>Saldo Fisik</th>
+                 <th>Selisih</th><th>Status</th><th>Catatan</th><th>Oleh</th><th>Waktu</th>
+               </tr>
+             </thead>
+             <tbody id="tb-hist-recon"></tbody>
+           </table>
+           <nav class="mt-2"><ul class="pagination pagination-sm justify-content-center flex-wrap mb-0" id="hist-page-recon"></ul></nav>
+        </div>
      </div>
   </div>
 
@@ -318,6 +358,8 @@
               <select id="et_card_id" class="form-select"></select></div>
             <div class="mb-2"><label class="form-label small">Nominal</label>
               <input id="et_amount" type="number" class="form-control" required></div>
+            <div class="mb-2"><label class="form-label small">Tanggal</label>
+              <input id="et_date" type="date" class="form-control"></div>
             <div class="mb-2"><label class="form-label small">Catatan</label>
               <input id="et_notes" class="form-control"></div>
           </div>
@@ -343,6 +385,8 @@
               <select id="etol_card_id" class="form-select"></select></div>
             <div class="mb-2"><label class="form-label small">Nominal</label>
               <input id="etol_amount" type="number" class="form-control" required></div>
+            <div class="mb-2"><label class="form-label small">Tanggal</label>
+              <input id="etol_date" type="date" class="form-control"></div>
             <div class="mb-2"><label class="form-label small">Catatan</label>
               <input id="etol_notes" class="form-control"></div>
           </div>

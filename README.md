@@ -27,10 +27,23 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - **BBM:** Jenis, harga per liter.
 - **Manajemen Lengkap (CRUD):** Tambah, Edit, dan Hapus (Delete) dengan Bootstrap Modals interaktif untuk semua kategori.
 
+### Kartu & Transaksi Flazz
+- Kelola **Kartu Flazz**: nomor kartu, **nama kartu**, **tipe fisik** (`BCA_FLAZZ`, `MANDIRI_EMONEY`, `BRI_BRIZZI`, `BNI_TAPCASH`), **peran** (`UTAMA`/`CADANGAN`), saldo, cabang, supir pemegang, dan status.
+- Catat **Penyerahan Kartu ke Supir** (Penggunaan), **Isi Ulang (Top-Up)**, **Pengeluaran Tol**, dan **Rekonsiliasi** saldo.
+- **Full Reconciliation:** sistem menghitung saldo sistem otomatis dari ledger (saldo awal + top-up − BBM − tol), lalu dibandingkan dengan saldo fisik → status **`SESUAI`** / **`PERLU_PEMERIKSAAN`**, menandai kartu selesai/tersedia kembali, dan menyimpan riwayat rekonsiliasi.
+- **Soft-delete:** kartu dinonaktifkan (status `NONAKTIF`) alih-alih dihapus permanen; top-up/tol juga di-soft-delete dengan pengembalian saldo otomatis. Data finansial tidak pernah dihapus permanen.
+- **Validasi:** nomor kartu unik, nominal top-up/tol > 0, saldo tidak boleh negatif, dan nama kartu wajib untuk kartu `UTAMA`.
+- **Pre-fill formulir laporan:** form *Input Laporan* otomatis terisi tanggal hari ini serta data laporan harian terakhir (kendaraan, supir, bar BBM, biaya/liter, metode bayar, dll.).
+- **Performa:** Data dimuat sekali lalu di-cache di sisi client agar perpindahan tab menu Flazz cepat, dan otomatis di-refresh setelah aksi simpan/hapus.
+
 ### Smart OCR Odometer
 - Upload foto odometer awal dan akhir.
 - OCR cerdas otomatis menyaring angka *speedometer* (batas kecepatan) dan hanya mengekstrak angka panjang KM dari foto odometer.
 - Modal preview hasil OCR dengan perhitungan otomatis sebelum disimpan.
+
+### Deteksi Level BBM (AI/Gemini)
+- Foto **indikator bensin analog** dianalisis otomatis dengan **Gemini API** untuk menentukan level BBM dan tingkat keyakinan (confidence), dengan status kesesuaian.
+- **Config:** Simpan kunci API pada **Script Properties** dengan key `GEMINI_API_KEY` (tidak disimpan di repositori). Model yang digunakan: `gemini-3.6-flash`.
 
 ### Pengaturan Aplikasi (Superadmin)
 - Upload logo aplikasi (tersimpan di Google Drive).
@@ -52,12 +65,41 @@ Kode aplikasi ini dibuat untuk diunggah menggunakan [clasp](https://github.com/g
 
 ### 3. Setup Database Awal (Wajib)
 Setelah semua kode berada di Editor Apps Script:
-1. Buka file **`DatabaseSetup.gs`** di Editor Apps Script.
+1. Buka file **`DatabaseSetup.js`** di Editor Apps Script.
 2. Pilih fungsi **`setupDatabase`** pada menu dropdown di atas editor, lalu tekan tombol **Run**.
-   > Sistem akan membuat sheet `Cabang`, `Supir`, `BBM`, `Pengguna`, `Kendaraan`, `Penggunaan_BBM`, dan `Pengaturan`.
+   > Sistem akan membuat semua sheet: `Cabang`, `Supir`, `BBM`, `Pengguna`, `Kendaraan`, `Penggunaan_BBM`, `Pengisian_BBM`, `Foto_Evidence`, `Audit_Log`, `Konfigurasi`, `Dashboard`, `Pengaturan`, serta sheet modul Flazz (`Flazz_Card`, `Flazz_Usage`, `Flazz_TopUp`, `Flazz_Tol`, `Flazz_Reconciliation`).
+   > `setupDatabase` bersifat **idempotent**: untuk sheet yang sudah ada, ia hanya menambahkan kolom yang belum ada (mis. `card_name`, `card_role`, `is_deleted`) di ujung kanan tanpa menggeser data lama. Jalankan ulang setelah setiap pembaruan skema untuk menerapkan kolom baru ke sheet lama.
 3. (Opsional) Jalankan **`seedDummyData`** untuk mengisi data percobaan.
 
-### 4. Deploy Web App
+### 4. Pengembangan & Deploy dengan clasp
+Proyek ini dikembangkan dan di-deploy menggunakan **clasp** dari folder `src`:
+
+```bash
+cd src
+
+# Login & inisialisasi (sekali saja)
+clasp login
+clasp create --type standalone
+
+# Push semua kode ke Apps Script
+clasp push
+
+# Buat deployment Web App baru (versi baru setiap perubahan)
+clasp deploy -d "deskripsi perubahan"
+```
+
+> **Menjaga URL Web App tetap sama:** Untuk memperbarui ke link yang sudah dipakai tanpa mengganti URL, deploy ulang ke **deployment ID yang sama**:
+> ```bash
+> clasp deploy --deploymentId <DEPLOYMENT_ID> -d "deskripsi perubahan"
+> ```
+> Deployment ID diambil dari hasil `clasp deploy` / daftar `clasp deployments`.
+
+> **Catatan:** Setiap `clasp push` diikuti `clasp deploy` menghasilkan deployment baru. Kotak capaian deployment dibatasi (maksimal 20); jika penuh, hapus deployment lama dengan `clasp undeploy <deploymentId>` lalu buat yang baru.
+
+### 5. Menghubungkan ke Spreadsheet
+Ubah konstanta **Spreadsheet ID** di `DatabaseSetup.js` (dan `SpreadsheetOps.js`/`Code.js` jika diperlukan) dengan ID Spreadsheet Anda, lalu jalankan `setupDatabase`.
+
+### 6. Deploy Web App (Manual dari Editor)
 1. Klik **Deploy** > **New deployment** di pojok kanan atas Apps Script Editor.
 2. Pilih tipe **Web app**.
 3. Atur "Execute as" ke **User accessing the web app** dan "Who has access" ke **Anyone**.
@@ -73,15 +115,26 @@ Setelah menjalankan `seedDummyData()`:
 
 | File | Deskripsi |
 |------|-----------|
-| `Code.gs` | Backend utama, hubungkan UI dengan fungsi database. |
-| `DatabaseSetup.gs` | Inisialisasi tabel dan struktur Google Sheets. |
-| `SpreadsheetOps.gs` | CRUD ke Google Sheets. |
-| `DriveOps.gs` | Penyimpanan foto ke Google Drive. |
-| `OCRService.gs` | Ekstraksi teks dari foto odometer (OCR). |
-| `Index.html` | Struktur UI utama (Bootstrap 5 + mobile-first). |
-| `js.html` | Logika interaksi sisi client (JavaScript). |
+| `Code.js` | Backend utama, hubungkan UI dengan fungsi database; wrapper API, deteksi level BBM (Gemini), dan pre-fill formulir (`getLastLaporanPrefill`). |
+| `DatabaseSetup.js` | Inisialisasi tabel & struktur Google Sheets + migrasi kolom idempotent. |
+| `SpreadsheetOps.js` | CRUD ke Google Sheets. |
+| `DriveOps.js` | Penyimpanan foto ke Google Drive. |
+| `OCRService.js` | Ekstraksi teks dari foto odometer (OCR). |
+| `FlazzOps.js` | CRUD kartu & transaksi Flazz (header-safe), soft-delete, dan logika rekonsiliasi penuh ke Google Sheets. |
+| `Index.html` | Struktur UI utama (Bootstrap 5 + mobile-first) & sidebar navigasi. |
+| `js.html` | Logika interaksi sisi client (JavaScript), termasuk pre-fill formulir laporan. |
 | `css.html` | Gaya desain custom (responsive, mobile-first). |
-| `Settings.html` | Halaman pengaturan aplikasi (logo, nama, perusahaan). |
+| `Settings.html` | Halaman pengaturan aplikasi (logo, nama, perusahaan, footer). |
+| `FlazzPages.html` | Halaman UI modul Flazz (dashboard, kartu, penyerahan, top-up, tol, rekonsiliasi, riwayat). |
+| `FlazzScript.html` | Logika interaksi sisi client untuk modul Flazz (termasuk tab riwayat & rekonsiliasi, edit top-up/tol). |
+
+## Konfigurasi Tambahan
+
+| Key | Lokasi | Keterangan |
+|-----|--------|------------|
+| `GEMINI_API_KEY` | **Script Properties** | Kunci API Gemini untuk deteksi level BBM (model `gemini-3.6-flash`). Tidak boleh disimpan di repositori. |
+
+**Spreadsheet ID** dikonfigurasi di `FlazzOps.js` (`SpreadsheetApp.openById`) dan via `getDB()` di `SpreadsheetOps.js` / `DatabaseSetup.js`.
 
 ---
 
