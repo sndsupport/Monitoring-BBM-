@@ -85,6 +85,10 @@
             <i class='bi bi-images'></i>
             <span>Galeri</span>
           </button>
+          <button class='btn-nav' onclick='switchTab("jalur-buat")' data-tab='jalur-buat'>
+            <i class='bi bi-truck'></i>
+            <span>Jalur</span>
+          </button>
           <button class='btn-nav' onclick='switchTab("master")' data-tab='master' id='btn-nav-master' style='display:none;'>
             <i class='bi bi-gear'></i>
             <span>Master</span>
@@ -107,6 +111,13 @@
           </a>
           <a class='nav-link sidebar-link' id='tab-gallery' href='#' onclick='switchTab("gallery")'>
             <i class='bi bi-images'></i> <span>Galeri Foto</span>
+          </a>
+          <div class='sidebar-heading text-muted mt-3 mb-1 px-3 fw-bold' style='font-size:0.75rem'>JALUR</div>
+          <a class='nav-link sidebar-link' id='tab-jalur-buat' href='#' onclick='switchTab("jalur-buat")'>
+            <i class='bi bi-pencil-square'></i> <span>Buat Jadwal</span>
+          </a>
+          <a class='nav-link sidebar-link' id='tab-jalur-summary' href='#' onclick='switchTab("jalur-summary")'>
+            <i class='bi bi-clipboard-data'></i> <span>Summary Pengiriman</span>
           </a>
           <div class='sidebar-heading text-muted mt-3 mb-1 px-3 fw-bold' style='font-size:0.75rem'>FLAZZ</div>
           <a class='nav-link sidebar-link' id='tab-flazz-dashboard' href='#' onclick='switchTab("flazz-dashboard")'>
@@ -623,6 +634,10 @@
                           </select>
                         </div>
                         <div class='mb-3'>
+                          <label class='form-label'>Tanggal Jatuh Tempo Pajak</label>
+                          <input type='date' id='m_tanggal_pajak' class='form-control'>
+                        </div>
+                        <div class='mb-3'>
                           <label class='form-label'>Warehouse</label>
                           <select id='m_cabang' class='form-select' required></select>
                         </div>
@@ -783,12 +798,11 @@
                             <th>Nomor Kartu</th>
                             <th>Nama</th>
                             <th>Tipe</th>
-                            <th>Peran</th>
+                            <th>Kategori Kartu</th>
                             <th>Cabang</th>
                             <th>Saldo</th>
                             <th>Status</th>
-                            <th>Keterangan</th>
-                            <th class="text-end">Aksi</th>
+                            <th class="text-center">Aksi</th>
                          </tr>
                        </thead>
                        <tbody id="flazz-master-table"></tbody>
@@ -804,6 +818,7 @@
       
       <!-- HALAMAN FLAZZ -->
       <?!= include('FlazzPages'); ?>
+      <?!= include('JalurPages'); ?>
       <?!= include('Settings'); ?>
 
       <div class='app-footer' id='app-footer' style='display:none;'>
@@ -878,7 +893,9 @@
     </div>
     
     <script src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js'></script>
+    <?!= include('Html2canvasLib'); ?>
     <?!= include('FlazzScript'); ?>
+    <?!= include('JalurScript'); ?>
     <?!= include('js'); ?>
 
     <!-- Modal Edit Transaksi BBM -->

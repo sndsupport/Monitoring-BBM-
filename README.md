@@ -22,15 +22,17 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 
 ### Master Data Dinamis
 - **Cabang:** Kode, nama, lokasi, status.
-- **Kendaraan:** Plat nomor, nama, jenis (Mobil/Motor), cabang.
+- **Kendaraan:** Plat nomor, nama, jenis (Mobil/Motor), kapasitas tangki, jumlah bar, standar KM/L, jenis indikator (digital/analog), cabang, serta estimasi jarak satu tangki (`kapasitas_tangki × standar_km_l`).
 - **Supir:** Nama, cabang, dan relasi kendaraan default.
 - **BBM:** Jenis, harga per liter.
 - **Manajemen Lengkap (CRUD):** Tambah, Edit, dan Hapus (Delete) dengan Bootstrap Modals interaktif untuk semua kategori.
 
 ### Kartu & Transaksi Flazz
-- Kelola **Kartu Flazz**: nomor kartu, **nama kartu**, **tipe fisik** (`BCA_FLAZZ`, `MANDIRI_EMONEY`, `BRI_BRIZZI`, `BNI_TAPCASH`), **peran** (`UTAMA`/`CADANGAN`), saldo, cabang, supir pemegang, dan status.
+- Kelola **Kartu Flazz**: nomor kartu, **nama kartu**, **tipe fisik** (`BCA_FLAZZ`, `MANDIRI_EMONEY`, `BRI_BRIZZI`, `BNI_TAPCASH`), **kategori kartu** (peran: `UTAMA`/`CADANGAN`), saldo, cabang, **Supir Pemegang (Default)**, dan status. Nilai supir pemegang default disimpan di kolom `default_driver_id` sehingga tidak hilang saat kartu diserahkan/dikembalikan.
 - Catat **Penyerahan Kartu ke Supir** (Penggunaan), **Isi Ulang (Top-Up)**, **Pengeluaran Tol**, dan **Rekonsiliasi** saldo.
-- **Full Reconciliation:** sistem menghitung saldo sistem otomatis dari ledger (saldo awal + top-up − BBM − tol), lalu dibandingkan dengan saldo fisik → status **`SESUAI`** / **`PERLU_PEMERIKSAAN`**, menandai kartu selesai/tersedia kembali, dan menyimpan riwayat rekonsiliasi.
+- Transaksi top-up/tol (termasuk saat diedit) otomatis mencatat **tanggal + jam asli** saat transaksi dibuat/diubah — bukan sekadar tanggal tengah malam. Data tanggal yang hanya berisi tanggal ditampilkan tanpa jam palsu `00:00`.
+- Dashboard Flazz menampilkan **Total Kartu Aktif** (jumlah kartu berstatus `SEDANG_DIGUNAKAN`), **Total Saldo** seluruh kartu, dan **Top Up Terakhir** beserta waktunya.
+- **Full Reconciliation:** sistem menghitung saldo sistem otomatis dari ledger per periode pemakaian sejak kartu diserahkan (saldo awal + top-up − BBM − tol), lalu dibandingkan dengan saldo fisik → status **`SESUAI`** / **`PERLU_PEMERIKSAAN`**, menandai kartu tersedia kembali, menyimpan riwayat rekonsiliasi, dan **memulihkan supir pemegang ke nilai default** (`default_driver_id`). Pratinjau "Saldo Di Sistem" di form memakai rumus ledger yang sama dengan server, sehingga angka yang terlihat sebelum disimpan == angka yang tersimpan.
 - **Soft-delete:** kartu dinonaktifkan (status `NONAKTIF`) alih-alih dihapus permanen; top-up/tol juga di-soft-delete dengan pengembalian saldo otomatis. Data finansial tidak pernah dihapus permanen.
 - **Validasi:** nomor kartu unik, nominal top-up/tol > 0, saldo tidak boleh negatif, dan nama kartu wajib untuk kartu `UTAMA`.
 - **Pre-fill formulir laporan:** form *Input Laporan* otomatis terisi tanggal hari ini serta data laporan harian terakhir (kendaraan, supir, bar BBM, biaya/liter, metode bayar, dll.).
@@ -40,6 +42,13 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - Upload foto odometer awal dan akhir.
 - OCR cerdas otomatis menyaring angka *speedometer* (batas kecepatan) dan hanya mengekstrak angka panjang KM dari foto odometer.
 - Modal preview hasil OCR dengan perhitungan otomatis sebelum disimpan.
+
+### Jalur Pengiriman
+- **Buat Jadwal:** form multi-baris untuk mencatat jadwal pengiriman harian — tanggal, driver (supir), kendaraan, dan rute tujuan. Satu tanggal bisa menampung banyak baris/entri.
+- **Summary per Tanggal:** listing siapa yang bertugas, kendaraan apa, dan rute kemana pada tanggal terpilih, lengkap dengan header *Jalur Pengiriman / Tanggal Pengiriman / Dibuat oleh*.
+- **Bagikan ke WA:** tombol *Screenshot* merender summary menjadi pratinjau gambar (html2canvas, file lokal) yang bisa **disalin (Ctrl+C) lalu ditempel (Ctrl+V) langsung di WhatsApp** — tidak diunduh otomatis. Ada juga tombol *Bagikan WA* yang membuka `wa.me` dengan teks summary terisi.
+- **Reminder Pajak:** kolom `tanggal_pajak` pada master Kendaraan; listing menampilkan *badge* sisa hari pajak tahunan (kritis/waspada/aman) per kendaraan.
+- **Edit & Hapus:** setiap baris jadwal bisa diedit/dihapus (soft-delete).
 
 ### Deteksi Level BBM (AI/Gemini)
 - Foto **indikator bensin analog** dianalisis otomatis dengan **Gemini API** untuk menentukan level BBM dan tingkat keyakinan (confidence), dengan status kesesuaian.
@@ -67,7 +76,7 @@ Kode aplikasi ini dibuat untuk diunggah menggunakan [clasp](https://github.com/g
 Setelah semua kode berada di Editor Apps Script:
 1. Buka file **`DatabaseSetup.js`** di Editor Apps Script.
 2. Pilih fungsi **`setupDatabase`** pada menu dropdown di atas editor, lalu tekan tombol **Run**.
-   > Sistem akan membuat semua sheet: `Cabang`, `Supir`, `BBM`, `Pengguna`, `Kendaraan`, `Penggunaan_BBM`, `Pengisian_BBM`, `Foto_Evidence`, `Audit_Log`, `Konfigurasi`, `Dashboard`, `Pengaturan`, serta sheet modul Flazz (`Flazz_Card`, `Flazz_Usage`, `Flazz_TopUp`, `Flazz_Tol`, `Flazz_Reconciliation`).
+   > Sistem akan membuat semua sheet: `Cabang`, `Supir`, `BBM`, `Pengguna`, `Kendaraan` (termasuk kolom `tanggal_pajak`), `Penggunaan_BBM`, `Pengisian_BBM`, `Foto_Evidence`, `Audit_Log`, `Konfigurasi`, `Dashboard`, `Pengaturan`, sheet modul Flazz (`Flazz_Card`, `Flazz_Usage`, `Flazz_TopUp`, `Flazz_Tol`, `Flazz_Reconciliation`), serta sheet `Jalur_Pengiriman`.
    > `setupDatabase` bersifat **idempotent**: untuk sheet yang sudah ada, ia hanya menambahkan kolom yang belum ada (mis. `card_name`, `card_role`, `is_deleted`) di ujung kanan tanpa menggeser data lama. Jalankan ulang setelah setiap pembaruan skema untuk menerapkan kolom baru ke sheet lama.
 3. (Opsional) Jalankan **`seedDummyData`** untuk mengisi data percobaan.
 
@@ -121,12 +130,16 @@ Setelah menjalankan `seedDummyData()`:
 | `DriveOps.js` | Penyimpanan foto ke Google Drive. |
 | `OCRService.js` | Ekstraksi teks dari foto odometer (OCR). |
 | `FlazzOps.js` | CRUD kartu & transaksi Flazz (header-safe), soft-delete, dan logika rekonsiliasi penuh ke Google Sheets. |
+| `JalurOps.js` | CRUD jadwal pengiriman (header-safe) + helper perhitungan sisa hari pajak kendaraan. |
 | `Index.html` | Struktur UI utama (Bootstrap 5 + mobile-first) & sidebar navigasi. |
 | `js.html` | Logika interaksi sisi client (JavaScript), termasuk pre-fill formulir laporan. |
 | `css.html` | Gaya desain custom (responsive, mobile-first). |
 | `Settings.html` | Halaman pengaturan aplikasi (logo, nama, perusahaan, footer). |
 | `FlazzPages.html` | Halaman UI modul Flazz (dashboard, kartu, penyerahan, top-up, tol, rekonsiliasi, riwayat). |
 | `FlazzScript.html` | Logika interaksi sisi client untuk modul Flazz (termasuk tab riwayat & rekonsiliasi, edit top-up/tol). |
+| `JalurPages.html` | Halaman UI modul Jalur Pengiriman (buat jadwal & summary per tanggal). |
+| `JalurScript.html` | Logika interaksi sisi client untuk modul Jalur Pengiriman (render jadwal, screenshot, share WA). |
+| `Html2canvasLib.html` | Library html2canvas lokal (di-embed client-side) untuk pratinjau screenshot summary agar bisa disalin ke WhatsApp. |
 
 ## Konfigurasi Tambahan
 

@@ -44,28 +44,34 @@ function getActiveVehicles(role, userCabang) {
   if (!ss) return [];
   const sheet = ss.getSheetByName('Kendaraan');
   if (!sheet) return [];
-  
+
   const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const ci = {};
+  headers.forEach((h, i) => { ci[String(h)] = i; });
+  const iStatus = ci['status'];
+  const iCabang = ci['kode_cabang'];
   const activeVehicles = [];
-  
+
   for (let i = 1; i < data.length; i++) {
     let row = data[i];
-    if (row[10] === 'Aktif') { // status index 10
+    if (iStatus !== undefined && String(row[iStatus]) === 'Aktif') {
       // Filter cabang jika role bukan SUPERADMIN
-      if (role !== 'SUPERADMIN' && row[9] !== userCabang) continue;
-      
+      if (role !== 'SUPERADMIN' && iCabang !== undefined && row[iCabang] !== userCabang) continue;
+
       activeVehicles.push({
-        vehicle_id: row[0],
-        plat_nomor: row[1],
-        nama: row[2],
-        jenis: row[3] || 'Mobil',
-        merk: row[4],
-        model: row[5],
-        kapasitas_tangki: row[6],
-        jumlah_bar: row[7],
-        standar_km_l: row[8],
-        cabang: row[9],
-        jenis_indikator: row[11] || 'DIGITAL_BAR'
+        vehicle_id: row[ci['vehicle_id']],
+        plat_nomor: row[ci['plat_nomor']],
+        nama: row[ci['nama_kendaraan']],
+        jenis: (ci['jenis_kendaraan'] !== undefined && row[ci['jenis_kendaraan']]) || 'Mobil',
+        merk: row[ci['merk']],
+        model: row[ci['model']],
+        kapasitas_tangki: row[ci['kapasitas_tangki']],
+        jumlah_bar: row[ci['jumlah_bar']],
+        standar_km_l: row[ci['standar_km_l']],
+        cabang: row[ci['kode_cabang']],
+        jenis_indikator: (ci['jenis_indikator'] !== undefined && row[ci['jenis_indikator']]) || 'DIGITAL_BAR',
+        tanggal_pajak: (ci['tanggal_pajak'] !== undefined) ? row[ci['tanggal_pajak']] : ''
       });
     }
   }
@@ -422,7 +428,7 @@ function insertCabang(data) {
 function insertKendaraan(data) {
   const ss = getDB();
   let id = 'V-' + new Date().getTime();
-  ss.getSheetByName('Kendaraan').appendRow([id, data.plat, data.nama, data.jenis || 'Mobil', data.merk || '', data.model || '', data.kapasitas_tangki || '', data.jumlah_bar || '', data.standar_km_l || '', data.cabang, 'Aktif', data.jenis_indikator || 'DIGITAL_BAR']);
+  ss.getSheetByName('Kendaraan').appendRow([id, data.plat, data.nama, data.jenis || 'Mobil', data.merk || '', data.model || '', data.kapasitas_tangki || '', data.jumlah_bar || '', data.standar_km_l || '', data.cabang, 'Aktif', data.jenis_indikator || 'DIGITAL_BAR', data.tanggal_pajak || '']);
   return { msg: 'Kendaraan Berhasil Ditambahkan' };
 }
 
@@ -510,6 +516,11 @@ function updateKendaraan(data) {
         data.jumlah_bar || '', data.standar_km_l || '', data.cabang
       ]]);
       sheet.getRange(i + 1, 12).setValue(data.jenis_indikator || 'DIGITAL_BAR');
+      const hd = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+      const iPajak = hd.indexOf('tanggal_pajak');
+      if (iPajak > -1) {
+        sheet.getRange(i + 1, iPajak + 1).setValue(data.tanggal_pajak || '');
+      }
       return { msg: 'Kendaraan Berhasil Diupdate' };
     }
   }

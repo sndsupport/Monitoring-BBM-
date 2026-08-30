@@ -29,6 +29,7 @@ function getFlazzCardColIdx(sheet) {
     CARD_ROLE: idx['card_role'],
     BRANCH: idx['branch_id'],
     DRIVER: idx['driver_id'],
+    DEFAULT_DRIVER: idx['default_driver_id'],
     BALANCE: idx['last_balance'],
     STATUS: idx['status'],
     NOTES: idx['notes'],
@@ -135,6 +136,7 @@ function saveFlazzCard(cardData, userInfo) {
       if (c.CARD_ROLE !== undefined) sheet.getRange(r, c.CARD_ROLE + 1).setValue(cardData.card_role || 'CADANGAN');
       sheet.getRange(r, c.BRANCH + 1).setValue(cardData.branch_id);
       sheet.getRange(r, c.DRIVER + 1).setValue(cardData.driver_id || '');
+      if (c.DEFAULT_DRIVER !== undefined) sheet.getRange(r, c.DEFAULT_DRIVER + 1).setValue(cardData.driver_id || '');
       sheet.getRange(r, c.NOTES + 1).setValue(cardData.notes || '');
       sheet.getRange(r, c.UPDATED + 1).setValue(now);
 
@@ -150,6 +152,7 @@ function saveFlazzCard(cardData, userInfo) {
         card_role: cardData.card_role || 'CADANGAN',
         branch_id: cardData.branch_id,
         driver_id: cardData.driver_id || '',
+        default_driver_id: cardData.driver_id || '',
         last_balance: 0,
         status: 'TERSEDIA',
         notes: cardData.notes || '',
@@ -445,14 +448,23 @@ function deleteFlazzTol(id) {
   }
 }
 
-// Hitung ringkasan ledger Flazz untuk sebuah kartu (untuk rekonsiliasi/closing)
-function computeFlazzLedger(cardId, ss, sinceDate) {
+// Hitung ringkasan ledger Flazz untuk sebuah kartu (untuk rekonsiliasi/closing).
+// Periode = transaksi yang TERCATAT sejak sinceTime (momen kartu diserahkan = used_at).
+// Perbandingan memakai kolom timestamp pencatatan (created_at / timestamp), BUKAN tanggal
+// input, agar transaksi yang sudah masuk opening_balance tidak ikut terhitung dua kali.
+// Catatan/date yang tak terbaca dianggap DI LUAR periode (tidak dihitung).
+function computeFlazzLedger(cardId, ss, sinceTime) {
   const result = { opening_balance: 0, total_topup: 0, total_bbm_flazz: 0, total_tol: 0 };
-  const since = sinceDate ? new Date(sinceDate) : null;
-  const within = function(v) {
-    if (!since) return true;
-    if (v instanceof Date) return v.getTime() >= since.getTime();
-    return true; // tanggal tidak diketahui dianggap dalam periode
+  const since = sinceTime ? new Date(sinceTime).getTime() : null;
+  const after = function(v) {
+    if (since === null) return true;
+    let d = v;
+    if (!(d instanceof Date)) {
+      const parsed = new Date(v);
+      if (isNaN(parsed.getTime())) return false; // tanggal tak dikenal dianggap di luar periode
+      d = parsed;
+    }
+    return d.getTime() > since; // ketat: transaksi tepat pada momen penyerahan sudah masuk opening_balance
   };
 
   const topupSheet = ss.getSheetByName('Flazz_TopUp');
@@ -462,12 +474,13 @@ function computeFlazzLedger(cardId, ss, sinceDate) {
     const cCard = headers.indexOf('card_id');
     const cAmount = headers.indexOf('amount');
     const cDel = headers.indexOf('is_deleted');
-    const cDate = headers.indexOf('date');
+    const cDate = headers.indexOf('created_at');
+    const fallbackDate = headers.indexOf('date');
     for (let i = 1; i < data.length; i++) {
-      if (String(data[i][cCard]) === String(cardId) && within(data[i][cDate])) {
-        if (cDel > -1 && String(data[i][cDel]) === '1') continue;
-        result.total_topup += parseFloat(data[i][cAmount]) || 0;
-      }
+      if (String(data[i][cCard]) !== String(cardId)) continue;
+      if (cDel > -1 && String(data[i][cDel]) === '1') continue;
+      if (!after(cDate > -1 ? data[i][cDate] : data[i][fallbackDate])) continue;
+      result.total_topup += parseFloat(data[i][cAmount]) || 0;
     }
   }
 
@@ -478,12 +491,13 @@ function computeFlazzLedger(cardId, ss, sinceDate) {
     const cCard = headers.indexOf('card_id');
     const cAmount = headers.indexOf('amount');
     const cDel = headers.indexOf('is_deleted');
-    const cDate = headers.indexOf('date');
+    const cDate = headers.indexOf('created_at');
+    const fallbackDate = headers.indexOf('date');
     for (let i = 1; i < data.length; i++) {
-      if (String(data[i][cCard]) === String(cardId) && within(data[i][cDate])) {
-        if (cDel > -1 && String(data[i][cDel]) === '1') continue;
-        result.total_tol += parseFloat(data[i][cAmount]) || 0;
-      }
+      if (String(data[i][cCard]) !== String(cardId)) continue;
+      if (cDel > -1 && String(data[i][cDel]) === '1') continue;
+      if (!after(cDate > -1 ? data[i][cDate] : data[i][fallbackDate])) continue;
+      result.total_tol += parseFloat(data[i][cAmount]) || 0;
     }
   }
 
@@ -494,9 +508,10 @@ function computeFlazzLedger(cardId, ss, sinceDate) {
     const cMetode = headers.indexOf('metode_pembayaran');
     const cCard = headers.indexOf('flazz_card_id');
     const cBiaya = headers.indexOf('biaya_bbm');
-    const cTgl = headers.indexOf('tanggal');
+    const cStamp = headers.indexOf('timestamp');
+    const fallbackStamp = headers.indexOf('tanggal');
     for (let i = 1; i < data.length; i++) {
-      if (cMetode > -1 && cCard > -1 && data[i][cMetode] === 'FLAZZ' && String(data[i][cCard]) === String(cardId) && within(data[i][cTgl])) {
+      if (cMetode > -1 && cCard > -1 && data[i][cMetode] === 'FLAZZ' && String(data[i][cCard]) === String(cardId) && after(cStamp > -1 ? data[i][cStamp] : data[i][fallbackStamp])) {
         result.total_bbm_flazz += parseFloat(data[i][cBiaya]) || 0;
       }
     }
@@ -534,20 +549,22 @@ function saveFlazzRecon(payload) {
       const uCard = uHeaders.indexOf('card_id');
       const uStatus = uHeaders.indexOf('status');
       const uDate = uHeaders.indexOf('date');
+      const uUsed = uHeaders.indexOf('used_at');
       const uOpen = uHeaders.indexOf('opening_balance');
       const uDriver = uHeaders.indexOf('driver_id');
       const uVehicle = uHeaders.indexOf('vehicle_id');
       for (let i = 1; i < uData.length; i++) {
         if (String(uData[i][uCard]) === String(payload.card_id) && uData[i][uStatus] === 'DIBERIKAN') {
-          usageInfo = { idx: i + 1, date: uData[i][uDate], opening: parseFloat(uData[i][uOpen]) || 0, driver: uData[i][uDriver] || '', vehicle: uData[i][uVehicle] || '' };
+          usageInfo = { idx: i + 1, date: uData[i][uDate], usedAt: (uUsed > -1 && uData[i][uUsed]) || uData[i][uDate], opening: parseFloat(uData[i][uOpen]) || 0, driver: uData[i][uDriver] || '', vehicle: uData[i][uVehicle] || '' };
         }
       }
     }
 
     const openingBalance = usageInfo ? usageInfo.opening : 0;
-    let sinceDate = usageInfo && usageInfo.date ? new Date(usageInfo.date) : null;
-    // agar transaksi pada tanggal penyerahan ikut dihitung, mulai dari awal hari tsb
-    if (sinceDate) { sinceDate.setHours(0, 0, 0, 0); }
+    // Batas periode = momen penyerahan kartu (used_at = waktu pencatatan, bukan tanggal input).
+    // Transaksi yang tercatat sebelum momen itu sudah termasuk opening_balance, jadi periode
+    // ledger hanya menghitung transaksi yang tercatat SETELAH momen penyerahan.
+    let sinceDate = usageInfo && usageInfo.usedAt ? new Date(usageInfo.usedAt) : null;
 
     const ledger = computeFlazzLedger(payload.card_id, ss, sinceDate);
     const flazzBalance = +(openingBalance + ledger.total_topup - ledger.total_bbm_flazz - ledger.total_tol);
@@ -586,7 +603,8 @@ function saveFlazzRecon(payload) {
       cardSheet.getRange(r, c.BALANCE + 1).setValue(flazzBalance);
     }
     cardSheet.getRange(r, c.STATUS + 1).setValue('TERSEDIA');
-    cardSheet.getRange(r, c.DRIVER + 1).setValue('');
+    // Pulihkan supir pemegang default (nilai settingsan master), bukan dihapus
+    cardSheet.getRange(r, c.DRIVER + 1).setValue(cardFound.row[c.DEFAULT_DRIVER] || '');
     cardSheet.getRange(r, c.UPDATED + 1).setValue(now);
 
     // Tandai usage terbaru kartu sebagai DIKEMBALIKAN
@@ -700,6 +718,7 @@ function getFlazzDashboardData(userRole, cabangId) {
        const metodeIdx = headers.indexOf('metode_pembayaran');
        const cardIdx = headers.indexOf('flazz_card_id');
        const tglIdx = headers.indexOf('tanggal');
+       const stampIdx = headers.indexOf('timestamp');
        const bbmIdx = headers.indexOf('biaya_bbm');
        const evidenceIdx = headers.indexOf('foto_struk_bbm');
        const driverIdx = headers.indexOf('nama_supir');
@@ -711,6 +730,7 @@ function getFlazzDashboardData(userRole, cabangId) {
             bbmFlazz.push({
                transaction_id: row[trxIdx],
                tanggal: (row[tglIdx] instanceof Date) ? row[tglIdx].toISOString() : row[tglIdx],
+               timestamp: (stampIdx > -1 && row[stampIdx] instanceof Date) ? row[stampIdx].toISOString() : (stampIdx > -1 ? row[stampIdx] : ''),
                card_id: row[cardIdx],
                amount: row[bbmIdx],
                evidence: row[evidenceIdx],

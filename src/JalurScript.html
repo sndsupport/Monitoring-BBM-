@@ -1,0 +1,241 @@
+<script>
+function loadJalurWrapper() {
+  if (typeof jalurEnsureMaster === 'function') jalurEnsureMaster(function(){});
+}
+
+function jalurEnsureMaster(callback) {
+  const needsDriver = (window.masterData && window.masterData.supir && window.masterData.supir.length);
+  const needsVehicle = (window.masterData && window.masterData.kendaraan && window.masterData.kendaraan.length);
+  if (needsDriver && needsVehicle) { if (typeof callback === 'function') callback(); return; }
+  google.script.run
+    .withSuccessHandler(function(data) {
+      if (data && typeof data === 'object') {
+        if (!window.masterData) window.masterData = {};
+        if (Array.isArray(data.vehicles)) window.masterData.kendaraan = data.vehicles;
+        if (Array.isArray(data.drivers)) window.masterData.supir = data.drivers;
+        if (Array.isArray(data.cabangList)) window.masterData.cabang = data.cabangList;
+        if (Array.isArray(data.bbmList)) window.masterData.bbm = data.bbmList;
+      }
+      if (typeof callback === 'function') callback();
+    })
+    .withFailureHandler(function() {
+      if (typeof callback === 'function') callback();
+    })
+    .getMasterData(userInfo);
+}
+
+function jalurRenderDriverOptions(selectEl, selected) {
+  if (!selectEl) return;
+  const drivers = (window.masterData && window.masterData.supir) || [];
+  selectEl.innerHTML = drivers.map(function(d) {
+    const sel = d.id === selected ? ' selected' : '';
+    const defVeh = d.default_vehicle_id ? ' data-default-vehicle="' + d.default_vehicle_id + '"' : '';
+    return '<option value="' + d.id + '"' + sel + defVeh + '>' + d.nama + '</option>';
+  }).join('');
+}
+
+function jalurAutoFillVehicle(driverSelect, vehicleSelect) {
+  if (!driverSelect || !vehicleSelect) return;
+  const opt = driverSelect.options[driverSelect.selectedIndex];
+  if (!opt || !opt.getAttribute('data-default-vehicle')) return;
+  vehicleSelect.value = opt.getAttribute('data-default-vehicle');
+}
+
+function jalurRenderVehicleOptions(selectEl, selected) {
+  if (!selectEl) return;
+  const vehicles = (window.masterData && window.masterData.kendaraan) || [];
+  selectEl.innerHTML = vehicles.map(function(v) {
+    const sel = v.vehicle_id === selected ? ' selected' : '';
+    return '<option value="' + v.vehicle_id + '"' + sel + '>' + v.plat_nomor + ' - ' + v.nama + ' (' + v.jenis + ')</option>';
+  }).join('');
+}
+
+function jalurAddRow() {
+  const container = document.getElementById('jalur-rows');
+  const row = document.createElement('div');
+  row.className = 'row g-2 mb-2 align-items-end jalur-row';
+  row.innerHTML =
+    '<div class="col-12 col-md-4"><label class="form-label text-muted small text-uppercase fw-bold">Driver</label>' +
+    '<select class="form-select jalur-row-driver"></select></div>' +
+    '<div class="col-12 col-md-4"><label class="form-label text-muted small text-uppercase fw-bold">Kendaraan</label>' +
+    '<select class="form-select jalur-row-vehicle"></select></div>' +
+    '<div class="col-12 col-md-4"><label class="form-label text-muted small text-uppercase fw-bold">Rute Tujuan</label>' +
+    '<div class="input-group"><input type="text" class="form-control jalur-row-rute" placeholder="ex: Gudang A - Toko B">' +
+    '<button type="button" class="btn btn-outline-danger" onclick="this.closest(\'.jalur-row\').remove()"><i class="bi bi-x"></i></button></div></div>';
+  container.appendChild(row);
+  jalurRenderDriverOptions(row.querySelector('.jalur-row-driver'));
+  jalurRenderVehicleOptions(row.querySelector('.jalur-row-vehicle'));
+  row.querySelector('.jalur-row-driver').addEventListener('change', function() {
+    jalurAutoFillVehicle(this, row.querySelector('.jalur-row-vehicle'));
+  });
+}
+
+function jalurInitForm() {
+  jalurEnsureMaster(function() {
+    const rows = document.getElementById('jalur-rows');
+    if (!rows) return;
+    rows.innerHTML = '';
+    const t = document.getElementById('jalur-tanggal');
+    if (t && !t.value) t.value = new Date().toISOString().slice(0, 10);
+    jalurAddRow();
+  });
+}
+
+function jalurShowSummary() {
+  const tanggal = document.getElementById('jalur-filter-tanggal').value;
+  if (!tanggal) { showToast('Pilih tanggal untuk menampilkan', 'error'); return; }
+  google.script.run
+    .withSuccessHandler(function(res) {
+      const loaded = document.getElementById('jalur-summary-loaded');
+      if (!loaded) return;
+      if (!res.success || !res.list || !res.list.length) {
+        loaded.style.display = 'block';
+        document.getElementById('jalur-shot').style.display = 'none';
+        document.getElementById('jalur-summary-none').style.display = 'block';
+        document.getElementById('jalur-summary-none').textContent = 'Belum ada jadwal pengiriman pada ' + tanggal + '.';
+        return;
+      }
+      jalurEnsureMaster(function() {
+        document.getElementById('jalur-shot').style.display = '';
+        document.getElementById('jalur-summary-none').style.display = 'none';
+        document.getElementById('jalur-summary-tanggal').textContent = tanggal;
+        document.getElementById('jalur-summary-created').textContent = res.created_by || '-';
+        const tbody = document.getElementById('jalur-summary-table');
+        const rows = res.list.map(function(it) {
+          const icon = it.jenis_kendaraan === 'Motor' ? 'bi-bicycle' : 'bi-truck';
+          return '<tr>' +
+            '<td><i class="bi ' + icon + ' me-2 text-primary"></i>' + it.plat_nomor + ' <span class="text-muted small">' + it.nama_kendaraan + '</span></td>' +
+            '<td>' + it.nama_driver + '</td>' +
+            '<td>' + it.rute_tujuan + '</td>' +
+            '<td>' + jalurPajakBadge(it.status_pajak, it.sisa_hari_pajak) + '</td>' +
+            '<td class="text-end"><button class="btn btn-sm btn-outline-primary me-1" onclick="jalurEdit(\'' + it.id + '\')"><i class="bi bi-pencil"></i></button>' +
+            '<button class="btn btn-sm btn-outline-danger" onclick="jalurDelete(\'' + it.id + '\')"><i class="bi bi-trash"></i></button></td>' +
+          '</tr>';
+        }).join('');
+        tbody.innerHTML = rows;
+      });
+      loaded.style.display = 'block';
+    })
+    .withFailureHandler(function(err) { showToast('Gagal memuat: ' + err.message, 'error'); })
+    .apiGetJalurByTanggal(tanggal, userInfo);
+}
+
+function jalurSave() {
+  const tanggal = document.getElementById('jalur-tanggal').value;
+  if (!tanggal) { showToast('Pilih tanggal pengiriman', 'error'); return; }
+  if (!(window.masterData && window.masterData.supir && window.masterData.kendaraan && window.masterData.supir.length && window.masterData.kendaraan.length)) {
+    showToast('Data master driver/kendaraan belum siap', 'error'); return;
+  }
+  const rows = [];
+  document.querySelectorAll('#jalur-rows .jalur-row').forEach(function(r) {
+    const driverId = r.querySelector('.jalur-row-driver').value;
+    const vehicleId = r.querySelector('.jalur-row-vehicle').value;
+    const rute = r.querySelector('.jalur-row-rute').value;
+    if (driverId && vehicleId && rute.trim()) rows.push({ driver_id: driverId, vehicle_id: vehicleId, rute_tujuan: rute.trim() });
+  });
+  if (!rows.length) { showToast('Isi minimal satu baris lengkap', 'error'); return; }
+  google.script.run
+    .withSuccessHandler(function(res) {
+      showToast(res.msg, res.success ? 'success' : 'error');
+      if (res.success) jalurInitForm();
+    })
+    .withFailureHandler(function(err) { showToast('Gagal menyimpan: ' + err.message, 'error'); })
+    .apiSaveJalur({ tanggal: tanggal, rows: rows }, userInfo);
+}
+
+function jalurPajakBadge(status, days) {
+  if (status === 'TIDAK_ADA') return '<span class="badge bg-secondary">Pajak -</span>';
+  if (status === 'LEWAT') return '<span class="badge bg-dark">Pajak lewat ' + Math.abs(days) + ' hari</span>';
+  if (status === 'KRITIS') return '<span class="badge bg-danger">Pajak habis dalam ' + days + ' hari</span>';
+  if (status === 'WASPADA') return '<span class="badge bg-warning text-dark">Pajak habis dalam ' + days + ' hari</span>';
+  return '<span class="badge bg-success">Pajak habis dalam ' + days + ' hari</span>';
+}
+
+function jalurEdit(id) {
+  const tanggal = document.getElementById('jalur-filter-tanggal').value;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res.success || !res.list) return;
+      const it = res.list.find(function(x) { return String(x.id) === String(id); });
+      if (!it) return;
+      document.getElementById('jalur-edit-id').value = it.id;
+      document.getElementById('jalur-edit-tanggal').value = it.tanggal;
+      jalurRenderDriverOptions(document.getElementById('jalur-edit-driver'), it.driver_id);
+      jalurRenderVehicleOptions(document.getElementById('jalur-edit-vehicle'), it.vehicle_id);
+      document.getElementById('jalur-edit-rute').value = it.rute_tujuan;
+      document.getElementById('jalur-edit-driver').onchange = function() {
+        jalurAutoFillVehicle(this, document.getElementById('jalur-edit-vehicle'));
+      };
+      new bootstrap.Modal(document.getElementById('modal-jalur-edit')).show();
+    })
+    .withFailureHandler(function(err) { showToast('Gagal memuat data edit: ' + err.message, 'error'); })
+    .apiGetJalurByTanggal(tanggal, userInfo);
+}
+
+function jalurSaveEdit() {
+  const data = {
+    id: document.getElementById('jalur-edit-id').value,
+    tanggal: document.getElementById('jalur-edit-tanggal').value,
+    driver_id: document.getElementById('jalur-edit-driver').value,
+    vehicle_id: document.getElementById('jalur-edit-vehicle').value,
+    rute_tujuan: document.getElementById('jalur-edit-rute').value
+  };
+  if (!data.tanggal || !data.driver_id || !data.vehicle_id || !data.rute_tujuan.trim()) {
+    showToast('Lengkapi semua field', 'error'); return;
+  }
+  google.script.run
+    .withSuccessHandler(function(res) {
+      showToast(res.msg, res.success ? 'success' : 'error');
+      if (res.success) {
+        bootstrap.Modal.getInstance(document.getElementById('modal-jalur-edit')).hide();
+        jalurShowSummary();
+      }
+    })
+    .withFailureHandler(function(err) { showToast('Gagal: ' + err.message, 'error'); })
+    .apiUpdateJalur(data, userInfo);
+}
+
+function jalurDelete(id) {
+  if (!confirm('Yakin ingin menghapus jadwal ini?')) return;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      showToast(res.msg, res.success ? 'success' : 'error');
+      if (res.success) jalurShowSummary();
+    })
+    .withFailureHandler(function(err) { showToast('Gagal menghapus: ' + err.message, 'error'); })
+    .apiDeleteJalur(id);
+}
+
+function jalurSummaryText() {
+  const rows = document.querySelectorAll('#jalur-summary-table tr');
+  const tanggal = document.getElementById('jalur-summary-tanggal').textContent;
+  const created = document.getElementById('jalur-summary-created').textContent;
+  let text = 'JALUR PENGIRIMAN\nTanggal: ' + tanggal + '\nDibuat oleh: ' + created + '\n\n';
+  rows.forEach(function(tr) {
+    const tds = tr.querySelectorAll('td');
+    if (tds.length >= 4) {
+      text += '- ' + tds[0].textContent.trim() + ' | Driver: ' + tds[1].textContent.trim() + ' | Rute: ' + tds[2].textContent.trim() + '\n';
+    }
+  });
+  return text;
+}
+
+function jalurShareWA() {
+  const text = encodeURIComponent(jalurSummaryText());
+  window.open('https://wa.me/?text=' + text, '_blank');
+}
+
+function jalurTakeScreenshot() {
+  const shot = document.getElementById('jalur-shot');
+  if (!shot || shot.style.display === 'none') { showToast('Tampilkan dulu jadwal pada tanggal yang dipilih', 'error'); return; }
+  if (typeof html2canvas === 'undefined') { showToast('Library screenshot belum dimuat', 'error'); return; }
+  html2canvas(shot, { scale: 2, backgroundColor: '#ffffff' }).then(function(canvas) {
+    const container = document.getElementById('jalur-shot-canvas');
+    container.innerHTML = '';
+    canvas.style.maxWidth = '100%';
+    canvas.style.height = 'auto';
+    container.appendChild(canvas);
+    new bootstrap.Modal(document.getElementById('modal-jalur-shot')).show();
+  }).catch(function(e) { showToast('Gagal screenshot: ' + e, 'error'); });
+}
+</script>

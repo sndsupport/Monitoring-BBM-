@@ -78,7 +78,7 @@ function loadFlazzDataWrapper(force) {
 function renderFlazzDashboardCards(data) {
   let cards = data.cards || [];
   let totalCards = cards.length;
-  let activeCards = cards.filter(c => c.status !== 'NONAKTIF').length;
+  let activeCards = cards.filter(c => c.status === 'SEDANG_DIGUNAKAN').length;
   let totalBalance = cards.reduce((sum, c) => sum + (parseFloat(c.last_balance) || 0), 0);
 
   let html = `
@@ -141,8 +141,7 @@ function renderFlazzMasterTable(cards) {
       <td>${c.branch_id}</td>
       <td class="fw-bold">${formatCurrency(c.last_balance)}</td>
       <td><span class="badge ${badgeClass}">${c.status}</span></td>
-      <td>${c.notes || ''}</td>
-      <td class="text-end">
+      <td class="text-center">
          <button class="btn btn-sm btn-outline-primary" onclick="editFlazzCard('${c.id}')"><i class="bi bi-pencil"></i></button> <button class="btn btn-sm btn-outline-danger" onclick="deleteFlazzCardClient('${c.id}')"><i class="bi bi-trash"></i></button>
       </td>
     `;
@@ -182,21 +181,71 @@ function populateFlazzDropdowns(data) {
      if(tolCard) tolCard.innerHTML += opt;
   });
 
-  // Recon form (hanya yang sedang digunakan)
+  // Recon form (kartu yang sedang digunakan ATAU punya usage DIBERIKAN yang belum kembali,
+  // untuk menangani kondisi macet: status kartu sudah TERSEDIA tapi usage belum DIKEMBALIKAN)
   let rCard = document.getElementById('r_card_id');
   if(rCard) {
+    const openUsageCards = new Set((data.usages || [])
+      .filter(u => u.status === 'DIBERIKAN')
+      .map(u => String(u.card_id)));
     rCard.innerHTML = '<option value="">Pilih Kartu...</option>';
-    cards.filter(c => c.status === 'SEDANG_DIGUNAKAN').forEach(c => {
+    cards.filter(c => c.status === 'SEDANG_DIGUNAKAN' || openUsageCards.has(String(c.id))).forEach(c => {
        rCard.innerHTML += `<option value="${c.id}" data-balance="${c.last_balance}">${c.card_number} [${c.driver_id}] - Saldo: ${formatCurrency(c.last_balance)}</option>`;
     });
   }
+}
+
+// Hitung saldo sistem untuk rekonsiliasi dari ledger (pola sama dengan server),
+// agar angka pratinjau sesuai dengan yang disimpan saat "Selesaikan Rekonsiliasi".
+// Periode = transaksi yang TERCATAT setelah penyerahan kartu (used_at), memakai kolom
+// timestamp pencatatan (created_at / timestamp) bukan tanggal input, agar transaksi yang
+// sudah masuk opening_balance tidak dihitung dua kali.
+function computeClientSystemBalance(cardId) {
+  const data = flazzDataCache;
+  if (!data) return 0;
+  const uid = String(cardId);
+
+  let usage = null;
+  const usages = (data.usages || []).filter(u => String(u.card_id) === uid && u.status === 'DIBERIKAN');
+  if (usages.length) usage = usages[0]; // data.usages di-reverse: index 0 = yang terbaru
+
+  let opening = usage ? (parseFloat(usage.opening_balance) || 0) : 0;
+  let since = null;
+  if (usage) {
+    const raw = usage.used_at || usage.date;
+    const dts = new Date(raw);
+    if (!isNaN(dts.getTime())) {
+      since = dts;
+    }
+  }
+  if (!usage) since = null;
+
+  const within = function(v) {
+    if (!since) return true;
+    let dt = (v instanceof Date) ? v : new Date(v);
+    if (isNaN(dt.getTime())) return false; // tanggal tidak dikenal dianggap di luar periode
+    return dt.getTime() > since.getTime();
+  };
+
+  let topup = 0, tol = 0, bbm = 0;
+  (data.topups || []).forEach(t => {
+    if (String(t.card_id) === uid && String(t.is_deleted || '') !== '1' && within(t.created_at || t.date)) topup += parseFloat(t.amount) || 0;
+  });
+  (data.tols || []).forEach(t => {
+    if (String(t.card_id) === uid && String(t.is_deleted || '') !== '1' && within(t.created_at || t.date)) tol += parseFloat(t.amount) || 0;
+  });
+  (data.bbmFlazz || []).forEach(b => {
+    if (String(b.card_id) === uid && within(b.timestamp || b.tanggal)) bbm += parseFloat(b.amount) || 0;
+  });
+
+  return +(opening + topup - tol - bbm);
 }
 
 function onReconCardSelect() {
   let select = document.getElementById('r_card_id');
   let balance = 0;
   if(select.selectedIndex > 0) {
-     balance = parseFloat(select.options[select.selectedIndex].dataset.balance) || 0;
+     balance = computeClientSystemBalance(select.value);
   }
   document.getElementById('r_system_balance').value = balance;
   calculateReconVariance();
@@ -289,7 +338,7 @@ function saveFlazzTopUpForm(e) {
   let payload = {
     card_id: document.getElementById('t_card_id').value,
     amount: document.getElementById('t_amount').value,
-    tanggal: document.getElementById('t_date').value,
+    tanggal: transTimestamp(document.getElementById('t_date').value),
     notes: document.getElementById('t_notes').value,
     userInfo: flazzUserInfo(),
     foto_bukti_name: file.name
@@ -326,7 +375,7 @@ function saveFlazzTolForm(e) {
     driver_id: document.getElementById('tol_driver_id').value,
     vehicle_id: document.getElementById('tol_vehicle_id').value,
     amount: document.getElementById('tol_amount').value,
-    tanggal: document.getElementById('tol_date').value,
+    tanggal: transTimestamp(document.getElementById('tol_date').value),
     notes: document.getElementById('tol_notes').value,
     userInfo: flazzUserInfo(),
     foto_bukti_name: file.name
@@ -595,7 +644,7 @@ function saveEditTopUp(e) {
     id: document.getElementById('et_id').value,
     card_id: document.getElementById('et_card_id').value,
     amount: document.getElementById('et_amount').value,
-    date: document.getElementById('et_date').value,
+    date: transTimestamp(document.getElementById('et_date').value),
     notes: document.getElementById('et_notes').value,
     userInfo: flazzUserInfo()
   };
@@ -629,7 +678,7 @@ function saveEditTol(e) {
     id: document.getElementById('etol_id').value,
     card_id: document.getElementById('etol_card_id').value,
     amount: document.getElementById('etol_amount').value,
-    date: document.getElementById('etol_date').value,
+    date: transTimestamp(document.getElementById('etol_date').value),
     notes: document.getElementById('etol_notes').value,
     userInfo: flazzUserInfo()
   };
@@ -653,10 +702,26 @@ function deleteBBMFlazz(trxId) {
   }).apiDeleteFlazzBBM(trxId, 'detach');
 }
 
+function transTimestamp(val) {
+   let d;
+   if (!val) {
+     d = new Date();
+   } else {
+     let m = String(val).match(/^(\d{4})-(\d{2})-(\d{2})/);
+     if (!m) return val;
+     let n = new Date();
+     d = new Date(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10), n.getHours(), n.getMinutes(), n.getSeconds(), 0);
+   }
+   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
+}
+
 function formatDateShort(val) {
    if(!val) return '-';
    let d = new Date(val);
-   return d.toLocaleDateString('id-ID') + ' ' + d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+   let isDateOnly = typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val);
+   let hasRealTime = !isDateOnly && (d.getHours() !== 0 || d.getMinutes() !== 0);
+   let base = d.toLocaleDateString('id-ID');
+   return hasRealTime ? base + ' ' + d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0') : base;
 }
 function editFlazzCard(id) {
   if (!flazzDataCache || !flazzDataCache.cards) return;
@@ -675,7 +740,7 @@ function editFlazzCard(id) {
   driverSelect.innerHTML = '<option value="">-- Tidak Ada / Kartu Bebas --</option>';
   (allDrivers || []).forEach(d => driverSelect.innerHTML += '<option value="'+d.nama+'">'+d.nama+'</option>');
   branchSelect.value = card.branch_id;
-  document.getElementById('f_driver_id').value = card.driver_id || '';
+  document.getElementById('f_driver_id').value = card.default_driver_id || card.driver_id || '';
   
   document.getElementById('f_notes').value = card.notes || '';
   

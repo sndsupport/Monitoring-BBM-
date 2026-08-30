@@ -220,6 +220,14 @@ function apiEditDailyTransaction(payload) { return editDailyTransaction(payload)
 function apiDeleteDailyTransaction(transactionId) { return deleteDailyTransaction(transactionId); }
 
 // ==========================================
+// JALUR PENGIRIMAN API WRAPPERS
+// ==========================================
+function apiSaveJalur(payload, userInfo) { return saveJalur(payload, userInfo); }
+function apiUpdateJalur(data, userInfo) { return updateJalur(data, userInfo); }
+function apiDeleteJalur(id) { return deleteJalur(id); }
+function apiGetJalurByTanggal(tanggal, userInfo) { return getJalurByTanggal(tanggal, userInfo); }
+
+// ==========================================
 // GEMINI FUEL GAUGE (indikator BBM) DETECTION
 // ==========================================
 // API key dibaca dari Script Properties (GEMINI_API_KEY),

@@ -305,6 +305,12 @@
        let el = document.getElementById('page-flazz-' + p);
        if(el) el.style.display = 'none';
     });
+
+    let jalurPages = ['buat', 'summary'];
+    jalurPages.forEach(p => {
+       let el = document.getElementById('page-jalur-' + p);
+       if(el) el.style.display = 'none';
+    });
     
     let sharedFilter = document.getElementById('shared-filter-card');
     if(sharedFilter) sharedFilter.style.display = (tab === 'dashboard' || tab === 'gallery') ? 'block' : 'none';
@@ -328,6 +334,14 @@
       let pageEl = document.getElementById('page-flazz-' + flazzTab);
       if(pageEl) pageEl.style.display = 'block';
       if(typeof loadFlazzDataWrapper === 'function') loadFlazzDataWrapper();
+    } else if (tab === 'jalur-buat') {
+      document.getElementById('page-jalur-buat').style.display = 'block';
+      if (typeof jalurInitForm === 'function') jalurInitForm();
+    } else if (tab === 'jalur-summary') {
+      document.getElementById('page-jalur-summary').style.display = 'block';
+      let t = document.getElementById('jalur-filter-tanggal');
+      if (t && !t.value) t.value = new Date().toISOString().slice(0, 10);
+      if (typeof jalurShowSummary === 'function') jalurShowSummary();
     }
     
     document.querySelectorAll('.sidebar-link').forEach(el => el.classList.remove('active'));
@@ -1065,6 +1079,7 @@
       document.getElementById('m_bar').value = v.jumlah_bar || '';
       document.getElementById('m_standar').value = v.standar_km_l || '';
       document.getElementById('m_jenis_indikator').value = v.jenis_indikator || 'DIGITAL_BAR';
+      document.getElementById('m_tanggal_pajak').value = (v.tanggal_pajak || '').slice(0, 10) || '';
       document.getElementById('m_cabang').value = v.cabang;
       var modal = new bootstrap.Modal(document.getElementById('modal-kendaraan'));
       modal.show();
@@ -1164,6 +1179,7 @@
       jumlah_bar: document.getElementById('m_bar') ? document.getElementById('m_bar').value : '',
       standar_km_l: document.getElementById('m_standar') ? document.getElementById('m_standar').value : '',
       jenis_indikator: document.getElementById('m_jenis_indikator') ? document.getElementById('m_jenis_indikator').value : 'DIGITAL_BAR',
+      tanggal_pajak: document.getElementById('m_tanggal_pajak') ? document.getElementById('m_tanggal_pajak').value : '',
       cabang: document.getElementById('m_cabang').value
     };
     let editId = document.getElementById('m_edit_id_kendaraan').value;

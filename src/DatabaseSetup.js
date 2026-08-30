@@ -12,7 +12,7 @@ function setupDatabase() {
     { name: 'Supir', headers: ['supir_id', 'nama_supir', 'kode_cabang', 'status'] },
     { name: 'BBM', headers: ['bbm_id', 'jenis_bbm', 'harga_per_liter', 'status'] },
     { name: 'Pengguna', headers: ['user_id', 'username', 'password', 'nama', 'role', 'kode_cabang', 'status'] },
-    { name: 'Kendaraan', headers: ['vehicle_id', 'plat_nomor', 'nama_kendaraan', 'jenis_kendaraan', 'merk', 'model', 'kapasitas_tangki', 'jumlah_bar', 'standar_km_l', 'kode_cabang', 'status', 'jenis_indikator'] },
+    { name: 'Kendaraan', headers: ['vehicle_id', 'plat_nomor', 'nama_kendaraan', 'jenis_kendaraan', 'merk', 'model', 'kapasitas_tangki', 'jumlah_bar', 'standar_km_l', 'kode_cabang', 'status', 'jenis_indikator', 'tanggal_pajak'] },
     { name: 'Penggunaan_BBM', headers: ['transaction_id', 'timestamp', 'tanggal', 'user_id', 'nama_pengguna', 'kode_cabang', 'vehicle_id', 'plat_nomor', 'foto_km_awal', 'ocr_km_awal', 'km_awal_confirmed', 'bar_awal', 'foto_km_akhir', 'ocr_km_akhir', 'km_akhir_confirmed', 'bar_akhir', 'km_tempuh', 'perubahan_bar', 'liter_bbm', 'biaya_bbm', 'foto_struk_bbm', 'biaya_toll', 'foto_struk_toll', 'km_per_liter', 'status', 'warning', 'nama_supir', 'metode_pembayaran', 'flazz_card_id', 'foto_indikator', 'level_bbm', 'confidence_bbm', 'level_status', 'keterangan'] },
     { name: 'Pengisian_BBM', headers: ['fuel_id', 'timestamp', 'tanggal', 'vehicle_id', 'plat_nomor', 'user_id', 'km', 'jenis_bbm', 'liter', 'harga_per_liter', 'total_biaya', 'nama_spbu', 'foto_struk', 'status'] },
     { name: 'Foto_Evidence', headers: ['evidence_id', 'transaction_id', 'tipe_foto', 'file_url', 'file_id', 'timestamp'] },
@@ -21,11 +21,12 @@ function setupDatabase() {
     { name: 'Dashboard', headers: ['Metrics', 'Value'] },
     { name: 'Pengaturan', headers: ['key', 'value', 'updated_at'] },
     // --- FLAZZ MODULE SHEETS ---
-    { name: 'Flazz_Card', headers: ['id', 'card_number', 'card_name', 'card_type', 'card_role', 'branch_id', 'driver_id', 'last_balance', 'status', 'notes', 'created_at', 'updated_at'] },
+    { name: 'Flazz_Card', headers: ['id', 'card_number', 'card_name', 'card_type', 'card_role', 'branch_id', 'driver_id', 'default_driver_id', 'last_balance', 'status', 'notes', 'created_at', 'updated_at'] },
     { name: 'Flazz_Usage', headers: ['id', 'date', 'card_id', 'driver_id', 'vehicle_id', 'usage_type', 'primary_card_id', 'backup_card_id', 'reason', 'opening_balance', 'used_at', 'returned_at', 'status', 'created_by', 'created_at'] },
     { name: 'Flazz_TopUp', headers: ['id', 'date', 'card_id', 'amount', 'evidence_url', 'notes', 'created_by', 'created_at', 'is_deleted'] },
     { name: 'Flazz_Tol', headers: ['id', 'date', 'card_id', 'driver_id', 'vehicle_id', 'amount', 'evidence_url', 'notes', 'created_by', 'created_at', 'is_deleted'] },
-    { name: 'Flazz_Reconciliation', headers: ['id', 'date', 'card_id', 'driver_id', 'vehicle_id', 'opening_balance', 'total_topup', 'total_bbm_flazz', 'total_tol', 'total_expense', 'flazz_balance', 'actual_balance', 'difference', 'reconciliation_status', 'notes', 'reconciled_by', 'reconciled_at'] }
+    { name: 'Flazz_Reconciliation', headers: ['id', 'date', 'card_id', 'driver_id', 'vehicle_id', 'opening_balance', 'total_topup', 'total_bbm_flazz', 'total_tol', 'total_expense', 'flazz_balance', 'actual_balance', 'difference', 'reconciliation_status', 'notes', 'reconciled_by', 'reconciled_at'] },
+    { name: 'Jalur_Pengiriman', headers: ['id', 'tanggal', 'driver_id', 'nama_driver', 'vehicle_id', 'plat_nomor', 'nama_kendaraan', 'jenis_kendaraan', 'rute_tujuan', 'kode_cabang', 'created_by', 'created_at', 'updated_at', 'is_deleted'] }
   ];
 
   sheets.forEach(sheetInfo => {
@@ -55,6 +56,23 @@ function setupDatabase() {
       });
     }
   });
+
+  // Backfill default_driver_id pada Flazz_Card (kartu yang tidak sedang digunakan)
+  const fCard = ss.getSheetByName('Flazz_Card');
+  if (fCard && fCard.getLastRow() > 1) {
+    const fData = fCard.getDataRange().getValues();
+    const fH = fData[0];
+    const iDefault = fH.indexOf('default_driver_id');
+    const iDriver = fH.indexOf('driver_id');
+    const iStatus = fH.indexOf('status');
+    if (iDefault > -1 && iDriver > -1 && iStatus > -1) {
+      for (let i = 1; i < fData.length; i++) {
+        if (String(fData[i][iDefault] || '') === '' && String(fData[i][iStatus]) !== 'SEDANG_DIGUNAKAN') {
+          fCard.getRange(i + 1, iDefault + 1).setValue(fData[i][iDriver] || '');
+        }
+      }
+    }
+  }
 
   var pengaturanSheet = ss.getSheetByName('Pengaturan');
   if (pengaturanSheet && pengaturanSheet.getLastRow() === 1) {
@@ -96,8 +114,8 @@ function seedDummyData() {
   // Seed Kendaraan
   let sheetKendaraan = ss.getSheetByName('Kendaraan');
   if (sheetKendaraan && sheetKendaraan.getLastRow() === 1) { 
-    sheetKendaraan.appendRow(['V-001', 'B 1234 CD', 'Avanza Operasional', 'Mobil', 'Toyota', 'Avanza', 45, 8, 12, 'CBG-JKT', 'Aktif']);
-    sheetKendaraan.appendRow(['V-002', 'B 5678 EF', 'Innova Operasional', 'Mobil', 'Toyota', 'Innova', 55, 8, 10, 'CBG-BDG', 'Aktif']);
+    sheetKendaraan.appendRow(['V-001', 'B 1234 CD', 'Avanza Operasional', 'Mobil', 'Toyota', 'Avanza', 45, 8, 12, 'CBG-JKT', 'Aktif', 'DIGITAL_BAR', '2026-09-15']);
+    sheetKendaraan.appendRow(['V-002', 'B 5678 EF', 'Innova Operasional', 'Mobil', 'Toyota', 'Innova', 55, 8, 10, 'CBG-BDG', 'Aktif', 'DIGITAL_BAR', '2026-11-01']);
   }
   
   // Seed Pengguna
