@@ -170,6 +170,7 @@ function getJalurByTanggal(tanggal, userInfo) {
     const list = [];
     data.forEach((row, i) => {
       if (i === 0) return;
+      let finalTgl = '';
       if (iTanggal !== undefined) {
         let rowTgl = row[iTanggal];
         if (rowTgl instanceof Date) {
@@ -179,6 +180,7 @@ function getJalurByTanggal(tanggal, userInfo) {
           rowTgl = String(rowTgl).substring(0, 10);
         }
         if (rowTgl !== String(tanggal)) return;
+        finalTgl = rowTgl;
       }
       if (iDeleted !== undefined && String(row[iDeleted]) === '1') return;
       if (filteredCabang && row[iCabang] !== filteredCabang) return;
@@ -186,7 +188,7 @@ function getJalurByTanggal(tanggal, userInfo) {
       const pajak = jalurComputePajak(veh.tanggal_pajak);
       list.push({
         id: row[idx['id']],
-        tanggal: row[idx['tanggal']],
+        tanggal: finalTgl || String(row[idx['tanggal']]),
         driver_id: row[idx['driver_id']],
         nama_driver: row[idx['nama_driver']],
         vehicle_id: row[idx['vehicle_id']],
