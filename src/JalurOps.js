@@ -170,7 +170,15 @@ function getJalurByTanggal(tanggal, userInfo) {
     const list = [];
     data.forEach((row, i) => {
       if (i === 0) return;
-      if (iTanggal !== undefined && String(row[iTanggal]) !== String(tanggal)) return;
+      if (iTanggal !== undefined) {
+        let rowTgl = row[iTanggal];
+        if (rowTgl instanceof Date) {
+          rowTgl = Utilities.formatDate(rowTgl, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+        } else {
+          rowTgl = String(rowTgl).substring(0, 10);
+        }
+        if (rowTgl !== String(tanggal)) return;
+      }
       if (iDeleted !== undefined && String(row[iDeleted]) === '1') return;
       if (filteredCabang && row[iCabang] !== filteredCabang) return;
       const veh = jalurVehicleById(row[idx['vehicle_id']]) || {};
