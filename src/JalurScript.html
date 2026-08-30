@@ -79,10 +79,12 @@ function jalurDriverNameById(id) {
 function jalurRenderVehicleOptions(selectEl, selected) {
   if (!selectEl) return;
   const vehicles = (window.masterData && window.masterData.kendaraan) || [];
-  selectEl.innerHTML = vehicles.map(function(v) {
+  let html = '<option value="">Pilih Kendaraan...</option>';
+  html += vehicles.map(function(v) {
     const sel = v.vehicle_id === selected ? ' selected' : '';
     return '<option value="' + v.vehicle_id + '"' + sel + '>' + v.plat_nomor + ' - ' + v.nama + ' (' + v.jenis + ')</option>';
   }).join('');
+  selectEl.innerHTML = html;
 }
 
 function jalurAddRow() {
@@ -116,11 +118,21 @@ function jalurInitForm() {
 function jalurShowSummary() {
   const tanggal = document.getElementById('jalur-filter-tanggal').value;
   if (!tanggal) { showToast('Pilih tanggal untuk menampilkan', 'error'); return; }
+
+  document.getElementById('jalur-summary-loaded').style.display = 'none';
+  const loading = document.getElementById('jalur-summary-loading');
+  if (loading) loading.style.display = 'block';
+
   google.script.run
     .withSuccessHandler(function(res) {
+      if (loading) loading.style.display = 'none';
       const loaded = document.getElementById('jalur-summary-loaded');
       if (!loaded) return;
-      if (!res.success || !res.list || !res.list.length) {
+      if (!res.success) {
+        showToast(res.msg || 'Terjadi kesalahan saat memuat jadwal.', 'error');
+        return;
+      }
+      if (!res.list || !res.list.length) {
         loaded.style.display = 'block';
         document.getElementById('jalur-shot').style.display = 'none';
         document.getElementById('jalur-summary-none').style.display = 'block';
@@ -147,9 +159,13 @@ function jalurShowSummary() {
         tbody.innerHTML = rows;
       });
       loaded.style.display = 'block';
-    })
-    .withFailureHandler(function(err) { showToast('Gagal memuat: ' + err.message, 'error'); })
-    .apiGetJalurByTanggal(tanggal, userInfo);
+      })
+      .withFailureHandler(function(err) { 
+        const loading = document.getElementById('jalur-summary-loading');
+        if (loading) loading.style.display = 'none';
+        showToast('Gagal memuat: ' + err.message, 'error'); 
+      })
+      .apiGetJalurByTanggal(tanggal, userInfo);
 }
 
 function jalurSave() {

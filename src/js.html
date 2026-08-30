@@ -155,6 +155,10 @@
 
         let selectVeh = document.getElementById('vehicle');
         selectVeh.innerHTML = ''; 
+        let defaultOptVeh = document.createElement('option');
+        defaultOptVeh.value = '';
+        defaultOptVeh.text = 'Pilih Kendaraan...';
+        selectVeh.appendChild(defaultOptVeh);
         data.vehicles.forEach(v => {
           let opt = document.createElement('option');
           opt.value = v.vehicle_id;
