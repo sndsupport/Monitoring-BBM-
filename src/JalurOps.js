@@ -82,7 +82,7 @@ function saveJalur(payload, userInfo) {
     const rows = payload.rows || [];
     if (!tanggal || rows.length === 0) throw new Error('Tanggal dan minimal satu baris wajib diisi.');
     const idx = jalurColIdx(sheet);
-    const createdBy = (userInfo && (userInfo.username || userInfo.nama)) || '';
+    const createdBy = (userInfo && (userInfo.nama || userInfo.username)) || '';
     const kodeCabang = (userInfo && userInfo.cabang) || '';
     const now = new Date();
     let saved = 0;
@@ -206,7 +206,24 @@ function getJalurByTanggal(tanggal, userInfo) {
       if (a.tanggal !== b.tanggal) return String(b.tanggal).localeCompare(String(a.tanggal));
       return String(a.nama_driver || '').localeCompare(String(b.nama_driver || ''));
     });
-    const createdBy = list.length > 0 ? list[0].created_by : '';
+    
+    let createdBy = list.length > 0 ? list[0].created_by : '';
+    if (createdBy) {
+      try {
+        const sheetPengguna = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8').getSheetByName('Pengguna');
+        if (sheetPengguna) {
+          const pData = sheetPengguna.getDataRange().getValues();
+          const pIdx = jalurColIdx(sheetPengguna);
+          for (let i = 1; i < pData.length; i++) {
+            if (pData[i][pIdx['username']] === createdBy || pData[i][pIdx['user_id']] === createdBy) {
+              createdBy = pData[i][pIdx['nama']] || createdBy;
+              break;
+            }
+          }
+        }
+      } catch (ex) {}
+    }
+
     return { success: true, list: list, created_by: createdBy };
   } catch (e) {
     return { success: false, msg: e.message };
