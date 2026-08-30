@@ -499,7 +499,6 @@
         var p = res.pref;
         var vehSel = document.getElementById('vehicle');
         var supirSel = document.getElementById('nama_supir');
-        if (tglInput && p.tanggal) tglInput.value = p.tanggal;
         var ba = document.getElementById('bar_awal');
         if (ba) ba.value = p.bar_awal != null ? p.bar_awal : '';
         var bk = document.getElementById('bar_akhir');
@@ -1069,6 +1068,10 @@
     var cabang = document.getElementById('input-cabang').value;
     var selectVeh = document.getElementById('vehicle');
     selectVeh.innerHTML = '';
+    var defaultOpt = document.createElement('option');
+    defaultOpt.value = '';
+    defaultOpt.text = 'Pilih Kendaraan...';
+    selectVeh.appendChild(defaultOpt);
     var filteredV = cabang ? allVehicles.filter(function (v) { return v.cabang === cabang; }) : (allVehicles || []);
     filteredV.forEach(function (v) {
       var opt = document.createElement('option');

@@ -173,7 +173,8 @@ function getJalurByTanggal(tanggal, userInfo) {
       if (iTanggal !== undefined) {
         let rowTgl = row[iTanggal];
         if (rowTgl instanceof Date) {
-          rowTgl = Utilities.formatDate(rowTgl, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+          const tz = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8').getSpreadsheetTimeZone();
+          rowTgl = Utilities.formatDate(rowTgl, tz, 'yyyy-MM-dd');
         } else {
           rowTgl = String(rowTgl).substring(0, 10);
         }
