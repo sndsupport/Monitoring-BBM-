@@ -179,7 +179,7 @@ function getJalurByTanggal(tanggal, userInfo) {
         } else {
           rowTgl = String(rowTgl).substring(0, 10);
         }
-        if (rowTgl !== String(tanggal)) return;
+        if (tanggal && rowTgl !== String(tanggal)) return;
         finalTgl = rowTgl;
       }
       if (iDeleted !== undefined && String(row[iDeleted]) === '1') return;
@@ -202,7 +202,10 @@ function getJalurByTanggal(tanggal, userInfo) {
         status_pajak: pajak.status_pajak
       });
     });
-    list.sort((a, b) => String(a.nama_driver || '').localeCompare(String(b.nama_driver || '')));
+    list.sort((a, b) => {
+      if (a.tanggal !== b.tanggal) return String(b.tanggal).localeCompare(String(a.tanggal));
+      return String(a.nama_driver || '').localeCompare(String(b.nama_driver || ''));
+    });
     const createdBy = list.length > 0 ? list[0].created_by : '';
     return { success: true, list: list, created_by: createdBy };
   } catch (e) {

@@ -342,6 +342,11 @@
     } else if (tab === 'jalur-buat') {
       document.getElementById('page-jalur-buat').style.display = 'block';
       if (typeof jalurInitForm === 'function') jalurInitForm();
+    } else if (tab === 'jalur-listing') {
+      document.getElementById('page-jalur-listing').style.display = 'block';
+      let t = document.getElementById('jalur-listing-filter-tanggal');
+      if (t && !t.value) t.value = new Date().toISOString().slice(0, 10);
+      if (typeof jalurShowListing === 'function') jalurShowListing();
     } else if (tab === 'jalur-summary') {
       document.getElementById('page-jalur-summary').style.display = 'block';
       let t = document.getElementById('jalur-filter-tanggal');

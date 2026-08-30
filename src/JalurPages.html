@@ -24,19 +24,6 @@
 
 <div id='page-jalur-listing' style='display:none;' class='fade-in'>
   <h4 class='mb-3 text-primary fw-bold'><i class='bi bi-list-ul me-2'></i>Daftar Jadwal Pengiriman</h4>
-  <div class='card shadow-sm border-0 rounded-4 mb-4'>
-    <div class='card-body'>
-      <div class='row g-2 align-items-end'>
-        <div class='col-12 col-md-4'>
-          <label class='form-label fw-bold text-muted small text-uppercase'>Filter Tanggal</label>
-          <input type='date' id='jalur-listing-filter-tanggal' class='form-control'>
-        </div>
-        <div class='col-12 col-md-8 d-flex flex-wrap gap-2'>
-          <button class='btn btn-primary rounded-4 fw-bold' onclick='jalurShowListing()'><i class='bi bi-search me-1'></i>Tampilkan</button>
-        </div>
-      </div>
-    </div>
-  </div>
   <div id='jalur-listing-loading' class='text-center py-4' style='display:none;'>
     <div class='spinner-border text-primary' role='status'>
       <span class='visually-hidden'>Loading...</span>
@@ -50,6 +37,7 @@
           <table class='table table-hover align-middle mb-0'>
             <thead class='table-light'>
               <tr>
+                <th>Tanggal</th>
                 <th>Kendaraan</th>
                 <th>Driver</th>
                 <th>Rute Tujuan</th>
@@ -78,7 +66,6 @@
         <div class='col-12 col-md-8 d-flex flex-wrap gap-2'>
           <button class='btn btn-primary rounded-4 fw-bold' onclick='jalurShowSummary()'><i class='bi bi-search me-1'></i>Tampilkan</button>
           <button class='btn btn-outline-primary rounded-4 fw-bold' onclick='jalurTakeScreenshot()'><i class='bi bi-camera me-1'></i>Screenshot</button>
-          <button class='btn btn-outline-success rounded-4 fw-bold' onclick='jalurShareWA()'><i class='bi bi-whatsapp me-1'></i>Bagikan WA</button>
         </div>
       </div>
     </div>

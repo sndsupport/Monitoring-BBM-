@@ -116,9 +116,6 @@ function jalurInitForm() {
 }
 
 function jalurShowListing() {
-  const tanggal = document.getElementById('jalur-listing-filter-tanggal').value;
-  if (!tanggal) { showToast('Pilih tanggal untuk menampilkan', 'error'); return; }
-
   document.getElementById('jalur-listing-loaded').style.display = 'none';
   const loading = document.getElementById('jalur-listing-loading');
   if (loading) loading.style.display = 'block';
@@ -146,12 +143,13 @@ function jalurShowListing() {
         const rows = res.list.map(function(it) {
           const icon = it.jenis_kendaraan === 'Motor' ? 'bi-bicycle' : 'bi-truck';
           return '<tr>' +
+            '<td>' + it.tanggal + '</td>' +
             '<td><i class="bi ' + icon + ' me-2 text-primary"></i>' + it.plat_nomor + ' <span class="text-muted small">' + it.nama_kendaraan + '</span></td>' +
             '<td>' + it.nama_driver + '</td>' +
             '<td>' + it.rute_tujuan + '</td>' +
             '<td>' + jalurPajakBadge(it.status_pajak, it.sisa_hari_pajak) + '</td>' +
-            '<td class="text-end"><button class="btn btn-sm btn-outline-primary me-1" onclick="jalurEdit(\\'' + it.id + '\\')"><i class="bi bi-pencil"></i></button>' +
-            '<button class="btn btn-sm btn-outline-danger" onclick="jalurDelete(\\'' + it.id + '\\')"><i class="bi bi-trash"></i></button></td>' +
+            '<td class="text-end"><button class="btn btn-sm btn-outline-primary me-1" onclick="jalurEdit(\'' + it.id + '\')"><i class="bi bi-pencil"></i></button>' +
+            '<button class="btn btn-sm btn-outline-danger" onclick="jalurDelete(\'' + it.id + '\')"><i class="bi bi-trash"></i></button></td>' +
           '</tr>';
         }).join('');
         tbody.innerHTML = rows;
@@ -163,7 +161,7 @@ function jalurShowListing() {
       if (loading) loading.style.display = 'none';
       showToast('Gagal memuat: ' + err.message, 'error'); 
     })
-    .apiGetJalurByTanggal(tanggal, userInfo);
+    .apiGetJalurByTanggal('', userInfo);
 }
 
 function jalurShowSummary() {
