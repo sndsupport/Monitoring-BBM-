@@ -44,6 +44,7 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - Modal preview hasil OCR dengan perhitungan otomatis sebelum disimpan.
 
 ### Jalur Pengiriman
+- **Autocomplete Driver:** field driver (Input Laporan & Buat Jadwal) berupa input teks dengan autocomplete; memilih driver otomatis mengisi kendaraan default. Field driver & kendaraan mulai kosong.
 - **Buat Jadwal:** form multi-baris untuk mencatat jadwal pengiriman harian — tanggal, driver (supir), kendaraan, dan rute tujuan. Satu tanggal bisa menampung banyak baris/entri.
 - **Summary per Tanggal:** listing siapa yang bertugas, kendaraan apa, dan rute kemana pada tanggal terpilih, lengkap dengan header *Jalur Pengiriman / Tanggal Pengiriman / Dibuat oleh*.
 - **Bagikan ke WA:** tombol *Screenshot* merender summary menjadi pratinjau gambar (html2canvas, file lokal) yang bisa **disalin (Ctrl+C) lalu ditempel (Ctrl+V) langsung di WhatsApp** — tidak diunduh otomatis. Ada juga tombol *Bagikan WA* yang membuka `wa.me` dengan teks summary terisi.

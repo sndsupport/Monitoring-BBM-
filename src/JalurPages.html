@@ -11,6 +11,7 @@
         <input type='date' id='jalur-tanggal' class='form-control' required>
       </div>
       <div id='jalur-rows'></div>
+      <datalist id='jalur-supir-datalist'></datalist>
       <button type='button' class='btn btn-outline-primary w-100 rounded-4 fw-bold mb-2' onclick='jalurAddRow()'>
         <i class='bi bi-plus-circle me-1'></i> Tambah Baris
       </button>
@@ -84,7 +85,7 @@
         </div>
         <div class='mb-3'>
           <label class='form-label text-muted small fw-bold'>Driver</label>
-          <select id='jalur-edit-driver' class='form-select' required></select>
+          <input id='jalur-edit-driver' class='form-control' list='jalur-supir-datalist' autocomplete='off' placeholder='Ketik nama driver...' required>
         </div>
         <div class='mb-3'>
           <label class='form-label text-muted small fw-bold'>Kendaraan</label>

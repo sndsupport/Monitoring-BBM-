@@ -255,6 +255,7 @@
 
         allVehicles = data.vehicles || [];
         allDrivers = data.drivers || [];
+        populateSupirDatalist();
 
         loadAppSettings();
         switchTab('form');
@@ -497,9 +498,7 @@
         if (!res || !res.pref) return;
         var p = res.pref;
         var vehSel = document.getElementById('vehicle');
-        if (vehSel) vehSel.value = p.vehicle_id || '';
         var supirSel = document.getElementById('nama_supir');
-        if (supirSel) supirSel.value = p.nama_supir || '';
         if (tglInput && p.tanggal) tglInput.value = p.tanggal;
         var ba = document.getElementById('bar_awal');
         if (ba) ba.value = p.bar_awal != null ? p.bar_awal : '';
@@ -558,6 +557,7 @@
     btn.innerHTML = "<span class='spinner-border spinner-border-sm'></span> Sedang Upload & Proses OCR...";
 
     try {
+      if (!isSupirNameValid()) { showToast('Nama supir tidak valid, pilih dari daftar', 'error'); return; }
       let bbmSelect = document.getElementById('jenis_bbm');
       let bbmNama = '';
       if(bbmSelect && bbmSelect.selectedIndex > 0) {
@@ -1025,36 +1025,59 @@
   }
 
 
+  function populateSupirDatalist() {
+    var dl = document.getElementById('supir-datalist');
+    if (!dl) return;
+    var src = (typeof allDrivers !== 'undefined' && allDrivers.length) ? allDrivers : ((window.masterData && window.masterData.supir) || []);
+    var cabang = document.getElementById('input-cabang') ? document.getElementById('input-cabang').value : '';
+    dl.innerHTML = '';
+    src.forEach(function (d) {
+      if (cabang && d.cabang !== cabang) return;
+      var o = document.createElement('option');
+      o.value = d.nama;
+      dl.appendChild(o);
+    });
+  }
+
+  function getSupirSelectedName() {
+    return document.getElementById('nama_supir') ? document.getElementById('nama_supir').value : '';
+  }
+
+  function getSupirFromName(name) {
+    var src = (typeof allDrivers !== 'undefined' && allDrivers.length) ? allDrivers : ((window.masterData && window.masterData.supir) || []);
+    return src.find(function (d) { return d.nama === name; });
+  }
+
+  function applySupirAutofill() {
+    var name = getSupirSelectedName().trim();
+    var vehSel = document.getElementById('vehicle');
+    var d = getSupirFromName(name);
+    if (vehSel) vehSel.value = (d && d.default_vehicle_id) ? d.default_vehicle_id : '';
+  }
+
   function onSupirChange() {
-    let supirName = document.getElementById('nama_supir').value;
-    if (!supirName) return;
-    let d = allDrivers.find(x => x.nama === supirName);
-    if (d && d.default_vehicle_id) {
-      let vSel = document.getElementById('vehicle');
-      if (vSel) vSel.value = d.default_vehicle_id;
-    }
+    applySupirAutofill();
+  }
+
+  function isSupirNameValid() {
+    var name = getSupirSelectedName().trim();
+    if (!name) return false;
+    return !!getSupirFromName(name);
   }
 
   function filterFormByCabang() {
-    let cabang = document.getElementById('input-cabang').value;
-    let selectVeh = document.getElementById('vehicle');
-    let selectSupir = document.getElementById('nama_supir');
+    var cabang = document.getElementById('input-cabang').value;
+    var selectVeh = document.getElementById('vehicle');
     selectVeh.innerHTML = '';
-    selectSupir.innerHTML = '';
-    let filteredV = cabang ? allVehicles.filter(v => v.cabang === cabang) : allVehicles;
-    let filteredD = cabang ? allDrivers.filter(d => d.cabang === cabang) : allDrivers;
-    filteredV.forEach(v => {
-      let opt = document.createElement('option');
+    var filteredV = cabang ? allVehicles.filter(function (v) { return v.cabang === cabang; }) : (allVehicles || []);
+    filteredV.forEach(function (v) {
+      var opt = document.createElement('option');
       opt.value = v.vehicle_id;
       opt.text = v.plat_nomor + ' - ' + v.nama;
       selectVeh.appendChild(opt);
     });
-    filteredD.forEach(d => {
-      let opt = document.createElement('option');
-      opt.value = d.nama;
-      opt.text = d.nama; // Sembunyikan ID agar lebih rapi
-      selectSupir.appendChild(opt);
-    });
+    populateSupirDatalist();
+    applySupirAutofill();
   }
 
 

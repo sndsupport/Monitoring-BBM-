@@ -24,21 +24,56 @@ function jalurEnsureMaster(callback) {
     .getMasterData(userInfo);
 }
 
-function jalurRenderDriverOptions(selectEl, selected) {
-  if (!selectEl) return;
-  const drivers = (window.masterData && window.masterData.supir) || [];
-  selectEl.innerHTML = drivers.map(function(d) {
-    const sel = d.id === selected ? ' selected' : '';
-    const defVeh = d.default_vehicle_id ? ' data-default-vehicle="' + d.default_vehicle_id + '"' : '';
-    return '<option value="' + d.id + '"' + sel + defVeh + '>' + d.nama + '</option>';
-  }).join('');
+function jalurPopulateDriverDatalist() {
+  var dl = document.getElementById('jalur-supir-datalist');
+  if (!dl) return;
+  var drivers = (window.masterData && window.masterData.supir) || [];
+  dl.innerHTML = '';
+  drivers.forEach(function (d) {
+    var o = document.createElement('option');
+    o.value = d.nama;
+    o.setAttribute('data-driver-id', d.id);
+    if (d.default_vehicle_id) o.setAttribute('data-default-vehicle', d.default_vehicle_id);
+    dl.appendChild(o);
+  });
 }
 
-function jalurAutoFillVehicle(driverSelect, vehicleSelect) {
-  if (!driverSelect || !vehicleSelect) return;
-  const opt = driverSelect.options[driverSelect.selectedIndex];
-  if (!opt || !opt.getAttribute('data-default-vehicle')) return;
-  vehicleSelect.value = opt.getAttribute('data-default-vehicle');
+function jalurFindDriverByName(name) {
+  var drivers = (window.masterData && window.masterData.supir) || [];
+  return drivers.find(function (d) { return d.nama === name; });
+}
+
+function jalurResolveDriverId(inputEl) {
+  var name = inputEl ? (inputEl.value || '').trim() : '';
+  var d = jalurFindDriverByName(name);
+  return d ? d.id : '';
+}
+
+function jalurResolveDefaultVehicle(inputEl) {
+  var name = inputEl ? (inputEl.value || '').trim() : '';
+  var d = jalurFindDriverByName(name);
+  return (d && d.default_vehicle_id) ? d.default_vehicle_id : '';
+}
+
+function jalurAutofillFromDriver(driverInput) {
+  var row = driverInput.closest('.jalur-row');
+  if (!row) return;
+  var vehSel = row.querySelector('.jalur-row-vehicle');
+  var defVeh = jalurResolveDefaultVehicle(driverInput);
+  if (vehSel) vehSel.value = defVeh || '';
+}
+
+function jalurValidateRow(row) {
+  var driverInput = row.querySelector('.jalur-row-driver');
+  var name = driverInput ? (driverInput.value || '').trim() : '';
+  if (!name) return false;
+  return !!jalurFindDriverByName(name);
+}
+
+function jalurDriverNameById(id) {
+  var drivers = (window.masterData && window.masterData.supir) || [];
+  var d = drivers.find(function (x) { return String(x.id) === String(id); });
+  return d ? d.nama : '';
 }
 
 function jalurRenderVehicleOptions(selectEl, selected) {
@@ -56,22 +91,19 @@ function jalurAddRow() {
   row.className = 'row g-2 mb-2 align-items-end jalur-row';
   row.innerHTML =
     '<div class="col-12 col-md-4"><label class="form-label text-muted small text-uppercase fw-bold">Driver</label>' +
-    '<select class="form-select jalur-row-driver"></select></div>' +
+    '<input class="form-control jalur-row-driver" list="jalur-supir-datalist" autocomplete="off" placeholder="Ketik nama driver..." oninput="jalurAutofillFromDriver(this)"></div>' +
     '<div class="col-12 col-md-4"><label class="form-label text-muted small text-uppercase fw-bold">Kendaraan</label>' +
     '<select class="form-select jalur-row-vehicle"></select></div>' +
     '<div class="col-12 col-md-4"><label class="form-label text-muted small text-uppercase fw-bold">Rute Tujuan</label>' +
     '<div class="input-group"><input type="text" class="form-control jalur-row-rute" placeholder="ex: Gudang A - Toko B">' +
     '<button type="button" class="btn btn-outline-danger" onclick="this.closest(\'.jalur-row\').remove()"><i class="bi bi-x"></i></button></div></div>';
   container.appendChild(row);
-  jalurRenderDriverOptions(row.querySelector('.jalur-row-driver'));
   jalurRenderVehicleOptions(row.querySelector('.jalur-row-vehicle'));
-  row.querySelector('.jalur-row-driver').addEventListener('change', function() {
-    jalurAutoFillVehicle(this, row.querySelector('.jalur-row-vehicle'));
-  });
 }
 
 function jalurInitForm() {
   jalurEnsureMaster(function() {
+    jalurPopulateDriverDatalist();
     const rows = document.getElementById('jalur-rows');
     if (!rows) return;
     rows.innerHTML = '';
@@ -127,12 +159,17 @@ function jalurSave() {
     showToast('Data master driver/kendaraan belum siap', 'error'); return;
   }
   const rows = [];
+  let valid = true;
   document.querySelectorAll('#jalur-rows .jalur-row').forEach(function(r) {
-    const driverId = r.querySelector('.jalur-row-driver').value;
+    const driverInput = r.querySelector('.jalur-row-driver');
     const vehicleId = r.querySelector('.jalur-row-vehicle').value;
     const rute = r.querySelector('.jalur-row-rute').value;
-    if (driverId && vehicleId && rute.trim()) rows.push({ driver_id: driverId, vehicle_id: vehicleId, rute_tujuan: rute.trim() });
+    if (driverInput && (driverInput.value || '').trim() && vehicleId && rute.trim()) {
+      if (!jalurValidateRow(r)) { valid = false; return; }
+      rows.push({ driver_id: jalurResolveDriverId(driverInput), vehicle_id: vehicleId, rute_tujuan: rute.trim() });
+    }
   });
+  if (!valid) { showToast('Ada nama driver yang tidak dikenal, pilih dari daftar', 'error'); return; }
   if (!rows.length) { showToast('Isi minimal satu baris lengkap', 'error'); return; }
   google.script.run
     .withSuccessHandler(function(res) {
@@ -160,12 +197,10 @@ function jalurEdit(id) {
       if (!it) return;
       document.getElementById('jalur-edit-id').value = it.id;
       document.getElementById('jalur-edit-tanggal').value = it.tanggal;
-      jalurRenderDriverOptions(document.getElementById('jalur-edit-driver'), it.driver_id);
+      jalurPopulateDriverDatalist();
+      document.getElementById('jalur-edit-driver').value = it.nama_driver || jalurDriverNameById(it.driver_id) || '';
       jalurRenderVehicleOptions(document.getElementById('jalur-edit-vehicle'), it.vehicle_id);
       document.getElementById('jalur-edit-rute').value = it.rute_tujuan;
-      document.getElementById('jalur-edit-driver').onchange = function() {
-        jalurAutoFillVehicle(this, document.getElementById('jalur-edit-vehicle'));
-      };
       new bootstrap.Modal(document.getElementById('modal-jalur-edit')).show();
     })
     .withFailureHandler(function(err) { showToast('Gagal memuat data edit: ' + err.message, 'error'); })
@@ -176,11 +211,12 @@ function jalurSaveEdit() {
   const data = {
     id: document.getElementById('jalur-edit-id').value,
     tanggal: document.getElementById('jalur-edit-tanggal').value,
-    driver_id: document.getElementById('jalur-edit-driver').value,
+    driver_id: jalurResolveDriverId(document.getElementById('jalur-edit-driver')),
     vehicle_id: document.getElementById('jalur-edit-vehicle').value,
     rute_tujuan: document.getElementById('jalur-edit-rute').value
   };
-  if (!data.tanggal || !data.driver_id || !data.vehicle_id || !data.rute_tujuan.trim()) {
+  if (!data.driver_id) { showToast('Nama driver tidak valid, pilih dari daftar', 'error'); return; }
+  if (!data.tanggal || !data.vehicle_id || !data.rute_tujuan.trim()) {
     showToast('Lengkapi semua field', 'error'); return;
   }
   google.script.run
