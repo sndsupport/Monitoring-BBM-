@@ -115,6 +115,57 @@ function jalurInitForm() {
   });
 }
 
+function jalurShowListing() {
+  const tanggal = document.getElementById('jalur-listing-filter-tanggal').value;
+  if (!tanggal) { showToast('Pilih tanggal untuk menampilkan', 'error'); return; }
+
+  document.getElementById('jalur-listing-loaded').style.display = 'none';
+  const loading = document.getElementById('jalur-listing-loading');
+  if (loading) loading.style.display = 'block';
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (loading) loading.style.display = 'none';
+      const loaded = document.getElementById('jalur-listing-loaded');
+      if (!loaded) return;
+      if (!res.success) {
+        showToast(res.msg || 'Terjadi kesalahan saat memuat daftar.', 'error');
+        return;
+      }
+      if (!res.list || !res.list.length) {
+        loaded.style.display = 'block';
+        document.getElementById('jalur-listing-none').style.display = 'block';
+        document.getElementById('jalur-listing-none').textContent = 'Belum ada jadwal pengiriman pada ' + tanggal + '.';
+        document.querySelector('#jalur-listing-loaded .card').style.display = 'none';
+        return;
+      }
+      jalurEnsureMaster(function() {
+        document.querySelector('#jalur-listing-loaded .card').style.display = 'block';
+        document.getElementById('jalur-listing-none').style.display = 'none';
+        const tbody = document.getElementById('jalur-listing-table');
+        const rows = res.list.map(function(it) {
+          const icon = it.jenis_kendaraan === 'Motor' ? 'bi-bicycle' : 'bi-truck';
+          return '<tr>' +
+            '<td><i class="bi ' + icon + ' me-2 text-primary"></i>' + it.plat_nomor + ' <span class="text-muted small">' + it.nama_kendaraan + '</span></td>' +
+            '<td>' + it.nama_driver + '</td>' +
+            '<td>' + it.rute_tujuan + '</td>' +
+            '<td>' + jalurPajakBadge(it.status_pajak, it.sisa_hari_pajak) + '</td>' +
+            '<td class="text-end"><button class="btn btn-sm btn-outline-primary me-1" onclick="jalurEdit(\\'' + it.id + '\\')"><i class="bi bi-pencil"></i></button>' +
+            '<button class="btn btn-sm btn-outline-danger" onclick="jalurDelete(\\'' + it.id + '\\')"><i class="bi bi-trash"></i></button></td>' +
+          '</tr>';
+        }).join('');
+        tbody.innerHTML = rows;
+      });
+      loaded.style.display = 'block';
+    })
+    .withFailureHandler(function(err) { 
+      const loading = document.getElementById('jalur-listing-loading');
+      if (loading) loading.style.display = 'none';
+      showToast('Gagal memuat: ' + err.message, 'error'); 
+    })
+    .apiGetJalurByTanggal(tanggal, userInfo);
+}
+
 function jalurShowSummary() {
   const tanggal = document.getElementById('jalur-filter-tanggal').value;
   if (!tanggal) { showToast('Pilih tanggal untuk menampilkan', 'error'); return; }
@@ -152,9 +203,7 @@ function jalurShowSummary() {
             '<td>' + it.nama_driver + '</td>' +
             '<td>' + it.rute_tujuan + '</td>' +
             '<td>' + jalurPajakBadge(it.status_pajak, it.sisa_hari_pajak) + '</td>' +
-            '<td class="text-end"><button class="btn btn-sm btn-outline-primary me-1" onclick="jalurEdit(\'' + it.id + '\')"><i class="bi bi-pencil"></i></button>' +
-            '<button class="btn btn-sm btn-outline-danger" onclick="jalurDelete(\'' + it.id + '\')"><i class="bi bi-trash"></i></button></td>' +
-          '</tr>';
+            '</tr>';
         }).join('');
         tbody.innerHTML = rows;
       });
@@ -166,6 +215,15 @@ function jalurShowSummary() {
         showToast('Gagal memuat: ' + err.message, 'error'); 
       })
       .apiGetJalurByTanggal(tanggal, userInfo);
+}
+
+function jalurRefreshActive() {
+  if (document.getElementById('page-jalur-summary') && document.getElementById('page-jalur-summary').style.display === 'block') {
+    jalurShowSummary();
+  }
+  if (document.getElementById('page-jalur-listing') && document.getElementById('page-jalur-listing').style.display === 'block') {
+    jalurShowListing();
+  }
 }
 
 function jalurSave() {
@@ -240,7 +298,7 @@ function jalurSaveEdit() {
       showToast(res.msg, res.success ? 'success' : 'error');
       if (res.success) {
         bootstrap.Modal.getInstance(document.getElementById('modal-jalur-edit')).hide();
-        jalurShowSummary();
+        jalurRefreshActive();
       }
     })
     .withFailureHandler(function(err) { showToast('Gagal: ' + err.message, 'error'); })
@@ -252,7 +310,7 @@ function jalurDelete(id) {
   google.script.run
     .withSuccessHandler(function(res) {
       showToast(res.msg, res.success ? 'success' : 'error');
-      if (res.success) jalurShowSummary();
+      if (res.success) jalurRefreshActive();
     })
     .withFailureHandler(function(err) { showToast('Gagal menghapus: ' + err.message, 'error'); })
     .apiDeleteJalur(id);
