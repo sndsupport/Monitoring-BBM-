@@ -648,6 +648,16 @@ function transTimestamp(val) {
    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
 }
 
+function localDateKey(val) {
+   if (val == null || val === '') return '';
+   if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+   let d = new Date(val);
+   if (isNaN(d.getTime())) return String(val).substring(0, 10);
+   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function matchesDateKey(val, keyStr) {
+   return keyStr ? localDateKey(val) === keyStr : true;
+}
 function formatDateShort(val) {
    if(!val) return '-';
    let d = new Date(val);
@@ -831,13 +841,13 @@ function renderFlazzListingTable() {
     let lastBal = parseFloat(c.last_balance) || 0;
 
     let dayTopups = (data.topups || []).filter(t =>
-      t.card_id === cardId && String(t.date || '').substring(0, 10) === selectedDate
+      t.card_id === cardId && matchesDateKey(t.date, selectedDate)
     );
     let dayTols = (data.tols || []).filter(t =>
-      t.card_id === cardId && String(t.date || '').substring(0, 10) === selectedDate
+      t.card_id === cardId && matchesDateKey(t.date, selectedDate)
     );
     let dayBbm = (data.bbmFlazz || []).filter(b =>
-      b.card_id === cardId && String(b.tanggal || b.timestamp || '').substring(0, 10) === selectedDate
+      b.card_id === cardId && matchesDateKey(b.tanggal || b.timestamp, selectedDate)
     );
 
     let totalTopup = dayTopups.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
@@ -848,7 +858,7 @@ function renderFlazzListingTable() {
     // saldo_awal: utamakan opening_balance dari rekonsiliasi tanggal tsb,
     // fallback = saldo_akhir + pengeluaran - topup_hari
     let dayRecon = (data.recons || []).find(r =>
-      r.card_id === cardId && String(r.date || '').substring(0, 10) === selectedDate
+      r.card_id === cardId && matchesDateKey(r.date, selectedDate)
     );
     let saldoAwal = dayRecon ? (parseFloat(dayRecon.opening_balance) || 0)
                              : (lastBal + totalExpense - totalTopup);
@@ -926,7 +936,7 @@ function renderFlazzDetailHistory(cardId, data) {
   let selectedDate = document.getElementById('flazz-listing-date').value || '';
 
   // Top Ups
-  let topups = (data.topups || []).filter(t => t.card_id === cardId && (!selectedDate || String(t.date || '').substring(0, 10) === selectedDate));
+  let topups = (data.topups || []).filter(t => t.card_id === cardId && (!selectedDate || matchesDateKey(t.date, selectedDate)));
   let topupTbody = document.getElementById('tb-detail-topup');
   if (topupTbody) {
     topupTbody.innerHTML = '';
@@ -940,8 +950,8 @@ function renderFlazzDetailHistory(cardId, data) {
   }
 
   // Pengeluaran (Tol + BBM gabungan)
-  let tols = (data.tols || []).filter(t => t.card_id === cardId && (!selectedDate || String(t.date || '').substring(0, 10) === selectedDate));
-  let bbm = (data.bbmFlazz || []).filter(b => b.card_id === cardId && (!selectedDate || String(b.tanggal || b.timestamp || '').substring(0, 10) === selectedDate));
+  let tols = (data.tols || []).filter(t => t.card_id === cardId && (!selectedDate || matchesDateKey(t.date, selectedDate)));
+  let bbm = (data.bbmFlazz || []).filter(b => b.card_id === cardId && (!selectedDate || matchesDateKey(b.tanggal || b.timestamp, selectedDate)));
   let pengeluaranTbody = document.getElementById('tb-detail-pengeluaran');
   if (pengeluaranTbody) {
     pengeluaranTbody.innerHTML = '';
@@ -962,7 +972,7 @@ function renderFlazzDetailHistory(cardId, data) {
   }
 
   // Reconciliation
-  let recons = (data.recons || []).filter(r => r.card_id === cardId && (!selectedDate || String(r.date || '').substring(0, 10) === selectedDate));
+  let recons = (data.recons || []).filter(r => r.card_id === cardId && (!selectedDate || matchesDateKey(r.date, selectedDate)));
   let reconTbody = document.getElementById('tb-detail-recon');
   if (reconTbody) {
     reconTbody.innerHTML = '';
@@ -1024,14 +1034,14 @@ function printFlazzA4() {
 
   // Summary harian (hanya jika tanggal dipilih)
   if (selectedDate) {
-    let dayTopups = (data.topups || []).filter(t => t.card_id === card.id && String(t.date || '').substring(0, 10) === selectedDate);
-    let dayTols = (data.tols || []).filter(t => t.card_id === card.id && String(t.date || '').substring(0, 10) === selectedDate);
-    let dayBbm = (data.bbmFlazz || []).filter(b => b.card_id === card.id && String(b.tanggal || b.timestamp || '').substring(0, 10) === selectedDate);
+    let dayTopups = (data.topups || []).filter(t => t.card_id === card.id && matchesDateKey(t.date, selectedDate));
+    let dayTols = (data.tols || []).filter(t => t.card_id === card.id && matchesDateKey(t.date, selectedDate));
+    let dayBbm = (data.bbmFlazz || []).filter(b => b.card_id === card.id && matchesDateKey(b.tanggal || b.timestamp, selectedDate));
     let totalTopup = dayTopups.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
     let totalTol = dayTols.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
     let totalBbm = dayBbm.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
     let totalExpense = totalTol + totalBbm;
-    let dayRecon = (data.recons || []).find(r => r.card_id === card.id && String(r.date || '').substring(0, 10) === selectedDate);
+    let dayRecon = (data.recons || []).find(r => r.card_id === card.id && matchesDateKey(r.date, selectedDate));
     let saldoAwal = dayRecon ? (parseFloat(dayRecon.opening_balance) || 0) : (lastBal + totalExpense - totalTopup);
 
     printHtml += '<div class="summary-box">';
@@ -1045,7 +1055,7 @@ function printFlazzA4() {
   }
 
   // Top Up
-  let topups = (data.topups || []).filter(t => t.card_id === card.id && (!selectedDate || String(t.date || '').substring(0, 10) === selectedDate));
+  let topups = (data.topups || []).filter(t => t.card_id === card.id && (!selectedDate || matchesDateKey(t.date, selectedDate)));
   printHtml += '<h4>Top Up</h4>';
   printHtml += '<table><thead><tr><th>Tanggal</th><th>Nominal</th><th>Bukti</th><th>Catatan</th></tr></thead><tbody>';
   if (topups.length === 0) {
@@ -1058,8 +1068,8 @@ function printFlazzA4() {
   printHtml += '</tbody></table>';
 
   // Pengeluaran (Tol + BBM)
-  let tols = (data.tols || []).filter(t => t.card_id === card.id && (!selectedDate || String(t.date || '').substring(0, 10) === selectedDate));
-  let bbm = (data.bbmFlazz || []).filter(b => b.card_id === card.id && (!selectedDate || String(b.tanggal || b.timestamp || '').substring(0, 10) === selectedDate));
+  let tols = (data.tols || []).filter(t => t.card_id === card.id && (!selectedDate || matchesDateKey(t.date, selectedDate)));
+  let bbm = (data.bbmFlazz || []).filter(b => b.card_id === card.id && (!selectedDate || matchesDateKey(b.tanggal || b.timestamp, selectedDate)));
   printHtml += '<h4>Rincian Pengeluaran</h4>';
   printHtml += '<table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Supir/Kendaraan</th><th>Nominal</th></tr></thead><tbody>';
   if (tols.length === 0 && bbm.length === 0) {
@@ -1075,7 +1085,7 @@ function printFlazzA4() {
   printHtml += '</tbody></table>';
 
   // Rekonsiliasi
-  let recons = (data.recons || []).filter(r => r.card_id === card.id && (!selectedDate || String(r.date || '').substring(0, 10) === selectedDate));
+  let recons = (data.recons || []).filter(r => r.card_id === card.id && (!selectedDate || matchesDateKey(r.date, selectedDate)));
   printHtml += '<h4>Rekonsiliasi Harian</h4>';
   printHtml += '<table><thead><tr><th>Tanggal</th><th>Saldo Awal</th><th>Top Up</th><th>BBM+Tol</th><th>Saldo Sistem</th><th>Saldo Fisik</th><th>Selisih</th><th>Status</th></tr></thead><tbody>';
   if (recons.length === 0) {
