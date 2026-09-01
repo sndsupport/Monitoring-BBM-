@@ -871,17 +871,20 @@ function renderFlazzListingTable() {
 // LIST FLAZZ - Detail Modal
 // ==========================================
 
+let __activeFlazzCardId = null;
+
 function showFlazzDetailModal(cardId) {
   if (!__flazzListingData) return;
   let data = __flazzListingData;
   let card = (data.cards || []).find(c => c.id === cardId);
   if (!card) return;
+  __activeFlazzCardId = cardId;
 
   let statusBadge = card.status === 'SEDANG_DIGUNAKAN' ? 'bg-warning' :
     (card.status === 'TERSEDIA' ? 'bg-success' : 'bg-secondary');
 
   document.getElementById('flazz-detail-title').innerHTML =
-    '<i class="bi bi-credit-card me-2"></i>' + card.card_number +
+    'Laporan Penggunaan Kartu Flazz - ' + card.card_number +
     ' <span class="badge ' + statusBadge + ' ms-2" style="font-size:0.7rem;">' + card.status + '</span>';
 
   let html = '';
@@ -895,23 +898,17 @@ function showFlazzDetailModal(cardId) {
   html += '<div class="col-md-3"><div class="text-muted small fw-bold">Saldo Saat Ini</div><div class="fw-bold text-primary fs-5">' + formatCurrency(card.last_balance) + '</div></div>';
   html += '</div>';
 
-  // Tabs
-  html += '<ul class="nav nav-tabs" id="flazzDetailTabs">';
-  html += '<li class="nav-item"><a class="nav-link active" href="#" onclick="showFlazzDetailTab(\'detail-topup\', event)">Top Up</a></li>';
-  html += '<li class="nav-item"><a class="nav-link" href="#" onclick="showFlazzDetailTab(\'detail-tol\', event)">Tol</a></li>';
-  html += '<li class="nav-item"><a class="nav-link" href="#" onclick="showFlazzDetailTab(\'detail-bbm\', event)">BBM (Flazz)</a></li>';
-  html += '<li class="nav-item"><a class="nav-link" href="#" onclick="showFlazzDetailTab(\'detail-usage\', event)">Pemakaian</a></li>';
-  html += '<li class="nav-item"><a class="nav-link" href="#" onclick="showFlazzDetailTab(\'detail-recon\', event)">Rekonsiliasi</a></li>';
-  html += '</ul>';
+  // Top Up table
+  html += '<h6 class="text-primary fw-bold mt-2">Top Up</h6>';
+  html += '<table class="table table-sm align-middle"><thead class="table-light"><tr><th>Tanggal</th><th>Nominal</th><th>Bukti</th><th>Catatan</th></tr></thead><tbody id="tb-detail-topup"></tbody></table>';
 
-  // Tab content containers
-  html += '<div class="tab-content mt-3">';
-  html += '<div id="detail-topup-container"><table class="table table-sm align-middle"><thead class="table-light"><tr><th>Tanggal</th><th>Nominal</th><th>Bukti</th><th>Catatan</th></tr></thead><tbody id="tb-detail-topup"></tbody></table></div>';
-  html += '<div id="detail-tol-container" style="display:none;"><table class="table table-sm align-middle"><thead class="table-light"><tr><th>Tanggal</th><th>Supir/Kendaraan</th><th>Nominal</th><th>Bukti</th><th>Catatan</th></tr></thead><tbody id="tb-detail-tol"></tbody></table></div>';
-  html += '<div id="detail-bbm-container" style="display:none;"><table class="table table-sm align-middle"><thead class="table-light"><tr><th>Tanggal</th><th>Supir/Kendaraan</th><th>Biaya</th><th>Bukti</th></tr></thead><tbody id="tb-detail-bbm"></tbody></table></div>';
-  html += '<div id="detail-usage-container" style="display:none;"><table class="table table-sm align-middle"><thead class="table-light"><tr><th>Tanggal</th><th>Supir/Kendaraan</th><th>Tipe</th><th>Status</th></tr></thead><tbody id="tb-detail-usage"></tbody></table></div>';
-  html += '<div id="detail-recon-container" style="display:none;"><table class="table table-sm align-middle"><thead class="table-light"><tr><th>Tanggal</th><th>Saldo Awal</th><th>Top Up</th><th>BBM+Tol</th><th>Saldo Sistem</th><th>Saldo Fisik</th><th>Selisih</th><th>Status</th></tr></thead><tbody id="tb-detail-recon"></tbody></table></div>';
-  html += '</div>';
+  // Pengeluaran table (Tol + BBM gabungan)
+  html += '<h6 class="text-primary fw-bold mt-4">Rincian Pengeluaran</h6>';
+  html += '<table class="table table-sm align-middle"><thead class="table-light"><tr><th>Tanggal</th><th>Jenis</th><th>Supir/Kendaraan</th><th>Nominal</th></tr></thead><tbody id="tb-detail-pengeluaran"></tbody></table>';
+
+  // Reconciliation table
+  html += '<h6 class="text-primary fw-bold mt-4">Rekonsiliasi Harian</h6>';
+  html += '<table class="table table-sm align-middle"><thead class="table-light"><tr><th>Tanggal</th><th>Saldo Awal</th><th>Top Up</th><th>BBM+Tol</th><th>Saldo Sistem</th><th>Saldo Fisik</th><th>Selisih</th><th>Status</th></tr></thead><tbody id="tb-detail-recon"></tbody></table>';
 
   document.getElementById('flazz-detail-body').innerHTML = html;
 
@@ -920,21 +917,11 @@ function showFlazzDetailModal(cardId) {
   new bootstrap.Modal(document.getElementById('modal-flazz-detail')).show();
 }
 
-function showFlazzDetailTab(containerId, e) {
-  if (e) e.preventDefault();
-  document.querySelectorAll('#flazzDetailTabs .nav-link').forEach(el => el.classList.remove('active'));
-  if (e) e.target.classList.add('active');
-  ['detail-topup', 'detail-tol', 'detail-bbm', 'detail-usage', 'detail-recon'].forEach(id => {
-    let el = document.getElementById(id + '-container');
-    if (el) el.style.display = 'none';
-  });
-  let target = document.getElementById(containerId + '-container');
-  if (target) target.style.display = 'block';
-}
-
 function renderFlazzDetailHistory(cardId, data) {
+  let selectedDate = document.getElementById('flazz-listing-date').value || '';
+
   // Top Ups
-  let topups = (data.topups || []).filter(t => t.card_id === cardId);
+  let topups = (data.topups || []).filter(t => t.card_id === cardId && (!selectedDate || String(t.date || '').substring(0, 10) === selectedDate));
   let topupTbody = document.getElementById('tb-detail-topup');
   if (topupTbody) {
     topupTbody.innerHTML = '';
@@ -947,51 +934,30 @@ function renderFlazzDetailHistory(cardId, data) {
     }
   }
 
-  // Tols
-  let tols = (data.tols || []).filter(t => t.card_id === cardId);
-  let tolTbody = document.getElementById('tb-detail-tol');
-  if (tolTbody) {
-    tolTbody.innerHTML = '';
-    if (tols.length === 0) {
-      tolTbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Tidak ada data</td></tr>';
+  // Pengeluaran (Tol + BBM gabungan)
+  let tols = (data.tols || []).filter(t => t.card_id === cardId && (!selectedDate || String(t.date || '').substring(0, 10) === selectedDate));
+  let bbm = (data.bbmFlazz || []).filter(b => b.card_id === cardId && (!selectedDate || String(b.tanggal || b.timestamp || '').substring(0, 10) === selectedDate));
+  let pengeluaranTbody = document.getElementById('tb-detail-pengeluaran');
+  if (pengeluaranTbody) {
+    pengeluaranTbody.innerHTML = '';
+    let rows = [];
+    tols.forEach(t => {
+      rows.push({ tanggal: t.date, jenis: 'Tol', supir: t.driver_id || '-', kendaraan: t.vehicle_id || '-', nilai: '-' + formatCurrency(t.amount) });
+    });
+    bbm.forEach(b => {
+      rows.push({ tanggal: b.tanggal, jenis: 'BBM', supir: b.driver || '-', kendaraan: b.vehicle || '-', nilai: '-' + formatCurrency(b.amount) });
+    });
+    if (rows.length === 0) {
+      pengeluaranTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Tidak ada data</td></tr>';
     } else {
-      tols.forEach(t => {
-        tolTbody.innerHTML += '<tr><td>' + formatDateShort(t.date) + '</td><td>' + (t.driver_id || '-') + ' / ' + (t.vehicle_id || '-') + '</td><td class="text-danger fw-bold">-' + formatCurrency(t.amount) + '</td><td>' + (t.evidence_url ? '<a href="' + t.evidence_url + '" target="_blank">Lihat</a>' : '-') + '</td><td>' + (t.notes || '') + '</td></tr>';
-      });
-    }
-  }
-
-  // BBM Flazz
-  let bbm = (data.bbmFlazz || []).filter(b => b.card_id === cardId);
-  let bbmTbody = document.getElementById('tb-detail-bbm');
-  if (bbmTbody) {
-    bbmTbody.innerHTML = '';
-    if (bbm.length === 0) {
-      bbmTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Tidak ada data</td></tr>';
-    } else {
-      bbm.forEach(b => {
-        bbmTbody.innerHTML += '<tr><td>' + formatDateShort(b.tanggal) + '</td><td>' + (b.driver || '-') + ' / ' + (b.vehicle || '-') + '</td><td class="text-danger fw-bold">-' + formatCurrency(b.amount) + '</td><td>' + (b.evidence ? '<a href="' + b.evidence + '" target="_blank">Struk</a>' : '-') + '</td></tr>';
-      });
-    }
-  }
-
-  // Usage
-  let usages = (data.usages || []).filter(u => u.card_id === cardId);
-  let usageTbody = document.getElementById('tb-detail-usage');
-  if (usageTbody) {
-    usageTbody.innerHTML = '';
-    if (usages.length === 0) {
-      usageTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Tidak ada data</td></tr>';
-    } else {
-      usages.forEach(u => {
-        let badge = u.status === 'DIBERIKAN' ? 'bg-warning' : 'bg-success';
-        usageTbody.innerHTML += '<tr><td>' + formatDateShort(u.date) + '</td><td>' + (u.driver_id || '-') + ' / ' + (u.vehicle_id || '-') + '</td><td>' + (u.usage_type || '-') + '</td><td><span class="badge ' + badge + '">' + u.status + '</span></td></tr>';
+      rows.forEach(r => {
+        pengeluaranTbody.innerHTML += '<tr><td>' + formatDateShort(r.tanggal) + '</td><td>' + r.jenis + '</td><td>' + r.supir + ' / ' + r.kendaraan + '</td><td class="text-danger fw-bold">' + r.nilai + '</td></tr>';
       });
     }
   }
 
   // Reconciliation
-  let recons = (data.recons || []).filter(r => r.card_id === cardId);
+  let recons = (data.recons || []).filter(r => r.card_id === cardId && (!selectedDate || String(r.date || '').substring(0, 10) === selectedDate));
   let reconTbody = document.getElementById('tb-detail-recon');
   if (reconTbody) {
     reconTbody.innerHTML = '';
