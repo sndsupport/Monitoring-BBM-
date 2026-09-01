@@ -845,8 +845,13 @@ function renderFlazzListingTable() {
     let totalBbm = dayBbm.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
     let totalExpense = totalTol + totalBbm;
 
-    // saldo_awal = saldo_akhir + pengeluaran - topup_hari
-    let saldoAwal = lastBal + totalExpense - totalTopup;
+    // saldo_awal: utamakan opening_balance dari rekonsiliasi tanggal tsb,
+    // fallback = saldo_akhir + pengeluaran - topup_hari
+    let dayRecon = (data.recons || []).find(r =>
+      r.card_id === cardId && String(r.date || '').substring(0, 10) === selectedDate
+    );
+    let saldoAwal = dayRecon ? (parseFloat(dayRecon.opening_balance) || 0)
+                             : (lastBal + totalExpense - totalTopup);
 
     let tr = document.createElement('tr');
     tr.innerHTML = `
@@ -1026,7 +1031,8 @@ function printFlazzA4() {
     let totalTol = dayTols.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
     let totalBbm = dayBbm.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
     let totalExpense = totalTol + totalBbm;
-    let saldoAwal = lastBal + totalExpense - totalTopup;
+    let dayRecon = (data.recons || []).find(r => r.card_id === card.id && String(r.date || '').substring(0, 10) === selectedDate);
+    let saldoAwal = dayRecon ? (parseFloat(dayRecon.opening_balance) || 0) : (lastBal + totalExpense - totalTopup);
 
     printHtml += '<div class="summary-box">';
     printHtml += '<div class="summary-row"><span>Saldo Awal (Sebelum Transaksi Hari Ini)</span><span>' + formatCurrency(saldoAwal) + '</span></div>';
