@@ -770,3 +770,99 @@ function onUsageDriverChange() {
   }
 }
 </script>
+<script>
+// ==========================================
+// LIST FLAZZ - Listing Page
+// ==========================================
+
+let __flazzListingData = null;
+
+function renderFlazzListing() {
+  if (flazzDataCache) {
+    __flazzListingData = flazzDataCache;
+    document.getElementById('flazz-listing-loading').style.display = 'none';
+    document.getElementById('flazz-listing-loaded').style.display = 'block';
+    renderFlazzListingTable();
+  } else {
+    document.getElementById('flazz-listing-loading').style.display = 'block';
+    document.getElementById('flazz-listing-loaded').style.display = 'none';
+    let attempts = 0;
+    let checker = setInterval(function() {
+      attempts++;
+      if (flazzDataCache) {
+        clearInterval(checker);
+        __flazzListingData = flazzDataCache;
+        document.getElementById('flazz-listing-loading').style.display = 'none';
+        document.getElementById('flazz-listing-loaded').style.display = 'block';
+        renderFlazzListingTable();
+      } else if (attempts > 30) {
+        clearInterval(checker);
+        document.getElementById('flazz-listing-loading').style.display = 'none';
+        showToast('Gagal memuat data Flazz', 'error');
+      }
+    }, 200);
+  }
+}
+
+function renderFlazzListingTable() {
+  if (!__flazzListingData) return;
+  let data = __flazzListingData;
+  let cards = data.cards || [];
+  let selectedDate = document.getElementById('flazz-listing-date').value;
+  if (!selectedDate) {
+    selectedDate = new Date().toISOString().slice(0, 10);
+    document.getElementById('flazz-listing-date').value = selectedDate;
+  }
+
+  let tbody = document.getElementById('flazz-listing-table');
+  let noneEl = document.getElementById('flazz-listing-none');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  let activeCards = cards.filter(c => c.status !== 'NONAKTIF');
+  if (activeCards.length === 0) {
+    noneEl.style.display = 'block';
+    return;
+  }
+  noneEl.style.display = 'none';
+
+  activeCards.forEach(function(c, idx) {
+    let cardId = c.id;
+    let lastBal = parseFloat(c.last_balance) || 0;
+
+    let dayTopups = (data.topups || []).filter(t =>
+      t.card_id === cardId && String(t.date || '').substring(0, 10) === selectedDate
+    );
+    let dayTols = (data.tols || []).filter(t =>
+      t.card_id === cardId && String(t.date || '').substring(0, 10) === selectedDate
+    );
+    let dayBbm = (data.bbmFlazz || []).filter(b =>
+      b.card_id === cardId && String(b.tanggal || b.timestamp || '').substring(0, 10) === selectedDate
+    );
+
+    let totalTopup = dayTopups.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
+    let totalTol = dayTols.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
+    let totalBbm = dayBbm.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
+    let totalExpense = totalTol + totalBbm;
+
+    // saldo_awal = saldo_akhir + pengeluaran - topup_hari
+    let saldoAwal = lastBal + totalExpense - totalTopup;
+
+    let tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class='text-center text-muted'>${idx + 1}</td>
+      <td>
+        <a href='#' class='fw-bold text-primary text-decoration-underline' onclick="showFlazzDetailModal('${cardId}'); return false;">
+          ${c.card_number}
+        </a>
+      </td>
+      <td>${c.card_name || '-'}</td>
+      <td>${c.driver_id || '-'}</td>
+      <td class='text-end'>${formatCurrency(saldoAwal)}</td>
+      <td class='text-end text-danger fw-bold'>${totalExpense > 0 ? '-' + formatCurrency(totalExpense) : '-'}</td>
+      <td class='text-end fw-bold'>${formatCurrency(lastBal)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+</script>
