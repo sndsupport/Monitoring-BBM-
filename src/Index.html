@@ -89,6 +89,10 @@
             <i class='bi bi-truck'></i>
             <span>Jalur</span>
           </button>
+          <button class='btn-nav' onclick='switchTab("performa")' data-tab='performa'>
+            <i class='bi bi-speedometer2'></i>
+            <span>Performa</span>
+          </button>
           <button class='btn-nav' onclick='switchTab("master")' data-tab='master' id='btn-nav-master' style='display:none;'>
             <i class='bi bi-gear'></i>
             <span>Master</span>
@@ -109,6 +113,9 @@
           <a class='nav-link sidebar-link' id='tab-dashboard' href='#' onclick='switchTab("dashboard")'>
             <i class='bi bi-clock-history'></i> <span>History Laporan</span>
           </a>
+          <a class='nav-link sidebar-link' id='tab-performa' href='#' onclick='switchTab("performa")'>
+            <i class='bi bi-speedometer2'></i> <span>Ringkasan Performa Kendaraan</span>
+          </a>
           <a class='nav-link sidebar-link' id='tab-gallery' href='#' onclick='switchTab("gallery")'>
             <i class='bi bi-images'></i> <span>Galeri Foto</span>
           </a>
@@ -126,14 +133,8 @@
           <a class='nav-link sidebar-link' id='tab-flazz-dashboard' href='#' onclick='switchTab("flazz-dashboard")'>
             <i class='bi bi-credit-card-2-front'></i> <span>Dashboard Flazz</span>
           </a>
-          <a class='nav-link sidebar-link' id='tab-flazz-usage' href='#' onclick='switchTab("flazz-usage")'>
-            <i class='bi bi-arrow-left-right'></i> <span>Penggunaan Kartu</span>
-          </a>
           <a class='nav-link sidebar-link' id='tab-flazz-topup' href='#' onclick='switchTab("flazz-topup")'>
             <i class='bi bi-wallet2'></i> <span>Top Up Flazz</span>
-          </a>
-          <a class='nav-link sidebar-link' id='tab-flazz-tol' href='#' onclick='switchTab("flazz-tol")'>
-            <i class='bi bi-signpost-2'></i> <span>Pengeluaran Tol</span>
           </a>
           <a class='nav-link sidebar-link' id='tab-flazz-recon' href='#' onclick='switchTab("flazz-recon")'>
             <i class='bi bi-check2-all'></i> <span>Rekonsiliasi Flazz</span>
@@ -217,7 +218,7 @@
                       </div>
                       <div class='col-md-6 mb-3'>
                         <label class='form-label fw-bold text-muted small text-uppercase'>Pilih Kendaraan</label>
-                        <select id='vehicle' class='form-select' required></select>
+                        <select id='vehicle' class='form-select' required onchange='onVehicleChange()'></select>
                       </div>
                     </div>
                     <div class='mb-0'>
@@ -243,13 +244,13 @@
                         <h5 class='mb-0 text-primary fw-bold'><i class='bi bi-arrow-right-circle me-2'></i>Keberangkatan</h5>
                       </div>
                       <div class='card-body'>
-                        <div class='mb-4'>
+                        <div class='mb-4' id='bar-awal-group'>
                           <label class='form-label fw-bold text-muted small text-uppercase'>Bar Bensin Awal</label>
                           <div class='input-group'>
                             <span class='input-group-text bg-light border-end-0'><i class='bi bi-speedometer2'></i></span>
                             <input type='number' id='bar_awal' class='form-control border-start-0' min='0' required placeholder='Misal: 8'>
                           </div>
-                          <small class='text-muted' style='font-size: 0.75rem;'>*Pastikan tidak melebihi batas maksimal bar indikator mobil</small>
+                          <small class='text-muted' style='font-size: 0.75rem;'>*Hitung bar/jarak indikator bahan bakar digital. Tidak berlaku untuk indikator jarum.</small>
                         </div>
                         <div class='mb-0'>
                           <label class='form-label fw-bold text-muted small text-uppercase'>Foto Dasbor Awal</label>
@@ -271,13 +272,13 @@
                         <h5 class='mb-0 text-success fw-bold'><i class='bi bi-arrow-left-circle me-2'></i>Kepulangan</h5>
                       </div>
                       <div class='card-body'>
-                        <div class='mb-4'>
+                        <div class='mb-4' id='bar-akhir-group'>
                           <label class='form-label fw-bold text-muted small text-uppercase'>Bar Bensin Akhir</label>
                           <div class='input-group'>
                             <span class='input-group-text bg-light border-end-0'><i class='bi bi-speedometer2'></i></span>
                             <input type='number' id='bar_akhir' class='form-control border-start-0' min='0' required placeholder='Misal: 5'>
                           </div>
-                          <small class='text-muted' style='font-size: 0.75rem;'>*Pastikan tidak melebihi batas maksimal bar indikator mobil</small>
+                          <small class='text-muted' style='font-size: 0.75rem;'>*Hitung bar/jarak indikator bahan bakar digital. Tidak berlaku untuk indikator jarum.</small>
                         </div>
                         <div class='mb-0'>
                           <label class='form-label fw-bold text-muted small text-uppercase'>Foto Dasbor Akhir</label>
@@ -348,6 +349,29 @@
                             <select id='flazz_card_id' class='form-select'>
                               <option value=''>Pilih Kartu...</option>
                             </select>
+                          </div>
+                          <div id='tol-section' style='display:none;' class='tol-block fade-in'>
+                            <hr>
+                            <div class='d-flex align-items-center justify-content-between mb-2'>
+                              <label class='form-label fw-bold text-muted small text-uppercase mb-0'>Pengeluaran Tol (Total Hari Ini)</label>
+                              <button type='button' class='btn btn-sm btn-outline-secondary' onclick='resetTolFields()' title='Kosongkan tol'><i class='bi bi-x-circle'></i></button>
+                            </div>
+                            <div class='mb-3'>
+                              <label class='form-label fw-bold text-muted small'>Total Biaya Tol</label>
+                              <div class='input-group'>
+                                <span class='input-group-text bg-light border-end-0 fw-bold'>Rp</span>
+                                <input type='number' id='biaya_toll' class='form-control border-start-0' min='0' placeholder='35000'>
+                              </div>
+                              <small class='text-muted' style='font-size:0.75rem'>Total seluruh gerbang tol hari ini. Rincian per gerbang ada di struk.</small>
+                            </div>
+                            <div class='mb-3'>
+                              <label class='form-label fw-bold text-muted small'>Foto Struk Tol</label>
+                              <div class='photo-upload rounded-3' onclick='document.getElementById("foto_struk_toll").click()'>
+                                <i class='bi bi-receipt-cutoff fs-3 text-secondary mb-2'></i>
+                                <span class='text-muted small'>Tap untuk upload struk tol</span>
+                                <input type='file' id='foto_struk_toll' accept='image/*' style='display:none;'>
+                              </div>
+                            </div>
                           </div>
                           <div class='mb-0'>
                             <label class='form-label fw-bold text-muted small text-uppercase'>Foto Struk BBM</label>
@@ -495,13 +519,68 @@
         </div>
       </div>
 
+      <!-- HALAMAN 2B: RINGKASAN PERFORMA -->
+      <div id='page-performa' style='display:none;'>
+        <div class='card mb-4'>
+          <div class='card-body p-4'>
+            <h4 class='mb-4 pb-2 border-bottom text-primary'>
+              <i class='bi bi-speedometer2 me-2'></i> Ringkasan Performa Kendaraan (Per 7 Trip)
+            </h4>
+            
+            <div id='performa-content'>
+              <div class='table-responsive'>
+                <table class='table table-bordered table-striped table-hover'>
+                  <thead class='table-dark align-middle text-center text-nowrap'>
+                    <tr>
+                      <th>Periode Tanggal</th>
+                      <th>Warehouse</th>
+                      <th>Supir (Trip Terakhir)</th>
+                      <th>Kendaraan</th>
+                      <th>Total KM Tempuh</th>
+                      <th>Total Isi BBM</th>
+                      <th>Total BBM Terpakai</th>
+                      <th>Efisiensi (KM/L)</th>
+                      <th>Status Standar</th>
+                    </tr>
+                  </thead>
+                  <tbody id='performa-tbody'></tbody>
+                </table>
+              </div>
+            </div>
+            
+            <div id='performa-empty' class='empty-state' style='display:none;'>
+              <i class='bi bi-inbox'></i>
+              <h5>Belum ada rekap performa 7 trip</h5>
+              <p>Data akan muncul setelah kendaraan menyelesaikan kelipatan 7 perjalanan.</p>
+            </div>
+            
+            <div id='performa-loading' style='display:none;'>
+              <div class='skeleton' style='height: 100px; margin-bottom: 12px;'></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- HALAMAN 3: GALERI FOTO -->
       <div id='page-gallery' style='display:none;'>
         <div class='card mb-4'>
           <div class='card-body p-4'>
-            <h4 class='card-title mb-4 pb-2 border-bottom text-primary'>
-              <i class='bi bi-images me-2'></i> Galeri Foto Odometer
-            </h4>
+            <div class='d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 pb-2 border-bottom'>
+              <h4 class='card-title text-primary mb-2 mb-md-0'>
+                <i class='bi bi-images me-2'></i> Galeri Foto Operasional
+              </h4>
+              <div class='d-flex align-items-center'>
+                <label class='form-label mb-0 me-2 fw-bold text-muted small text-uppercase text-nowrap'>Jenis Foto:</label>
+                <select id='filter-gallery-type' class='form-select form-select-sm' style='max-width: 200px;' onchange='__galleryPage=1; renderGalleryPage()'>
+                  <option value='all'>Semua Foto</option>
+                  <option value='odo_awal'>KM Awal</option>
+                  <option value='odo_akhir'>KM Akhir</option>
+                  <option value='struk_bbm'>Struk BBM</option>
+                  <option value='struk_toll'>Struk Tol</option>
+                  <option value='indikator'>Indikator BBM</option>
+                </select>
+              </div>
+            </div>
             
             <div id='gallery-content' class='row g-3'>
               <!-- Foto-foto akan dimuat di sini -->
@@ -598,7 +677,7 @@
                         </div>
                         <div class='mb-3'>
                           <label class='form-label'>Jenis Kendaraan</label>
-                          <select id='m_jenis_kendaraan' class='form-select' required>
+                          <select id='m_jenis_kendaraan' class='form-select' required onchange='document.getElementById("container-tanggal-kir").style.display = (this.value === "Mobil") ? "block" : "none"'>
                             <option value='Mobil'>Mobil</option>
                             <option value='Motor'>Motor</option>
                           </select>
@@ -638,8 +717,16 @@
                           </select>
                         </div>
                         <div class='mb-3'>
-                          <label class='form-label'>Tanggal Jatuh Tempo Pajak</label>
+                          <label class='form-label'>Tanggal Jatuh Tempo Pajak Tahunan</label>
                           <input type='date' id='m_tanggal_pajak' class='form-control'>
+                        </div>
+                        <div class='mb-3'>
+                          <label class='form-label'>Tanggal Jatuh Tempo Pajak 5 Tahunan</label>
+                          <input type='date' id='m_tanggal_pajak_5' class='form-control'>
+                        </div>
+                        <div class='mb-3' id='container-tanggal-kir'>
+                          <label class='form-label'>Tanggal Jatuh Tempo KIR</label>
+                          <input type='date' id='m_tanggal_kir' class='form-control'>
                         </div>
                         <div class='mb-3'>
                           <label class='form-label'>Warehouse</label>
@@ -913,8 +1000,36 @@
               <input type="hidden" id="ed_trx">
               <div class="mb-2"><label class="form-label small">Nama Supir</label>
                 <input id="ed_nama_supir" class="form-control"></div>
+              <div class="mb-2"><label class="form-label small">KM Awal</label>
+                <input id="ed_km_awal" type="number" class="form-control" required></div>
+              <div class="mb-2"><label class="form-label small">KM Akhir</label>
+                <input id="ed_km_akhir" type="number" class="form-control" required></div>
+              <div class="mb-2">
+                <label class="form-label small">Foto Odometer Awal</label>
+                <div class="d-flex align-items-center gap-2">
+                  <img id="ed_preview_odo_awal" src="" alt="Foto awal" class="rounded border"
+                       style="width:80px;height:60px;object-fit:cover;display:none;">
+                  <input type="file" id="ed_foto_odo_awal" accept="image/*" class="form-control form-control-sm"
+                         onchange="previewEditPhoto(this, 'ed_preview_odo_awal')">
+                </div>
+              </div>
+              <div class="mb-2">
+                <label class="form-label small">Foto Odometer Akhir</label>
+                <div class="d-flex align-items-center gap-2">
+                  <img id="ed_preview_odo_akhir" src="" alt="Foto akhir" class="rounded border"
+                       style="width:80px;height:60px;object-fit:cover;display:none;">
+                  <input type="file" id="ed_foto_odo_akhir" accept="image/*" class="form-control form-control-sm"
+                         onchange="previewEditPhoto(this, 'ed_preview_odo_akhir')">
+                </div>
+              </div>
+              <div class="mb-2"><label class="form-label small">Jenis BBM / Harga</label>
+                <select id="ed_jenis_bbm" class="form-select" onchange="calcEditLiter()"></select>
+                <small class="text-muted" style="font-size:0.75rem">Pilih jenis BBM untuk menentukan harga per liter.</small></div>
               <div class="mb-2"><label class="form-label small">Biaya BBM</label>
-                <input id="ed_biaya" type="number" class="form-control" required></div>
+                <input id="ed_biaya" type="number" class="form-control" oninput="calcEditLiter()"></div>
+              <div class="mb-2"><label class="form-label small">Liter BBM</label>
+                <input id="ed_liter" type="number" step="0.01" class="form-control" placeholder="0.00">
+                <small class="text-muted" style="font-size:0.75rem">Terisi otomatis dari biaya. Ubah manual jika perlu.</small></div>
               <div class="mb-2"><label class="form-label small">Metode Pembayaran</label>
                 <select id="ed_metode" class="form-select" onchange="toggleEditFlazz()">
                   <option value="TUNAI">Tunai</option>
@@ -923,6 +1038,10 @@
               <div class="mb-2" id="ed_flazz_row" style="display:none;">
                 <label class="form-label small">Kartu Flazz</label>
                 <select id="ed_flazz_card_id" class="form-select"></select></div>
+              <div class="mb-2" id="ed_toll_row" style="display:none;">
+                <label class="form-label small">Biaya Tol (Total Hari Ini)</label>
+                <input id="ed_biaya_toll" type="number" min="0" class="form-control" placeholder="0">
+                <small class="text-muted" style="font-size:0.75rem">Kosongkan jika tidak ada tol.</small></div>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
