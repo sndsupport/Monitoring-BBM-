@@ -9,10 +9,19 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - **PIC CABANG:** Hanya bisa mengelola laporan untuk kendaraan dan supir di cabangnya sendiri.
 
 ### Mobile-First Responsive Design
-- Bottom navigation bar (mobile) / top tabs (desktop).
+- Bottom navigation bar (mobile) / **sidebar** (desktop).
+- **Navigasi terkelompok per fungsi:** sidebar desktop disusun menjadi grup **INPUT / LISTING / LAPORAN / ADMIN** plus **Dashboard** di posisi teratas, sehingga menu inti (`Input Laporan`, `Buat Jadwal`, `Top Up Flazz`, `Rekonsiliasi Flazz`) dikelompokkan di INPUT, daftar/history di LISTING, dan ringkasan/laporan di LAPORAN.
 - Card-based form input bergaya modern dengan preview foto dan layout 2-kolom dinamis di perangkat Desktop/PC.
 - Dashboard tampilan cards (mobile) atau table (desktop).
 - Toast notification untuk semua aksi (bukan alert).
+
+### Dashboard Umum (Halaman Landing)
+- Setelah login, aplikasi langsung masuk ke **Dashboard Umum** (menggantikan Dashboard Flazz sebagai landing page).
+- **Greeting dinamis:** sapaan berdasarkan waktu (Selamat Pagi/Siang/Sore/Malam) beserta nama pengguna dan tanggal hari itu.
+- **Akses Cepat (Quick Access):** tombol-tombol pintasan ke halaman utama (Input Laporan, History, Buat Jadwal, Galeri, Top Up, Rekonsiliasi, Performa, dan menu admin sesuai peran).
+- **Galeri Foto Terbaru:** strip foto operasional terbaru dengan tautan "Lihat Semua" ke halaman Galeri.
+- **Status Kartu Etoll:** ringkasan Total Kartu Aktif, Total Saldo, Top Up Terakhir, dan tabel status kartu saat ini (nomor, tipe, driver/kendaraan, saldo, status).
+- History Laporan dipisah menjadi halaman sendiri (menu `History Laporan` di grup LISTING).
 
 ### Auto-Calculate BBM & Efisiensi Pintar
 - Menghitung jarak tempuh otomatis (KM Akhir - KM Awal).
@@ -33,7 +42,7 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - Catat **Isi Ulang (Top-Up)**, **Pengeluaran Tol**, dan **Rekonsiliasi** saldo, serta pantau **Penggunaan** kartu.
 - **Alur input disederhanakan:** biaya tol kini dimasukkan **langsung di formulir *Input Laporan* harian** (bagian "Tol"), bukan lewat menu terpisah. Saat laporan BBM disimpan dengan pembayaran Flazz, sistem otomatis mencatat pengeluaran BBM **dan** tol ke kartu, sekaligus **otomatis membuat catatan penyerahan kartu ke supir** (`Flazz_Usage`, status `DIBERIKAN`) bila kartu belum sedang digunakan — sehingga tidak perlu input manual. Menu/form input manual *Penggunaan* dan *Tol* sudah dihapus dari UI, tetapi riwayat pemantauannya tetap tersedia di tab Riwayat Flazz.
 - Transaksi top-up/tol (termasuk saat diedit) otomatis mencatat **tanggal + jam asli** saat transaksi dibuat/diubah — bukan sekadar tanggal tengah malam. Data tanggal yang hanya berisi tanggal ditampilkan tanpa jam palsu `00:00`.
-- Dashboard Flazz menampilkan **Total Kartu Aktif** (jumlah kartu berstatus `SEDANG_DIGUNAKAN`), **Total Saldo** seluruh kartu, dan **Top Up Terakhir** beserta waktunya.
+- **Status Kartu Etoll di Dashboard Umum:** ringkasan **Total Kartu Aktif**, **Total Saldo**, dan **Top Up Terakhir** beserta tabel status kartu kini tampil pada Dashboard Umum (halaman landing), bukan halaman terpisah.
 - **Full Reconciliation:** sistem menghitung saldo sistem otomatis dari ledger per periode pemakaian sejak kartu diserahkan (saldo awal + top-up − BBM − tol), lalu dibandingkan dengan saldo fisik → status **`SESUAI`** / **`PERLU_PEMERIKSAAN`**, menandai kartu tersedia kembali, menyimpan riwayat rekonsiliasi, dan **memulihkan supir pemegang ke nilai default** (`default_driver_id`). Pratinjau "Saldo Di Sistem" di form memakai rumus ledger yang sama dengan server, sehingga angka yang terlihat sebelum disimpan == angka yang tersimpan.
 - **Soft-delete:** kartu dinonaktifkan (status `NONAKTIF`) alih-alih dihapus permanen; top-up/tol juga di-soft-delete dengan pengembalian saldo otomatis. Data finansial tidak pernah dihapus permanen.
 - **Validasi:** nomor kartu unik, nominal top-up/tol > 0, saldo tidak boleh negatif, dan nama kartu wajib untuk kartu `UTAMA`.
@@ -139,8 +148,8 @@ Setelah menjalankan `seedDummyData()`:
 | `OCRService.js` | Ekstraksi teks dari foto odometer (OCR). |
 | `FlazzOps.js` | CRUD kartu & transaksi Flazz (header-safe), soft-delete, dan logika rekonsiliasi penuh ke Google Sheets. |
 | `JalurOps.js` | CRUD jadwal pengiriman (header-safe) + helper perhitungan sisa hari pajak kendaraan. |
-| `Index.html` | Struktur UI utama (Bootstrap 5 + mobile-first) & sidebar navigasi. |
-| `js.html` | Logika interaksi sisi client (JavaScript), termasuk pre-fill formulir laporan. |
+| `Index.html` | Struktur UI utama (Bootstrap 5 + mobile-first), halaman Dashboard Umum, & navigasi. |
+| `js.html` | Logika interaksi sisi client (JavaScript), termasuk rendering Dashboard Umum & pre-fill formulir laporan. |
 | `css.html` | Gaya desain custom (responsive, mobile-first). |
 | `Settings.html` | Halaman pengaturan aplikasi (logo, nama, perusahaan, footer). |
 | `FlazzPages.html` | Halaman UI modul Flazz (dashboard, kartu, top-up, rekonsiliasi, riwayat). |
