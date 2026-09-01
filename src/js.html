@@ -348,6 +348,7 @@
       if (typeof loadSettings === 'function') loadSettings();
     } else if (tab === 'flazz-listing') {
       document.getElementById('page-flazz-listing').style.display = 'block';
+      if (typeof loadFlazzDataWrapper === 'function') loadFlazzDataWrapper();
       if (typeof renderFlazzListing === 'function') renderFlazzListing();
     } else if (tab.startsWith('flazz-')) {
       let flazzTab = tab.substring(6);
