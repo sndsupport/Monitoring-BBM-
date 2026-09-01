@@ -311,7 +311,7 @@
     document.getElementById('page-master').style.display = 'none';
     document.getElementById('page-settings').style.display = 'none';
     
-    let flazzPages = ['dashboard', 'master', 'usage', 'topup', 'tol', 'recon', 'history'];
+    let flazzPages = ['dashboard', 'master', 'usage', 'topup', 'tol', 'recon', 'history', 'listing'];
     flazzPages.forEach(p => {
        let el = document.getElementById('page-flazz-' + p);
        if(el) el.style.display = 'none';
@@ -346,6 +346,9 @@
     } else if (tab === 'settings') {
       document.getElementById('page-settings').style.display = 'block';
       if (typeof loadSettings === 'function') loadSettings();
+    } else if (tab === 'flazz-listing') {
+      document.getElementById('page-flazz-listing').style.display = 'block';
+      if (typeof renderFlazzListing === 'function') renderFlazzListing();
     } else if (tab.startsWith('flazz-')) {
       let flazzTab = tab.substring(6);
       let pageEl = document.getElementById('page-flazz-' + flazzTab);
