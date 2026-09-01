@@ -1060,10 +1060,10 @@ function printFlazzA4() {
     printHtml += '<tr><td colspan="4" class="text-center">Tidak ada data</td></tr>';
   } else {
     tols.forEach(t => {
-      printHtml += '<tr><td>' + formatDateShort(t.date) + '</td><td>Tol</td><td>' + (t.driver_id || '-') + ' / ' + (t.vehicle_id || '-') + '</td><td>' + formatCurrency(t.amount) + '</td></tr>';
+      printHtml += '<tr><td>' + formatDateShort(t.date) + '</td><td>Tol</td><td>' + (t.driver_id || '-') + ' / ' + (t.vehicle_id || '-') + '</td><td>-' + formatCurrency(t.amount) + '</td></tr>';
     });
     bbm.forEach(b => {
-      printHtml += '<tr><td>' + formatDateShort(b.tanggal) + '</td><td>BBM</td><td>' + (b.driver || '-') + ' / ' + (b.vehicle || '-') + '</td><td>' + formatCurrency(b.amount) + '</td></tr>';
+      printHtml += '<tr><td>' + formatDateShort(b.tanggal) + '</td><td>BBM</td><td>' + (b.driver || '-') + ' / ' + (b.vehicle || '-') + '</td><td>-' + formatCurrency(b.amount) + '</td></tr>';
     });
   }
   printHtml += '</tbody></table>';
