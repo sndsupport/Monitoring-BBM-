@@ -7,6 +7,27 @@ function jalurSheet() {
   return SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8').getSheetByName('Jalur_Pengiriman');
 }
 
+// Cek apakah kartu etoll sedang punya catatan DIBERIKAN (masih dipakai)
+function flazzCardHasGiveren(cardId) {
+  try {
+    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const s = ss.getSheetByName('Flazz_Usage');
+    if (!s || s.getLastRow() <= 1 || !cardId) return false;
+    const data = s.getDataRange().getValues();
+    const h = data[0];
+    const iCard = h.indexOf('card_id');
+    const iStatus = h.indexOf('status');
+    for (let i = 1; i < data.length; i++) {
+      if (iCard > -1 && String(data[i][iCard]) === String(cardId) && (iStatus < 0 || String(data[i][iStatus]) === 'DIBERIKAN')) {
+        return true;
+      }
+    }
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
+
 function jalurColIdx(sheet) {
   const h = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   const idx = {};
@@ -97,18 +118,24 @@ function saveJalur(payload, userInfo) {
     const kodeCabang = (userInfo && userInfo.cabang) || '';
     const now = new Date();
     let saved = 0;
+    const warnings = [];
     rows.forEach(r => {
       if (!r || !r.driver_id || !r.vehicle_id || !String(r.rute_tujuan || '').trim()) return;
       const vid = r.vehicle_id;
       const v = jalurVehicleById(vid);
+      const namaDriver = jalurDriverNameById(r.driver_id);
       const row = new Array(Object.keys(idx).length).fill('');
       row[idx['id']] = 'JLR-' + now.getTime() + '-' + (saved++);
       row[idx['tanggal']] = tanggal;
       row[idx['driver_id']] = r.driver_id;
-      row[idx['nama_driver']] = jalurDriverNameById(r.driver_id);
+      row[idx['nama_driver']] = namaDriver;
       if (idx['driver2_id'] !== undefined) {
         row[idx['driver2_id']] = r.driver2_id || '';
         row[idx['nama_driver2']] = r.driver2_id ? jalurDriverNameById(r.driver2_id) : '';
+      }
+      if (r.etoll_card_id && idx['flazz_card_id'] !== undefined) {
+        row[idx['flazz_card_id']] = r.etoll_card_id;
+        if (idx['flazz_card_name'] !== undefined) row[idx['flazz_card_name']] = r.etoll_card_name || '';
       }
       row[idx['vehicle_id']] = vid;
       row[idx['plat_nomor']] = v ? v.plat_nomor : '';
@@ -121,8 +148,19 @@ function saveJalur(payload, userInfo) {
       row[idx['updated_at']] = now;
       row[idx['is_deleted']] = '';
       sheet.appendRow(row);
+
+      // Serahkan kartu etoll ke driver
+      if (r.etoll_card_id) {
+        const hadUsage = flazzCardHasGiveren(r.etoll_card_id);
+        autoCreateFlazzUsage(r.etoll_card_id, namaDriver, vid);
+        if (hadUsage) {
+          warnings.push('Kartu etoll "' + (r.etoll_card_name || r.etoll_card_id) + '" masih dipakai (belum dikembalikan) untuk ' + (namaDriver || r.driver_id) + '. Proses admin sebelumnya belum selesai.');
+        }
+      }
     });
-    return { success: true, msg: saved + ' jadwal pengiriman berhasil disimpan.', saved: saved };
+    const result = { success: true, msg: saved + ' jadwal pengiriman berhasil disimpan.', saved: saved };
+    if (warnings.length) result.warnings = warnings;
+    return result;
   } catch (e) {
     return { success: false, msg: e.message };
   }
@@ -135,6 +173,8 @@ function updateJalur(data, userInfo) {
     const found = findJalurRow(sheet, data.id);
     if (!found) throw new Error('Jadwal tidak ditemukan.');
     const idx = found.idx;
+    const oldCard = (idx['flazz_card_id'] !== undefined) ? String(found.row[idx['flazz_card_id']] || '') : '';
+    const newCard = data.etoll_card_id !== undefined ? String(data.etoll_card_id || '') : oldCard;
     if (data.tanggal !== undefined) sheet.getRange(found.rowIndex, idx['tanggal'] + 1).setValue(data.tanggal);
     if (data.rute_tujuan !== undefined) sheet.getRange(found.rowIndex, idx['rute_tujuan'] + 1).setValue(String(data.rute_tujuan).trim());
     if (data.driver_id !== undefined) {
@@ -152,6 +192,19 @@ function updateJalur(data, userInfo) {
       sheet.getRange(found.rowIndex, idx['nama_kendaraan'] + 1).setValue(v ? v.nama : '');
       sheet.getRange(found.rowIndex, idx['jenis_kendaraan'] + 1).setValue(v ? v.jenis : '');
     }
+    if (data.etoll_card_id !== undefined && idx['flazz_card_id'] !== undefined) {
+      sheet.getRange(found.rowIndex, idx['flazz_card_id'] + 1).setValue(data.etoll_card_id || '');
+      if (idx['flazz_card_name'] !== undefined) sheet.getRange(found.rowIndex, idx['flazz_card_name'] + 1).setValue(data.etoll_card_name || '');
+    }
+    // Sinkronkan penyerahan kartu: kembalikan kartu lama, serahkan kartu baru
+    if (oldCard !== newCard) {
+      if (oldCard) returnFlazzUsage(oldCard);
+      if (newCard) {
+        const namaDriver = data.driver_id !== undefined ? jalurDriverNameById(data.driver_id) : String(found.row[idx['nama_driver']] || '');
+        const vid = data.vehicle_id !== undefined ? data.vehicle_id : String(found.row[idx['vehicle_id']] || '');
+        autoCreateFlazzUsage(newCard, namaDriver, vid);
+      }
+    }
     sheet.getRange(found.rowIndex, idx['updated_at'] + 1).setValue(new Date());
     return { success: true, msg: 'Jadwal berhasil diperbarui.' };
   } catch (e) {
@@ -165,8 +218,12 @@ function deleteJalur(id) {
     if (!sheet) throw new Error('Sheet Jalur_Pengiriman tidak ditemukan.');
     const found = findJalurRow(sheet, id);
     if (!found) throw new Error('Jadwal tidak ditemukan.');
-    if (found.idx['is_deleted'] !== undefined) {
-      sheet.getRange(found.rowIndex, found.idx['is_deleted'] + 1).setValue('1');
+    const idx = found.idx;
+    const cardId = (idx['flazz_card_id'] !== undefined) ? String(found.row[idx['flazz_card_id']] || '') : '';
+    // Kembalikan kartu etoll yang diserahkan agar tidak menggantung
+    if (cardId) returnFlazzUsage(cardId);
+    if (idx['is_deleted'] !== undefined) {
+      sheet.getRange(found.rowIndex, idx['is_deleted'] + 1).setValue('1');
     } else {
       sheet.deleteRow(found.rowIndex);
     }
@@ -220,6 +277,8 @@ function getJalurByTanggal(tanggal, userInfo) {
         jenis_kendaraan: row[idx['jenis_kendaraan']],
         rute_tujuan: row[idx['rute_tujuan']],
         kode_cabang: row[idx['kode_cabang']],
+        flazz_card_id: (idx['flazz_card_id'] !== undefined) ? row[idx['flazz_card_id']] : '',
+        flazz_card_name: (idx['flazz_card_name'] !== undefined) ? row[idx['flazz_card_name']] : '',
         created_by: row[idx['created_by']],
         sisa_hari_pajak: pajakTahunan.sisa_hari_pajak,
         status_pajak: pajakTahunan.status_pajak,

@@ -110,7 +110,8 @@ function getMasterData(userInfo) {
     vehicles: safeList(function() { return getActiveVehicles(userInfo.role, userInfo.cabang); }),
     drivers: safeList(function() { return getActiveDrivers(userInfo.role, userInfo.cabang); }),
     cabangList: safeList(function() { return getCabangList(); }),
-    bbmList: safeList(function() { return getActiveBBM(); })
+    bbmList: safeList(function() { return getActiveBBM(); }),
+    flazzCards: safeList(function() { return getFlazzCards(userInfo.role, userInfo.cabang); })
   };
   return cleanSerializable(payload);
 }

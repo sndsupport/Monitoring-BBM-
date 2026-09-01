@@ -682,6 +682,57 @@ function saveFlazzUsage(payload) {
   }
 }
 
+// Helper: Kembalikan kartu (balikkan penyerahan) tanpa hitung saldo.
+// Menandai semua usage DIBERIKAN kartu → DIKEMBALIKAN + returned_at,
+// dan mengembalikan status master kartu → TERSEDIA (pemegang → default).
+// Dipakai saat edit/hapus Jalur Pengiriman agar kartu tidak menggantung.
+function returnFlazzUsage(cardId) {
+  try {
+    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const usageSheet = ss.getSheetByName('Flazz_Usage');
+    const cardSheet = ss.getSheetByName('Flazz_Card');
+    if (!usageSheet || !cardSheet) return { success: false, msg: 'Sheet Flazz tidak lengkap.' };
+
+    const now = new Date();
+    let marked = 0;
+
+    // Tandai semua usage kartu yang masih DIBERIKAN sebagai DIKEMBALIKAN
+    if (usageSheet.getLastRow() > 1) {
+      const uData = usageSheet.getDataRange().getValues();
+      const uHeaders = uData[0];
+      const uCard = uHeaders.indexOf('card_id');
+      const uStatus = uHeaders.indexOf('status');
+      const uReturned = uHeaders.indexOf('returned_at');
+      for (let i = 1; i < uData.length; i++) {
+        if (uCard > -1 && String(uData[i][uCard]) === String(cardId) && uStatus > -1 && uData[i][uStatus] === 'DIBERIKAN') {
+          if (uStatus > -1) usageSheet.getRange(i + 1, uStatus + 1).setValue('DIKEMBALIKAN');
+          if (uReturned > -1) usageSheet.getRange(i + 1, uReturned + 1).setValue(now);
+          marked++;
+        }
+      }
+    }
+
+    // Kembalikan status master kartu → TERSEDIA jika sedang dipakai, pemegang → default
+    const found = findFlazzCardRow(cardSheet, cardId);
+    if (found && found.colIdx.STATUS !== undefined) {
+      if (String(found.row[found.colIdx.STATUS]) === 'SEDANG_DIGUNAKAN') {
+        cardSheet.getRange(found.rowIndex, found.colIdx.STATUS + 1).setValue('TERSEDIA');
+      }
+      if (found.colIdx.DRIVER !== undefined) {
+        const def = (found.colIdx.DEFAULT_DRIVER !== undefined) ? found.row[found.colIdx.DEFAULT_DRIVER] : '';
+        cardSheet.getRange(found.rowIndex, found.colIdx.DRIVER + 1).setValue(def || '');
+      }
+      if (found.colIdx.UPDATED !== undefined) {
+        cardSheet.getRange(found.rowIndex, found.colIdx.UPDATED + 1).setValue(now);
+      }
+    }
+
+    return { success: true, msg: 'Kartu dikembalikan.', marked: marked };
+  } catch (err) {
+    return { success: false, msg: err.message };
+  }
+}
+
 function getFlazzDashboardData(userRole, cabangId) {
   const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
   
