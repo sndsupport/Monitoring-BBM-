@@ -162,6 +162,7 @@
         data.vehicles.forEach(v => {
           let opt = document.createElement('option');
           opt.value = v.vehicle_id;
+          opt.setAttribute('data-indikator', (v.jenis_indikator || 'DIGITAL_BAR'));
           opt.text = v.plat_nomor + ' - ' + v.nama;
           selectVeh.appendChild(opt);
         });
@@ -259,6 +260,8 @@
 
         allVehicles = data.vehicles || [];
         allDrivers = data.drivers || [];
+        if (data.bbmList) window.masterData.bbm = data.bbmList;
+        if (data.flazzCards) window.masterData.flazzCards = data.flazzCards;
         populateSupirDatalist();
 
         loadAppSettings();
@@ -301,6 +304,7 @@
   function switchTab(tab) {
     document.getElementById('page-form').style.display = 'none';
     document.getElementById('page-dashboard').style.display = 'none';
+    document.getElementById('page-performa').style.display = 'none';
     document.getElementById('page-gallery').style.display = 'none';
     document.getElementById('page-master').style.display = 'none';
     document.getElementById('page-settings').style.display = 'none';
@@ -325,6 +329,9 @@
     } else if (tab === 'dashboard') {
       document.getElementById('page-dashboard').style.display = 'block';
       loadDashboard();
+    } else if (tab === 'performa') {
+      document.getElementById('page-performa').style.display = 'block';
+      loadPerforma();
     } else if (tab === 'gallery') {
       document.getElementById('page-gallery').style.display = 'block';
       loadDashboard(); // Gunakan data yang sama
@@ -373,6 +380,17 @@
         previewDiv.querySelector('img').src = e.target.result;
         input.closest('.photo-upload').classList.add('has-image');
         input.closest('.photo-upload').querySelector('span').textContent = 'Foto sudah dipilih';
+      };
+      reader.readAsDataURL(input.files[0]);
+    }
+  }
+
+  function previewEditPhoto(input, previewId) {
+    if (input.files && input.files[0]) {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var img = document.getElementById(previewId);
+        if (img) { img.src = e.target.result; img.style.display = 'block'; }
       };
       reader.readAsDataURL(input.files[0]);
     }
@@ -445,11 +463,28 @@
     document.getElementById('bbm-section').style.display = (value === 'Ya') ? 'block' : 'none';
     btn.parentElement.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
+    if (value === 'Tidak') {
+      resetTolFields();
+      var tolSec = document.getElementById('tol-section');
+      if (tolSec) tolSec.style.display = 'none';
+      var flazzSec = document.getElementById('flazz-card-section');
+      if (flazzSec) flazzSec.style.display = 'none';
+    }
   }
 
   function toggleFlazzCardSelection() {
     var metode = document.getElementById('metode_pembayaran').value;
-    document.getElementById('flazz-card-section').style.display = (metode === 'FLAZZ') ? 'block' : 'none';
+    var isFlazz = (metode === 'FLAZZ');
+    document.getElementById('flazz-card-section').style.display = isFlazz ? 'block' : 'none';
+    var tolSec = document.getElementById('tol-section');
+    if (tolSec) tolSec.style.display = isFlazz ? 'block' : 'none';
+  }
+
+  function resetTolFields() {
+    var t = document.getElementById('biaya_toll');
+    if (t) t.value = '';
+    var f = document.getElementById('foto_struk_toll');
+    if (f) f.value = '';
   }
 
   function toggleSection(id, val) {
@@ -461,6 +496,8 @@
     document.getElementById('isi_bensin').value = 'Tidak';
     document.getElementById('bbm-section').style.display = 'none';
     document.getElementById('flazz-card-section').style.display = 'none';
+    var tolSec = document.getElementById('tol-section');
+    if (tolSec) tolSec.style.display = 'none';
 
     document.querySelectorAll('#daily-form .toggle-group').forEach(group => {
       group.querySelectorAll('.toggle-btn').forEach((b, idx) => b.classList.toggle('active', idx === 0));
@@ -490,6 +527,8 @@
     document.getElementById('km_awal_val').value = '';
     document.getElementById('km_akhir_val').value = '';
     document.getElementById('ocr-summary').style.display = 'none';
+
+    if (typeof onVehicleChange === 'function') onVehicleChange();
 
     formDataPayload = {};
   }
@@ -527,6 +566,7 @@
           var yaBtn = document.querySelector('#daily-form .toggle-group button:nth-of-type(2)');
           if (yaBtn) toggleBBM('Ya', yaBtn);
         }
+        if (typeof onVehicleChange === 'function') onVehicleChange();
       }).getLastLaporanPrefill(userInfo);
   }
 
@@ -544,6 +584,7 @@
     let odoAwal = document.getElementById('foto_odo_awal').files[0];
     let odoAkhir = document.getElementById('foto_odo_akhir').files[0];
     let strukBBM = document.getElementById('foto_struk_bbm').files[0];
+    let strukToll = document.getElementById('foto_struk_toll') ? document.getElementById('foto_struk_toll').files[0] : null;
     let fotoIndikator = document.getElementById('foto_indikator') ? document.getElementById('foto_indikator').files[0] : null;
 
     if (!document.getElementById('daily-form').checkValidity()) {
@@ -580,6 +621,7 @@
         bar_akhir: document.getElementById('bar_akhir').value,
         liter_bbm: document.getElementById('liter_bbm') ? document.getElementById('liter_bbm').value || 0 : 0,
         biaya_bbm: document.getElementById('biaya_bbm') ? document.getElementById('biaya_bbm').value || 0 : 0,
+        biaya_toll: document.getElementById('biaya_toll') ? document.getElementById('biaya_toll').value || 0 : 0,
         jenis_bbm_nama: bbmNama,
         metode_pembayaran: metode_pembayaran,
         flazz_card_id: flazz_card_id,
@@ -589,6 +631,8 @@
         foto_odo_akhir_name: odoAkhir.name,
         foto_struk_bbm: strukBBM ? await getBase64(strukBBM) : null,
         foto_struk_bbm_name: strukBBM ? strukBBM.name : null,
+        foto_struk_toll: strukToll ? await getBase64(strukToll) : null,
+        foto_struk_toll_name: strukToll ? strukToll.name : null,
         foto_indikator: fotoIndikator ? await getBase64(fotoIndikator) : null,
         foto_indikator_name: fotoIndikator ? fotoIndikator.name : null,
         level_bbm: document.getElementById('level_bbm') ? document.getElementById('level_bbm').value : '',
@@ -607,6 +651,8 @@
                delete formDataPayload.foto_odo_awal;
                delete formDataPayload.foto_odo_akhir;
                delete formDataPayload.foto_struk_bbm;
+               delete formDataPayload.foto_struk_toll;
+               delete formDataPayload.foto_struk_toll_name;
                delete formDataPayload.foto_indikator;
                delete formDataPayload.foto_indikator_name;
 
@@ -656,8 +702,9 @@
       
       var literBBM = parseFloat(document.getElementById('liter_bbm') ? document.getElementById('liter_bbm').value : 0) || 0;
       var biayaBBM = parseFloat(document.getElementById('biaya_bbm') ? document.getElementById('biaya_bbm').value : 0) || 0;
-      
-      var totalBiaya = biayaBBM; // Toll is removed
+      var biayaToll = parseFloat(document.getElementById('biaya_toll') ? document.getElementById('biaya_toll').value : 0) || 0;
+
+      var totalBiaya = biayaBBM + biayaToll;
       
       document.getElementById('summary-bbm').textContent = literBBM ? literBBM + ' L' : '-';
       document.getElementById('summary-bbm-cost').textContent = biayaBBM ? formatCurrency(biayaBBM) : '-';
@@ -682,7 +729,11 @@
               btn.disabled = false;
               btn.innerText = 'Simpan Data Permanen';
               ocrModal.hide();
-              showToast('Laporan Harian Berhasil Disimpan!', 'success');
+              showToast('Data Harian berhasil disimpan!', 'success');
+              if (res.newOdo) {
+                updateMasterOdometer(formDataPayload.plat_nomor, res.newOdo);
+              }
+              if (typeof flazzDataCache !== 'undefined') flazzDataCache = null;
               resetDailyForm();
               document.getElementById('page-form').style.display = 'block';
               document.getElementById('page-dashboard').style.display = 'none';
@@ -698,6 +749,66 @@
            btn.innerText = 'Simpan Data Permanen';
         })
         .saveDailyTransaction(formDataPayload);
+  }
+
+  let __performaData = [];
+  function loadPerforma() {
+    let tbody = document.getElementById('performa-tbody');
+    let emptyState = document.getElementById('performa-empty');
+    let loadingState = document.getElementById('performa-loading');
+
+    tbody.innerHTML = '';
+    emptyState.style.display = 'none';
+    loadingState.style.display = 'block';
+
+    google.script.run
+      .withSuccessHandler(function(data) {
+        loadingState.style.display = 'none';
+        __performaData = data || [];
+        renderPerforma();
+      })
+      .withFailureHandler(function(err) {
+        loadingState.style.display = 'none';
+        showToast('Gagal memuat performa: ' + err.message, 'error');
+      })
+      .getPerformaData(userInfo);
+  }
+
+  function renderPerforma() {
+    let tbody = document.getElementById('performa-tbody');
+    let emptyState = document.getElementById('performa-empty');
+    
+    tbody.innerHTML = '';
+    
+    if (__performaData.length === 0) {
+      emptyState.style.display = 'block';
+      return;
+    }
+    
+    __performaData.forEach(function(row) {
+      let efisiensiBadge = '';
+      if (row.status_efisiensi === 'Sesuai standar') {
+        efisiensiBadge = `<span class='badge bg-success'>Sesuai standar</span>`;
+      } else if (row.status_efisiensi === 'Di bawah standar') {
+        efisiensiBadge = `<span class='badge bg-danger'>Di bawah standar</span>`;
+      } else if (row.status_efisiensi === 'Di atas standar') {
+        efisiensiBadge = `<span class='badge bg-primary'>Di atas standar</span>`;
+      }
+
+      let tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${row.periode}</td>
+        <td>${row.cabang}</td>
+        <td>${row.supir}</td>
+        <td>${row.vehicle}</td>
+        <td>${row.total_km.toLocaleString('id-ID')} KM</td>
+        <td>${row.total_beli.toLocaleString('id-ID')} L</td>
+        <td>${row.total_konsumsi.toLocaleString('id-ID')} L</td>
+        <td>${row.efisiensi} KM/L</td>
+        <td>${efisiensiBadge}</td>
+      `;
+      tbody.appendChild(tr);
+    });
   }
 
   function loadDashboard() {
@@ -877,7 +988,18 @@
     galleryContent.innerHTML = '';
     if(galleryEmpty) galleryEmpty.style.display = 'none';
 
-    let all = (window.__dashData || []).filter(r => r.foto_odo_awal || r.foto_odo_akhir);
+    let filterTypeEl = document.getElementById('filter-gallery-type');
+    let filterType = filterTypeEl ? filterTypeEl.value : 'all';
+
+    let all = (window.__dashData || []).filter(r => {
+      if (filterType === 'odo_awal') return !!r.foto_odo_awal;
+      if (filterType === 'odo_akhir') return !!r.foto_odo_akhir;
+      if (filterType === 'struk_bbm') return !!r.foto_struk_bbm;
+      if (filterType === 'struk_toll') return !!r.foto_struk_toll;
+      if (filterType === 'indikator') return !!r.foto_indikator;
+      return r.foto_odo_awal || r.foto_odo_akhir || r.foto_struk_bbm || r.foto_struk_toll || r.foto_indikator;
+    });
+
     if (all.length === 0) {
       if(galleryEmpty) galleryEmpty.style.display = 'block';
       renderGalleryPagination(0);
@@ -891,7 +1013,8 @@
     all.slice(start, start + GAL_PER).forEach(row => {
       let galCol = document.createElement('div');
       galCol.className = 'col-12 col-md-6 col-lg-4';
-      galCol.innerHTML = 
+      
+      let html = 
         "<div class='card h-100 shadow-sm'>" +
           "<div class='card-header bg-light'>" +
             "<div class='d-flex justify-content-between align-items-center'>" +
@@ -900,18 +1023,41 @@
             "</div>" +
           "</div>" +
           "<div class='card-body'>" +
-            "<div class='row g-2'>" +
-              "<div class='col-6 text-center'>" +
-                "<small class='d-block mb-1 text-muted'>KM Awal</small>" +
-                (row.foto_odo_awal ? "<a href='" + row.foto_odo_awal + "' target='_blank'><img src='" + (row.foto_odo_awal_thumb || row.foto_odo_awal) + "' class='img-fluid rounded shadow-sm border' style='aspect-ratio:4/3; object-fit:cover;' loading='lazy'></a>" : "<span class='text-muted small'>-</span>") +
-              "</div>" +
-              "<div class='col-6 text-center'>" +
-                "<small class='d-block mb-1 text-muted'>KM Akhir</small>" +
-                (row.foto_odo_akhir ? "<a href='" + row.foto_odo_akhir + "' target='_blank'><img src='" + (row.foto_odo_akhir_thumb || row.foto_odo_akhir) + "' class='img-fluid rounded shadow-sm border' style='aspect-ratio:4/3; object-fit:cover;' loading='lazy'></a>" : "<span class='text-muted small'>-</span>") +
-              "</div>" +
-            "</div>" +
-          "</div>" +
-        "</div>";
+            "<div class='row g-2'>";
+            
+      if (filterType === 'all' || filterType === 'odo_awal') {
+        html += "<div class='" + (filterType === 'all' ? 'col-6' : 'col-12') + " text-center'>" +
+                  "<small class='d-block mb-1 text-muted'>KM Awal</small>" +
+                  (row.foto_odo_awal ? "<a href='" + row.foto_odo_awal + "' target='_blank'><img src='" + (row.foto_odo_awal_thumb || row.foto_odo_awal) + "' class='img-fluid rounded shadow-sm border' style='aspect-ratio:4/3; object-fit:cover;' loading='lazy'></a>" : "<span class='text-muted small'>-</span>") +
+                "</div>";
+      }
+      if (filterType === 'all' || filterType === 'odo_akhir') {
+        html += "<div class='" + (filterType === 'all' ? 'col-6' : 'col-12') + " text-center'>" +
+                  "<small class='d-block mb-1 text-muted'>KM Akhir</small>" +
+                  (row.foto_odo_akhir ? "<a href='" + row.foto_odo_akhir + "' target='_blank'><img src='" + (row.foto_odo_akhir_thumb || row.foto_odo_akhir) + "' class='img-fluid rounded shadow-sm border' style='aspect-ratio:4/3; object-fit:cover;' loading='lazy'></a>" : "<span class='text-muted small'>-</span>") +
+                "</div>";
+      }
+      if (filterType === 'all' || filterType === 'struk_bbm') {
+        html += "<div class='" + (filterType === 'all' ? 'col-4 mt-2' : 'col-12') + " text-center'>" +
+                  "<small class='d-block mb-1 text-muted'>Struk BBM</small>" +
+                  (row.foto_struk_bbm ? "<a href='" + row.foto_struk_bbm + "' target='_blank'><img src='" + (row.foto_struk_bbm_thumb || row.foto_struk_bbm) + "' class='img-fluid rounded shadow-sm border' style='aspect-ratio:3/4; object-fit:cover;' loading='lazy'></a>" : "<span class='text-muted small'>-</span>") +
+                "</div>";
+      }
+      if (filterType === 'all' || filterType === 'struk_toll') {
+        html += "<div class='" + (filterType === 'all' ? 'col-4 mt-2' : 'col-12') + " text-center'>" +
+                  "<small class='d-block mb-1 text-muted'>Struk Tol</small>" +
+                  (row.foto_struk_toll ? "<a href='" + row.foto_struk_toll + "' target='_blank'><img src='" + (row.foto_struk_toll_thumb || row.foto_struk_toll) + "' class='img-fluid rounded shadow-sm border' style='aspect-ratio:3/4; object-fit:cover;' loading='lazy'></a>" : "<span class='text-muted small'>-</span>") +
+                "</div>";
+      }
+      if (filterType === 'all' || filterType === 'indikator') {
+        html += "<div class='" + (filterType === 'all' ? 'col-4 mt-2' : 'col-12') + " text-center'>" +
+                  "<small class='d-block mb-1 text-muted'>Indikator BBM</small>" +
+                  (row.foto_indikator ? "<a href='" + row.foto_indikator + "' target='_blank'><img src='" + (row.foto_indikator_thumb || row.foto_indikator) + "' class='img-fluid rounded shadow-sm border' style='aspect-ratio:4/3; object-fit:cover;' loading='lazy'></a>" : "<span class='text-muted small'>-</span>") +
+                "</div>";
+      }
+      
+      html += "</div></div></div>";
+      galCol.innerHTML = html;
       galleryContent.appendChild(galCol);
     });
 
@@ -948,7 +1094,22 @@
     if(!row) return showToast('Data tidak ditemukan', 'error');
     document.getElementById('ed_trx').value = row.transaction_id;
     document.getElementById('ed_nama_supir').value = row.supir || '';
+    document.getElementById('ed_km_awal').value = row.km_awal || '';
+    document.getElementById('ed_km_akhir').value = row.km_akhir || '';
     document.getElementById('ed_biaya').value = row.biaya_bbm || '';
+    document.getElementById('ed_liter').value = row.isi_bbm || '';
+    let edToll = document.getElementById('ed_biaya_toll');
+    if (edToll) edToll.value = (row.toll !== undefined && row.toll !== null) ? row.toll : '';
+
+    let jenisSel = document.getElementById('ed_jenis_bbm');
+    if(jenisSel){
+      let bbms = (window.masterData && window.masterData.bbm) ? window.masterData.bbm : [];
+      jenisSel.innerHTML = '<option value="">-- Pilih BBM --</option>' + bbms.map(b => '<option value="' + b.harga + '">' + b.jenis + ' (Rp ' + b.harga + '/L)</option>').join('');
+      // Default pilih BBM pertama agar liter terisi otomatis dari harga
+      if (bbms.length && row.biaya_bbm) jenisSel.value = String(bbms[0].harga);
+      calcEditLiter();
+    }
+
     let metode = document.getElementById('ed_metode');
     if(metode){
       metode.value = row.metode_pembayaran || 'TUNAI';
@@ -956,34 +1117,94 @@
     }
     let flazz = document.getElementById('ed_flazz_card_id');
     if(flazz){
-      flazz.innerHTML = '<option value="">-- Pilih Kartu --</option>' + (flazzDataCache && flazzDataCache.cards ? flazzDataCache.cards.map(c=>'<option value="'+c.id+'">'+c.card_number+'</option>').join('') : '');
+      let cards = (window.masterData && window.masterData.flazzCards) ? window.masterData.flazzCards : [];
+      flazz.innerHTML = '<option value="">-- Pilih Kartu --</option>' + cards.map(c=>'<option value="'+c.id+'">'+c.card_number + (c.driver_id ? ' [' + c.driver_id + ']' : '') + '</option>').join('');
       flazz.value = row.flazz_card_id || '';
+      // Autofill kartu dari supir bila transaksi ini ber-Flazz dan kartu belum terpilih
+      if (metode && metode.value === 'FLAZZ' && !flazz.value) {
+        autofillEditFlazzByDriver();
+      }
+    }
+    var pA = document.getElementById('ed_preview_odo_awal');
+    if (pA) {
+      if (row.foto_odo_awal) { pA.src = row.foto_odo_awal_thumb || row.foto_odo_awal; pA.style.display = 'block'; }
+      else { pA.src = ''; pA.style.display = 'none'; }
+      var fA = document.getElementById('ed_foto_odo_awal');
+      if (fA) fA.value = '';
+    }
+    var pK = document.getElementById('ed_preview_odo_akhir');
+    if (pK) {
+      if (row.foto_odo_akhir) { pK.src = row.foto_odo_akhir_thumb || row.foto_odo_akhir; pK.style.display = 'block'; }
+      else { pK.src = ''; pK.style.display = 'none'; }
+      var fK = document.getElementById('ed_foto_odo_akhir');
+      if (fK) fK.value = '';
     }
     new bootstrap.Modal(document.getElementById('modal-edit-daily')).show();
+  }
+  // Autofill kartu Flazz berdasarkan nama supir (kartu terikat pada supir / driver_id)
+  function autofillEditFlazzByDriver() {
+    let supir = document.getElementById('ed_nama_supir').value;
+    let flazz = document.getElementById('ed_flazz_card_id');
+    let metode = document.getElementById('ed_metode');
+    if (!flazz || !supir) return;
+    if (metode && metode.value !== 'FLAZZ') return;
+    let cards = (window.masterData && window.masterData.flazzCards) ? window.masterData.flazzCards : [];
+    let match = cards.find(c => String(c.driver_id) === String(supir) && String(c.status) !== 'NONAKTIF');
+    if (match && !flazz.value) {
+      flazz.value = match.id;
+    }
   }
   function toggleEditFlazz(){
     let m = document.getElementById('ed_metode').value;
     let f = document.getElementById('ed_flazz_row');
     if(f) f.style.display = (m === 'FLAZZ') ? 'block' : 'none';
+    let tr = document.getElementById('ed_toll_row');
+    if(tr) tr.style.display = (m === 'FLAZZ') ? 'block' : 'none';
+    if (m === 'FLAZZ') autofillEditFlazzByDriver();
   }
-  function saveEditDaily(e){
+  async function saveEditDaily(e){
     e.preventDefault();
     let payload = {
       transaction_id: document.getElementById('ed_trx').value,
       nama_supir: document.getElementById('ed_nama_supir').value,
+      km_awal: document.getElementById('ed_km_awal').value,
+      km_akhir: document.getElementById('ed_km_akhir').value,
       biaya_bbm: document.getElementById('ed_biaya').value,
+      biaya_toll: document.getElementById('ed_biaya_toll') ? document.getElementById('ed_biaya_toll').value : 0,
+      liter_bbm: document.getElementById('ed_liter').value,
       metode_pembayaran: document.getElementById('ed_metode').value,
       flazz_card_id: document.getElementById('ed_metode').value === 'FLAZZ' ? document.getElementById('ed_flazz_card_id').value : ''
     };
+    let fAwal = document.getElementById('ed_foto_odo_awal');
+    if (fAwal && fAwal.files && fAwal.files[0]) {
+      payload.foto_odo_awal = await getBase64(fAwal.files[0]);
+      payload.foto_odo_awal_name = fAwal.files[0].name;
+    }
+    let fAkhir = document.getElementById('ed_foto_odo_akhir');
+    if (fAkhir && fAkhir.files && fAkhir.files[0]) {
+      payload.foto_odo_akhir = await getBase64(fAkhir.files[0]);
+      payload.foto_odo_akhir_name = fAkhir.files[0].name;
+    }
     google.script.run.withSuccessHandler(res => {
-      if(res.success){ showToast(res.msg, 'success'); bootstrap.Modal.getInstance(document.getElementById('modal-edit-daily')).hide(); loadDashboard(); }
+      if(res.success){ 
+         showToast(res.msg, 'success'); 
+         bootstrap.Modal.getInstance(document.getElementById('modal-edit-daily')).hide(); 
+         if (typeof flazzDataCache !== 'undefined') flazzDataCache = null; // Flush cache
+         loadDashboard();
+         if (typeof loadFlazzDataWrapper === 'function') loadFlazzDataWrapper(true);
+      }
       else showToast(res.msg, 'error');
     }).apiEditDailyTransaction(payload);
   }
   function deleteDaily(id){
     if(!confirm('Yakin menghapus transaksi BBM ini? Jika ber-Flazz, saldo kartu akan dikembalikan.')) return;
     google.script.run.withSuccessHandler(res => {
-      if(res.success){ showToast(res.msg, 'success'); loadDashboard(); }
+      if(res.success){ 
+         showToast(res.msg, 'success'); 
+         if (typeof flazzDataCache !== 'undefined') flazzDataCache = null; // Flush cache
+         loadDashboard();
+         if (typeof loadFlazzDataWrapper === 'function') loadFlazzDataWrapper(true);
+      }
       else showToast(res.msg, 'error');
     }).apiDeleteDailyTransaction(id);
   }
@@ -1053,7 +1274,11 @@
 
   function getSupirFromName(name) {
     var src = (typeof allDrivers !== 'undefined' && allDrivers.length) ? allDrivers : ((window.masterData && window.masterData.supir) || []);
-    return src.find(function (d) { return d.nama === name; });
+    var cabang = document.getElementById('input-cabang') ? document.getElementById('input-cabang').value : '';
+    return src.find(function (d) { 
+      if (cabang && d.cabang !== cabang) return false;
+      return d.nama === name; 
+    });
   }
 
   function applySupirAutofill() {
@@ -1061,10 +1286,41 @@
     var vehSel = document.getElementById('vehicle');
     var d = getSupirFromName(name);
     if (vehSel) vehSel.value = (d && d.default_vehicle_id) ? d.default_vehicle_id : '';
+    onVehicleChange();
   }
 
   function onSupirChange() {
     applySupirAutofill();
+  }
+
+  // Sembunyikan field Bar Bensin Awal/Akhir untuk kendaraan berindikator bukan
+  // Digital Bar (mis. jarum/analog, tanpa indikator, digital angka). Bar hanya
+  // relevan untuk indikator Digital Bar yang bisa dihitung per segmen.
+  function onVehicleChange() {
+    var vehSel = document.getElementById('vehicle');
+    var indikator = 'DIGITAL_BAR';
+    if (vehSel && vehSel.selectedOptions && vehSel.selectedOptions[0]) {
+      indikator = vehSel.selectedOptions[0].getAttribute('data-indikator') || indikator;
+    }
+    if (vehSel && vehSel.value && indikator === 'DIGITAL_BAR') {
+      var found = (allVehicles || []).find(function (v) { return v.vehicle_id === vehSel.value; });
+      if (found && found.jenis_indikator) indikator = found.jenis_indikator;
+    }
+    var hide = indikator !== 'DIGITAL_BAR';
+
+    var gAwal = document.getElementById('bar-awal-group');
+    var gAkhir = document.getElementById('bar-akhir-group');
+    if (gAwal) gAwal.style.display = hide ? 'none' : '';
+    if (gAkhir) gAkhir.style.display = hide ? 'none' : '';
+
+    var bAwal = document.getElementById('bar_awal');
+    var bAkhir = document.getElementById('bar_akhir');
+    if (bAwal) bAwal.required = !hide;
+    if (bAkhir) bAkhir.required = !hide;
+    if (hide) {
+      if (bAwal) bAwal.value = '';
+      if (bAkhir) bAkhir.value = '';
+    }
   }
 
   function isSupirNameValid() {
@@ -1085,11 +1341,13 @@
     filteredV.forEach(function (v) {
       var opt = document.createElement('option');
       opt.value = v.vehicle_id;
+      opt.setAttribute('data-indikator', (v.jenis_indikator || 'DIGITAL_BAR'));
       opt.text = v.plat_nomor + ' - ' + v.nama;
       selectVeh.appendChild(opt);
     });
     populateSupirDatalist();
     applySupirAutofill();
+    onVehicleChange();
   }
 
 
@@ -1115,7 +1373,10 @@
       document.getElementById('m_standar').value = v.standar_km_l || '';
       document.getElementById('m_jenis_indikator').value = v.jenis_indikator || 'DIGITAL_BAR';
       document.getElementById('m_tanggal_pajak').value = (v.tanggal_pajak || '').slice(0, 10) || '';
+      if(document.getElementById('m_tanggal_pajak_5')) document.getElementById('m_tanggal_pajak_5').value = (v.tanggal_pajak_5_tahunan || '').slice(0, 10) || '';
+      if(document.getElementById('m_tanggal_kir')) document.getElementById('m_tanggal_kir').value = (v.tanggal_kir || '').slice(0, 10) || '';
       document.getElementById('m_cabang').value = v.cabang;
+      document.getElementById('m_jenis_kendaraan').dispatchEvent(new Event('change'));
       var modal = new bootstrap.Modal(document.getElementById('modal-kendaraan'));
       modal.show();
     }
@@ -1215,6 +1476,8 @@
       standar_km_l: document.getElementById('m_standar') ? document.getElementById('m_standar').value : '',
       jenis_indikator: document.getElementById('m_jenis_indikator') ? document.getElementById('m_jenis_indikator').value : 'DIGITAL_BAR',
       tanggal_pajak: document.getElementById('m_tanggal_pajak') ? document.getElementById('m_tanggal_pajak').value : '',
+      tanggal_pajak_5_tahunan: document.getElementById('m_tanggal_pajak_5') ? document.getElementById('m_tanggal_pajak_5').value : '',
+      tanggal_kir: document.getElementById('m_tanggal_kir') ? document.getElementById('m_tanggal_kir').value : '',
       cabang: document.getElementById('m_cabang').value
     };
     let editId = document.getElementById('m_edit_id_kendaraan').value;
@@ -1258,6 +1521,27 @@
     let biaya = parseFloat(document.getElementById('biaya_bbm').value) || 0;
     let liter = (hrg > 0 && biaya > 0) ? (biaya / hrg) : 0;
     document.getElementById('liter_bbm').value = liter ? liter.toFixed(2) : '';
+  }
+
+  // Autofill liter BBM dari biaya pada modal edit transaksi.
+  // Harga per liter diambil dari dropdown jenis BBM (jika tersedia),
+  // fallback ke harga BBM aktif pertama (bbmList).
+  function calcEditLiter() {
+    const biaya = parseFloat(document.getElementById('ed_biaya').value) || 0;
+    const litEl = document.getElementById('ed_liter');
+    const jenisSel = document.getElementById('ed_jenis_bbm');
+    let harga = 0;
+    if (jenisSel && jenisSel.value) {
+      harga = parseFloat(jenisSel.value) || 0;
+    } else {
+      let bbm = (window.masterData && window.masterData.bbm) || [];
+      harga = (bbm.length && parseFloat(bbm[0].harga)) || 0;
+    }
+    if (harga > 0 && biaya > 0) {
+      litEl.value = (biaya / harga).toFixed(2);
+    } else if (biaya === 0) {
+      litEl.value = '';
+    }
   }
 
   function addMasterBBM() {
