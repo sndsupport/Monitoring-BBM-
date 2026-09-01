@@ -25,12 +25,12 @@ Untuk mencegah kartu menggantung saat jalur diedit/dihapus, perlu fungsi bantu *
 - Tambah kolom **`flazz_card_id`** dan **`flazz_card_name`** di akhir header (idempoten via `setupDatabase`).
 
 ### 4.2 Frontend — Form Buat Jadwal (JalurPages.html + JalurScript.html)
-- **Field etoll per baris** untuk driver 1 (dropdown).
-- **Auto-fill**: saat driver 1 dipilih → field etoll baris itu terisi otomatis dengan kartu default driver (`Flazz_Card.default_driver_id` = nama driver).
-- Driver tanpa kartu default → dropdown menampilkan kartu `TERSEDIA` untuk pilih manual (kartu cadangan).
+- **Field etoll per baris** untuk driver 1 (readonly/auto-fill).
+- **Auto-fill**: saat driver 1 dipilih → field etoll baris itu terisi otomatis dengan kartu default driver (`Flazz_Card.default_driver_id` = nama driver). Karena tiap driver sudah terikat ke kartu default, field bersifat readonly (tidak memilih manual).
 - Hanya **driver 1** yang punya field etoll (driver 2 tidak).
 - **Tombol Batal** di samping **Simpan Jadwal**, ukuran sama, mereset form jalur.
 - **Listing & Summary**: tampilkan kartu etoll yang diserahkan per baris.
+- Auto-fill yang sama juga berlaku di **modal Edit Jadwal** (saat driver diganti).
 
 ### 4.3 Backend (Code.js, FlazzOps.js, JalurOps.js)
 - `getMasterData` (Code.js): tambah **`flazzCards`** agar modul Jalur memiliki data kartu.

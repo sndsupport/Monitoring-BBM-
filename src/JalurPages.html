@@ -133,7 +133,7 @@
         </div>
         <div class='mb-3'>
           <label class='form-label text-muted small fw-bold'>Driver 1</label>
-          <input id='jalur-edit-driver' class='form-control' list='jalur-supir-datalist' autocomplete='off' placeholder='Ketik nama driver 1...' required>
+          <input id='jalur-edit-driver' class='form-control' list='jalur-supir-datalist' autocomplete='off' placeholder='Ketik nama driver 1...' oninput='jalurAutofillEditEtoll(this)' required>
         </div>
         <div class='mb-3'>
           <label class='form-label text-muted small fw-bold'>Driver 2 (Opsional)</label>
@@ -149,7 +149,8 @@
         </div>
         <div class='mb-3'>
           <label class='form-label text-muted small fw-bold'>Kartu Etoll</label>
-          <select id='jalur-edit-etoll' class='form-select'></select>
+          <input type='text' id='jalur-edit-etoll' class='form-control' readonly placeholder='(auto dari driver)'>
+          <input type='hidden' id='jalur-edit-etoll-id'>
         </div>
         <button type='button' class='btn btn-primary w-100 rounded-4 fw-bold' onclick='jalurSaveEdit()'><i class='bi bi-check me-1'></i>Simpan</button>
       </div>
