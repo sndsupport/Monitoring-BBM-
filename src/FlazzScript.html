@@ -1006,3 +1006,92 @@ function renderFlazzDetailHistory(cardId, data) {
   }
 }
 </script>
+<script>
+// ==========================================
+// LIST FLAZZ - Print A4
+// ==========================================
+
+function printFlazzA4() {
+  let modalTitle = document.getElementById('flazz-detail-title').innerHTML;
+  let cardMatch = modalTitle.match(/>([^<]+)</);
+  if (!cardMatch) return;
+  let cardNumber = cardMatch[1].trim();
+
+  let data = __flazzListingData;
+  if (!data) return;
+  let card = (data.cards || []).find(c => c.card_number === cardNumber);
+  if (!card) return;
+
+  let selectedDate = document.getElementById('flazz-listing-date').value || new Date().toISOString().slice(0, 10);
+
+  // Compute daily summary
+  let lastBal = parseFloat(card.last_balance) || 0;
+  let dayTopups = (data.topups || []).filter(t => t.card_id === card.id && String(t.date || '').substring(0, 10) === selectedDate);
+  let dayTols = (data.tols || []).filter(t => t.card_id === card.id && String(t.date || '').substring(0, 10) === selectedDate);
+  let dayBbm = (data.bbmFlazz || []).filter(b => b.card_id === card.id && String(b.tanggal || b.timestamp || '').substring(0, 10) === selectedDate);
+
+  let totalTopup = dayTopups.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
+  let totalTol = dayTols.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
+  let totalBbm = dayBbm.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
+  let totalExpense = totalTol + totalBbm;
+  let saldoAwal = lastBal + totalExpense - totalTopup;
+
+  let printHtml = '<!DOCTYPE html><html><head><title>Cetak Flazz - ' + card.card_number + '</title>';
+  printHtml += '<style>@page{size:A4;margin:15mm;}body{font-family:Arial,sans-serif;font-size:11pt;color:#000;}';
+  printHtml += '.print-header{text-align:center;margin-bottom:20px;border-bottom:2px solid #000;padding-bottom:10px;}';
+  printHtml += '.print-header h2{margin:0;font-size:16pt;}';
+  printHtml += '.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:15px;}';
+  printHtml += '.info-grid .label{font-weight:bold;color:#555;}';
+  printHtml += 'table{width:100%;border-collapse:collapse;margin-top:10px;}';
+  printHtml += 'table th,table td{border:1px solid #ccc;padding:6px 8px;font-size:10pt;text-align:left;}';
+  printHtml += 'table th{background:#f0f0f0;font-weight:bold;}';
+  printHtml += '.summary-box{background:#f8f9fa;border:1px solid #dee2e6;border-radius:4px;padding:12px;margin:15px 0;}';
+  printHtml += '.summary-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dotted #ccc;}';
+  printHtml += '.summary-row:last-child{border-bottom:none;font-weight:bold;font-size:12pt;}';
+  printHtml += '.footer{margin-top:30px;font-size:9pt;color:#888;text-align:center;border-top:1px solid #ccc;padding-top:8px;}';
+  printHtml += '</style></head><body>';
+
+  printHtml += '<div class="print-header"><h2>LAPORAN KARTU FLAZZ</h2>';
+  printHtml += '<div>Tanggal: <strong>' + selectedDate + '</strong></div></div>';
+
+  printHtml += '<div class="info-grid">';
+  printHtml += '<div><span class="label">Nomor Kartu:</span> ' + card.card_number + '</div>';
+  printHtml += '<div><span class="label">Nama Kartu:</span> ' + (card.card_name || '-') + '</div>';
+  printHtml += '<div><span class="label">Tipe Kartu:</span> ' + (card.card_type || '-') + '</div>';
+  printHtml += '<div><span class="label">Driver:</span> ' + (card.driver_id || '-') + '</div>';
+  printHtml += '<div><span class="label">Cabang:</span> ' + (card.branch_id || '-') + '</div>';
+  printHtml += '<div><span class="label">Status:</span> ' + card.status + '</div>';
+  printHtml += '</div>';
+
+  // Summary
+  printHtml += '<div class="summary-box">';
+  printHtml += '<div class="summary-row"><span>Saldo Awal (Sebelum Transaksi Hari Ini)</span><span>' + formatCurrency(saldoAwal) + '</span></div>';
+  if (totalTopup > 0) printHtml += '<div class="summary-row"><span>Top Up Hari Ini</span><span>+' + formatCurrency(totalTopup) + '</span></div>';
+  if (totalBbm > 0) printHtml += '<div class="summary-row"><span>Pengeluaran BBM</span><span>-' + formatCurrency(totalBbm) + '</span></div>';
+  if (totalTol > 0) printHtml += '<div class="summary-row"><span>Pengeluaran Tol</span><span>-' + formatCurrency(totalTol) + '</span></div>';
+  if (totalExpense > 0) printHtml += '<div class="summary-row"><span>Total Pengeluaran</span><span>-' + formatCurrency(totalExpense) + '</span></div>';
+  printHtml += '<div class="summary-row"><span>Saldo Akhir (Saat Ini)</span><span>' + formatCurrency(lastBal) + '</span></div>';
+  printHtml += '</div>';
+
+  // Transaction detail table
+  if (dayTols.length > 0 || dayBbm.length > 0) {
+    printHtml += '<h5 style="margin-top:15px;">Detail Pengeluaran Hari Ini</h5>';
+    printHtml += '<table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Supir/Kendaraan</th><th>Nominal</th></tr></thead><tbody>';
+    dayTols.forEach(t => {
+      printHtml += '<tr><td>' + formatDateShort(t.date) + '</td><td>Tol</td><td>' + (t.driver_id || '-') + ' / ' + (t.vehicle_id || '-') + '</td><td>' + formatCurrency(t.amount) + '</td></tr>';
+    });
+    dayBbm.forEach(b => {
+      printHtml += '<tr><td>' + formatDateShort(b.tanggal) + '</td><td>BBM</td><td>' + (b.driver || '-') + ' / ' + (b.vehicle || '-') + '</td><td>' + formatCurrency(b.amount) + '</td></tr>';
+    });
+    printHtml += '</tbody></table>';
+  }
+
+  printHtml += '<div class="footer">Dicetak pada ' + new Date().toLocaleString('id-ID') + ' | Sistem Monitoring BBM</div>';
+  printHtml += '<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<\/script>';
+  printHtml += '</body></html>';
+
+  let printWindow = window.open('', '_blank', 'width=800,height=600');
+  printWindow.document.write(printHtml);
+  printWindow.document.close();
+}
+</script>
