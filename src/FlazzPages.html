@@ -295,3 +295,74 @@
     </div>
   </div>
 </div>
+
+<div id='page-flazz-listing' style='display:none;' class='fade-in'>
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class='mb-0 text-primary fw-bold'><i class='bi bi-credit-card me-2'></i>List Flazz</h4>
+  </div>
+  <div class="card shadow-sm border-0 rounded-4 mb-4">
+    <div class="card-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-3">
+          <label class='form-label fw-bold text-muted small text-uppercase'>Filter Tanggal</label>
+          <input type='date' id='flazz-listing-date' class='form-control' onchange='renderFlazzListingTable()'>
+        </div>
+        <div class="col-12 col-md-3">
+          <button class='btn btn-primary rounded-4 fw-bold' onclick='renderFlazzListingTable()'>
+            <i class='bi bi-search me-1'></i>Tampilkan
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id='flazz-listing-loading' class='text-center py-4' style='display:none;'>
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+    <div class="mt-2 text-muted small">Memuat data Flazz...</div>
+  </div>
+  <div id='flazz-listing-loaded' style='display:none;'>
+    <div class="card shadow-sm border-0 rounded-4 mb-3">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class='table table-hover align-middle mb-0'>
+            <thead class='table-light'>
+              <tr>
+                <th class='text-center' style='width:50px;'>No</th>
+                <th>Nomor Kartu</th>
+                <th>Nama Kartu</th>
+                <th>Driver</th>
+                <th class='text-end'>Saldo Awal</th>
+                <th class='text-end'>Pengeluaran</th>
+                <th class='text-end'>Saldo Akhir</th>
+              </tr>
+            </thead>
+            <tbody id='flazz-listing-table'></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class='text-muted small mb-2 py-4 text-center' id='flazz-listing-none' style='display:none;'>
+      <i class='bi bi-inbox fs-1 d-block mb-2'></i>Belum ada data kartu Flazz.
+    </div>
+  </div>
+
+  <!-- Detail Modal -->
+  <div class="modal fade" id="modal-flazz-detail" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content border-0 rounded-4 shadow">
+        <div class="modal-header bg-primary text-white border-0 rounded-top-4">
+          <h5 class="modal-title fw-bold" id="flazz-detail-title"></h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="flazz-detail-body"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Tutup</button>
+          <button type="button" class="btn btn-success rounded-pill" onclick="printFlazzA4()">
+            <i class="bi bi-printer me-1"></i>Cetak A4
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
