@@ -172,6 +172,11 @@ function getDashboardData(userInfo) {
   return getRecentTransactions(userInfo.role, userInfo.cabang);
 }
 
+function getPerformaData(userInfo) {
+  if (!userInfo) return [];
+  return getPerformaSummary(userInfo.role, userInfo.cabang);
+}
+
 function saveMasterCabang(data) {
   return insertCabang(data);
 }

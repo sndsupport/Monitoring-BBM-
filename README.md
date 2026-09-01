@@ -22,14 +22,16 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 
 ### Master Data Dinamis
 - **Cabang:** Kode, nama, lokasi, status.
-- **Kendaraan:** Plat nomor, nama, jenis (Mobil/Motor), kapasitas tangki, jumlah bar, standar KM/L, jenis indikator (digital/analog), cabang, serta estimasi jarak satu tangki (`kapasitas_tangki × standar_km_l`).
+- **Kendaraan:** Plat nomor, nama, jenis (Mobil/Motor), kapasitas tangki, jumlah bar, standar KM/L, jenis indikator (digital/analog), cabang, tanggal pajak (tahunan, 5 tahunan, KIR), serta estimasi jarak satu tangki (`kapasitas_tangki × standar_km_l`).
+  - Pada formulir *Input Laporan*, field **Bar Bensin Awal/Akhir** **otomatis disembunyikan** (dan tidak lagi wajib diisi) untuk kendaraan berindikator **bukan Digital Bar** (mis. `ANALOG_JARUM`/jarum, `TIDAK_ADA`). Bar hanya dihitung untuk indikator Digital Bar; untuk indikator jarum, konsumsi tetap memakai liter beli dari struk.
 - **Supir:** Nama, cabang, dan relasi kendaraan default.
 - **BBM:** Jenis, harga per liter.
 - **Manajemen Lengkap (CRUD):** Tambah, Edit, dan Hapus (Delete) dengan Bootstrap Modals interaktif untuk semua kategori.
 
 ### Kartu & Transaksi Flazz
 - Kelola **Kartu Flazz**: nomor kartu, **nama kartu**, **tipe fisik** (`BCA_FLAZZ`, `MANDIRI_EMONEY`, `BRI_BRIZZI`, `BNI_TAPCASH`), **kategori kartu** (peran: `UTAMA`/`CADANGAN`), saldo, cabang, **Supir Pemegang (Default)**, dan status. Nilai supir pemegang default disimpan di kolom `default_driver_id` sehingga tidak hilang saat kartu diserahkan/dikembalikan.
-- Catat **Penyerahan Kartu ke Supir** (Penggunaan), **Isi Ulang (Top-Up)**, **Pengeluaran Tol**, dan **Rekonsiliasi** saldo.
+- Catat **Isi Ulang (Top-Up)**, **Pengeluaran Tol**, dan **Rekonsiliasi** saldo, serta pantau **Penggunaan** kartu.
+- **Alur input disederhanakan:** biaya tol kini dimasukkan **langsung di formulir *Input Laporan* harian** (bagian "Tol"), bukan lewat menu terpisah. Saat laporan BBM disimpan dengan pembayaran Flazz, sistem otomatis mencatat pengeluaran BBM **dan** tol ke kartu, sekaligus **otomatis membuat catatan penyerahan kartu ke supir** (`Flazz_Usage`, status `DIBERIKAN`) bila kartu belum sedang digunakan — sehingga tidak perlu input manual. Menu/form input manual *Penggunaan* dan *Tol* sudah dihapus dari UI, tetapi riwayat pemantauannya tetap tersedia di tab Riwayat Flazz.
 - Transaksi top-up/tol (termasuk saat diedit) otomatis mencatat **tanggal + jam asli** saat transaksi dibuat/diubah — bukan sekadar tanggal tengah malam. Data tanggal yang hanya berisi tanggal ditampilkan tanpa jam palsu `00:00`.
 - Dashboard Flazz menampilkan **Total Kartu Aktif** (jumlah kartu berstatus `SEDANG_DIGUNAKAN`), **Total Saldo** seluruh kartu, dan **Top Up Terakhir** beserta waktunya.
 - **Full Reconciliation:** sistem menghitung saldo sistem otomatis dari ledger per periode pemakaian sejak kartu diserahkan (saldo awal + top-up − BBM − tol), lalu dibandingkan dengan saldo fisik → status **`SESUAI`** / **`PERLU_PEMERIKSAAN`**, menandai kartu tersedia kembali, menyimpan riwayat rekonsiliasi, dan **memulihkan supir pemegang ke nilai default** (`default_driver_id`). Pratinjau "Saldo Di Sistem" di form memakai rumus ledger yang sama dengan server, sehingga angka yang terlihat sebelum disimpan == angka yang tersimpan.
@@ -43,13 +45,18 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - OCR cerdas otomatis menyaring angka *speedometer* (batas kecepatan) dan hanya mengekstrak angka panjang KM dari foto odometer.
 - Modal preview hasil OCR dengan perhitungan otomatis sebelum disimpan.
 
+### Galeri Foto Operasional
+- Menampilkan foto odometer, struk BBM, struk tol, dan indikator BBM.
+- **Filter Pintar:** Terdapat filter dropdown untuk menyeleksi dan memfokuskan tampilan pada jenis foto tertentu secara cerdas.
+
 ### Jalur Pengiriman
 - **Autocomplete Driver:** field driver (Input Laporan & Buat Jadwal) berupa input teks dengan dropdown *autocomplete*; memilih driver otomatis memicu *pre-fill* untuk kendaraan (secara default), sementara data form lainnya otomatis menyesuaikan *history* terakhir supir tersebut.
-- **Buat Jadwal:** form multi-baris untuk mencatat jadwal pengiriman harian — tanggal, driver (supir), kendaraan, dan rute tujuan. Satu tanggal bisa menampung banyak baris/entri sekaligus.
+- **Dua Driver per Kendaraan:** Mendukung penugasan hingga 2 driver sekaligus (Driver 1 & Driver 2 opsional) untuk jalur/pengiriman jarak jauh, terutama untuk gudang pusat.
+- **Buat Jadwal:** form multi-baris untuk mencatat jadwal pengiriman harian — tanggal, driver 1, driver 2, kendaraan, dan rute tujuan. Satu tanggal bisa menampung banyak baris/entri sekaligus.
 - **Daftar Jadwal & Manajemen:** halaman khusus `Daftar Jadwal Pengiriman` (tanpa filter tanggal) yang meload seluruh data *history* jadwal. Mendukung fitur **Edit & Hapus** baris jadwal (soft-delete).
 - **Summary per Tanggal (Read-only):** halaman *Summary* bersih tanpa tombol aksi (cocok untuk dokumentasi/laporan screenshot), dilengkapi dengan format *header* rapi (Jalur Pengiriman, Tanggal Pengiriman, Dibuat oleh [Nama Admin]).
 - **Screenshot Praktis:** tombol *Screenshot* merender tabel *summary* menjadi pratinjau gambar (menggunakan *html2canvas* lokal) yang bisa **disalin (Ctrl+C)** dan ditempel (Ctrl+V) langsung ke WhatsApp tanpa harus mengunduh file secara manual.
-- **Reminder Pajak:** kolom `tanggal_pajak` pada master Kendaraan di integrasikan; *listing* akan memunculkan *badge* sisa hari pajak tahunan (kritis/waspada/aman) untuk setiap kendaraan yang bertugas.
+- **Reminder Dokumen Lengkap:** Mengintegrasikan 3 data jatuh tempo dokumen dari master Kendaraan: **Pajak Tahunan**, **Pajak 5 Tahunan**, dan **KIR** (khusus mobil). *Listing summary* akan memunculkan *badge* status (aman/waspada/kritis/lewat) untuk setiap kendaraan yang bertugas.
 
 ### Deteksi Level BBM (AI/Gemini)
 - Foto **indikator bensin analog** dianalisis otomatis dengan **Gemini API** untuk menentukan level BBM dan tingkat keyakinan (confidence), dengan status kesesuaian.
@@ -136,7 +143,7 @@ Setelah menjalankan `seedDummyData()`:
 | `js.html` | Logika interaksi sisi client (JavaScript), termasuk pre-fill formulir laporan. |
 | `css.html` | Gaya desain custom (responsive, mobile-first). |
 | `Settings.html` | Halaman pengaturan aplikasi (logo, nama, perusahaan, footer). |
-| `FlazzPages.html` | Halaman UI modul Flazz (dashboard, kartu, penyerahan, top-up, tol, rekonsiliasi, riwayat). |
+| `FlazzPages.html` | Halaman UI modul Flazz (dashboard, kartu, top-up, rekonsiliasi, riwayat). |
 | `FlazzScript.html` | Logika interaksi sisi client untuk modul Flazz (termasuk tab riwayat & rekonsiliasi, edit top-up/tol). |
 | `JalurPages.html` | Halaman UI modul Jalur Pengiriman (buat jadwal & summary per tanggal). |
 | `JalurScript.html` | Logika interaksi sisi client untuk modul Jalur Pengiriman (render jadwal, screenshot, share WA). |

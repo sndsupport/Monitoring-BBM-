@@ -96,47 +96,6 @@
 </div>
 
 
-<div id='page-flazz-usage' style='display:none;' class='fade-in'>
-  <div class="row justify-content-center">
-    <div class="col-md-8 col-lg-6">
-      <div class="card shadow-sm border-0 rounded-4">
-        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
-          <h4 class='mb-0 text-primary fw-bold'><i class='bi bi-arrow-left-right me-2'></i>Penyerahan Kartu ke Supir</h4>
-        </div>
-        <div class="card-body p-4">
-          <form id='form-flazz-usage' onsubmit='saveFlazzUsageForm(event)'>
-            <div class='mb-3'>
-              <label class='form-label text-muted small fw-bold'>Pilih Kartu Flazz (Status Tersedia)</label>
-              <select id='u_card_id' class='form-select' required onchange='onUsageCardSelect()'></select>
-            </div>
-            <div class='mb-3'>
-              <label class='form-label text-muted small fw-bold'>Supir yang Menerima</label>
-              <select id='u_driver_id' class='form-select' required onchange='onUsageDriverChange()'></select>
-            </div>
-            <div class='mb-3'>
-              <label class='form-label text-muted small fw-bold'>Tujuan Kendaraan</label>
-              <select id='u_vehicle_id' class='form-select' required></select>
-            </div>
-            <div class='mb-3'>
-              <label class='form-label text-muted small fw-bold'>Tipe Penggunaan</label>
-              <select id='u_usage_type' class='form-select' required>
-                <option value='PRIMARY'>Kartu Utama</option>
-                <option value='BACKUP'>Kartu Cadangan</option>
-              </select>
-            </div>
-            <div class='mb-4'>
-              <label class='form-label text-muted small fw-bold'>Catatan</label>
-              <input type='text' id='u_notes' class='form-control' placeholder='Cth: Diberikan untuk rute luar kota'>
-            </div>
-            <button type='submit' class='btn btn-primary w-100 rounded-pill py-2' id='btn-save-usage'>Catat Penyerahan</button>
-          </form>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-
 <div id='page-flazz-topup' style='display:none;' class='fade-in'>
   <div class="row justify-content-center">
     <div class="col-md-8 col-lg-6">
@@ -171,59 +130,6 @@
               <input type='text' id='t_notes' class='form-control'>
             </div>
             <button type='submit' class='btn btn-success w-100 rounded-pill py-2' id='btn-save-topup'>Proses Top Up</button>
-          </form>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-<div id='page-flazz-tol' style='display:none;' class='fade-in'>
-  <div class="row justify-content-center">
-    <div class="col-md-8 col-lg-6">
-      <div class="card shadow-sm border-0 rounded-4">
-        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
-          <h4 class='mb-0 text-info fw-bold'><i class='bi bi-signpost-2 me-2'></i>Catat Pengeluaran Tol</h4>
-          <p class="text-muted small mt-1">Gunakan form ini jika driver melapor struk tol secara manual atau saat closing harian.</p>
-        </div>
-        <div class="card-body p-4 pt-2">
-          <form id='form-flazz-tol' onsubmit='saveFlazzTolForm(event)'>
-            <div class='mb-3'>
-              <label class='form-label text-muted small fw-bold'>Pilih Kartu Flazz</label>
-              <select id='tol_card_id' class='form-select' required onchange='onTolCardSelect()'></select>
-            </div>
-            <div class='row g-2 mb-3'>
-              <div class="col-6">
-                <label class='form-label text-muted small fw-bold'>Supir</label>
-                <select id='tol_driver_id' class='form-select' required onchange='onTolDriverChange()'></select>
-              </div>
-              <div class="col-6">
-                <label class='form-label text-muted small fw-bold'>Kendaraan</label>
-                <select id='tol_vehicle_id' class='form-select' required></select>
-              </div>
-            </div>
-            <div class='mb-3'>
-              <label class='form-label text-muted small fw-bold'>Nominal Tol</label>
-              <div class="input-group">
-                <span class="input-group-text bg-light border-end-0 fw-bold">Rp</span>
-                <input type='number' id='tol_amount' class='form-control border-start-0' required placeholder='25000'>
-              </div>
-            </div>
-            <div class='mb-3'>
-              <label class='form-label text-muted small fw-bold'>Tanggal</label>
-              <input type='date' id='tol_date' class='form-control'>
-              <small class="text-muted" style="font-size:0.75rem">Kosongkan jika sama dengan hari ini.</small>
-            </div>
-            <div class='mb-3'>
-              <label class='form-label text-muted small fw-bold'>Foto Struk Tol</label>
-              <input type='file' id='tol_foto_bukti' class='form-control' required accept='image/*'>
-            </div>
-            <div class='mb-4'>
-              <label class='form-label text-muted small fw-bold'>Keterangan (ex: Gerbang Tol)</label>
-              <input type='text' id='tol_notes' class='form-control'>
-            </div>
-            <button type='submit' class='btn btn-info text-white w-100 rounded-pill py-2' id='btn-save-tol'>Catat Tol</button>
           </form>
         </div>
       </div>

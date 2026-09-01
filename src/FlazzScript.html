@@ -235,7 +235,10 @@ function computeClientSystemBalance(cardId) {
     if (String(t.card_id) === uid && String(t.is_deleted || '') !== '1' && within(t.created_at || t.date)) tol += parseFloat(t.amount) || 0;
   });
   (data.bbmFlazz || []).forEach(b => {
-    if (String(b.card_id) === uid && within(b.timestamp || b.tanggal)) bbm += parseFloat(b.amount) || 0;
+    if (String(b.card_id) === uid && within(b.timestamp || b.tanggal)) {
+      bbm += parseFloat(b.amount) || 0;
+      tol += parseFloat(b.toll_amount) || 0;
+    }
   });
 
   return +(opening + topup - tol - bbm);
@@ -359,76 +362,6 @@ function saveFlazzTopUpForm(e) {
       }).apiSaveFlazzTopUp(payload);
   };
   reader.readAsDataURL(file);
-}
-
-function saveFlazzTolForm(e) {
-  e.preventDefault();
-  let btn = document.getElementById('btn-save-tol');
-  let orig = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = 'Memproses...';
-
-  let file = document.getElementById('tol_foto_bukti').files[0];
-  
-  let payload = {
-    card_id: document.getElementById('tol_card_id').value,
-    driver_id: document.getElementById('tol_driver_id').value,
-    vehicle_id: document.getElementById('tol_vehicle_id').value,
-    amount: document.getElementById('tol_amount').value,
-    tanggal: transTimestamp(document.getElementById('tol_date').value),
-    notes: document.getElementById('tol_notes').value,
-    userInfo: flazzUserInfo(),
-    foto_bukti_name: file.name
-  };
-
-  let reader = new FileReader();
-  reader.onload = function(event) {
-     payload.foto_bukti = event.target.result;
-     google.script.run
-      .withSuccessHandler(res => {
-         btn.disabled = false;
-         btn.innerHTML = orig;
-         if(res.success) {
-           showToast(res.msg, 'success');
-           document.getElementById('form-flazz-tol').reset();
-           loadFlazzDataWrapper(true);
-         } else showToast(res.msg, 'error');
-      }).apiSaveFlazzTol(payload);
-  };
-  reader.readAsDataURL(file);
-}
-
-function saveFlazzUsageForm(e) {
-  e.preventDefault();
-  let btn = document.getElementById('btn-save-usage');
-  let orig = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = 'Menyimpan...';
-
-  let usageType = document.getElementById('u_usage_type').value;
-  let notes = document.getElementById('u_notes').value;
-  let payload = {
-    card_id: document.getElementById('u_card_id').value,
-    driver_id: document.getElementById('u_driver_id').value,
-    vehicle_id: document.getElementById('u_vehicle_id').value,
-    usage_type: usageType,
-    primary_card_id: usageType === 'PRIMARY' ? document.getElementById('u_card_id').value : '',
-    backup_card_id: usageType === 'BACKUP' ? document.getElementById('u_card_id').value : '',
-    reason: notes,
-    notes: notes,
-    userInfo: flazzUserInfo()
-  };
-
-  google.script.run
-    .withSuccessHandler(res => {
-       btn.disabled = false;
-       btn.innerHTML = orig;
-       if(res.success) {
-         showToast(res.msg, 'success');
-         document.getElementById('form-flazz-usage').reset();
-         loadFlazzDataWrapper(true);
-       } else showToast(res.msg, 'error');
-    }).apiSaveFlazzUsage(payload);
 }
 
 function saveFlazzReconForm(e) {

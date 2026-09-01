@@ -28,8 +28,11 @@ function jalurPopulateDriverDatalist() {
   var dl = document.getElementById('jalur-supir-datalist');
   if (!dl) return;
   var drivers = (window.masterData && window.masterData.supir) || [];
+  var cabangEl = document.getElementById('input-cabang');
+  var cabang = cabangEl ? cabangEl.value : '';
   dl.innerHTML = '';
   drivers.forEach(function (d) {
+    if (cabang && d.cabang !== cabang) return;
     var o = document.createElement('option');
     o.value = d.nama;
     o.setAttribute('data-driver-id', d.id);
@@ -40,7 +43,12 @@ function jalurPopulateDriverDatalist() {
 
 function jalurFindDriverByName(name) {
   var drivers = (window.masterData && window.masterData.supir) || [];
-  return drivers.find(function (d) { return d.nama === name; });
+  var cabangEl = document.getElementById('input-cabang');
+  var cabang = cabangEl ? cabangEl.value : '';
+  return drivers.find(function (d) { 
+    if (cabang && d.cabang !== cabang) return false;
+    return d.nama === name; 
+  });
 }
 
 function jalurResolveDriverId(inputEl) {
@@ -79,11 +87,14 @@ function jalurDriverNameById(id) {
 function jalurRenderVehicleOptions(selectEl, selected) {
   if (!selectEl) return;
   const vehicles = (window.masterData && window.masterData.kendaraan) || [];
+  var cabangEl = document.getElementById('input-cabang');
+  var cabang = cabangEl ? cabangEl.value : '';
   let html = '<option value="">Pilih Kendaraan...</option>';
-  html += vehicles.map(function(v) {
+  vehicles.forEach(function(v) {
+    if (cabang && v.cabang !== cabang) return;
     const sel = v.vehicle_id === selected ? ' selected' : '';
-    return '<option value="' + v.vehicle_id + '"' + sel + '>' + v.plat_nomor + ' - ' + v.nama + ' (' + v.jenis + ')</option>';
-  }).join('');
+    html += '<option value="' + v.vehicle_id + '"' + sel + '>' + v.plat_nomor + ' - ' + v.nama + ' (' + v.jenis + ')</option>';
+  });
   selectEl.innerHTML = html;
 }
 
@@ -92,11 +103,13 @@ function jalurAddRow() {
   const row = document.createElement('div');
   row.className = 'row g-2 mb-2 align-items-end jalur-row';
   row.innerHTML =
-    '<div class="col-12 col-md-4"><label class="form-label text-muted small text-uppercase fw-bold">Driver</label>' +
-    '<input class="form-control jalur-row-driver" list="jalur-supir-datalist" autocomplete="off" placeholder="Ketik nama driver..." oninput="jalurAutofillFromDriver(this)"></div>' +
-    '<div class="col-12 col-md-4"><label class="form-label text-muted small text-uppercase fw-bold">Kendaraan</label>' +
+    '<div class="col-12 col-md-3"><label class="form-label text-muted small text-uppercase fw-bold">Driver 1</label>' +
+    '<input class="form-control jalur-row-driver" list="jalur-supir-datalist" autocomplete="off" placeholder="Nama driver 1..." oninput="jalurAutofillFromDriver(this)"></div>' +
+    '<div class="col-12 col-md-3"><label class="form-label text-muted small text-uppercase fw-bold">Driver 2 (Ops)</label>' +
+    '<input class="form-control jalur-row-driver2" list="jalur-supir-datalist" autocomplete="off" placeholder="Nama driver 2..."></div>' +
+    '<div class="col-12 col-md-3"><label class="form-label text-muted small text-uppercase fw-bold">Kendaraan</label>' +
     '<select class="form-select jalur-row-vehicle"></select></div>' +
-    '<div class="col-12 col-md-4"><label class="form-label text-muted small text-uppercase fw-bold">Rute Tujuan</label>' +
+    '<div class="col-12 col-md-3"><label class="form-label text-muted small text-uppercase fw-bold">Rute Tujuan</label>' +
     '<div class="input-group"><input type="text" class="form-control jalur-row-rute" placeholder="ex: Gudang A - Toko B">' +
     '<button type="button" class="btn btn-outline-danger" onclick="this.closest(\'.jalur-row\').remove()"><i class="bi bi-x"></i></button></div></div>';
   container.appendChild(row);
@@ -199,8 +212,11 @@ function jalurShowSummary() {
           return '<tr>' +
             '<td><i class="bi ' + icon + ' me-2 text-primary"></i>' + it.plat_nomor + ' <span class="text-muted small">' + it.nama_kendaraan + '</span></td>' +
             '<td>' + it.nama_driver + '</td>' +
+            '<td>' + (it.nama_driver2 || '-') + '</td>' +
             '<td>' + it.rute_tujuan + '</td>' +
             '<td>' + jalurPajakBadge(it.status_pajak, it.sisa_hari_pajak) + '</td>' +
+            '<td>' + jalurPajakBadge(it.status_pajak_5, it.sisa_hari_pajak_5) + '</td>' +
+            '<td>' + (it.jenis_kendaraan === 'Mobil' ? jalurPajakBadge(it.status_kir, it.sisa_hari_kir) : '<span class="badge bg-light text-muted fw-normal border">N/A</span>') + '</td>' +
             '</tr>';
         }).join('');
         tbody.innerHTML = rows;
@@ -238,7 +254,12 @@ function jalurSave() {
     const rute = r.querySelector('.jalur-row-rute').value;
     if (driverInput && (driverInput.value || '').trim() && vehicleId && rute.trim()) {
       if (!jalurValidateRow(r)) { valid = false; return; }
-      rows.push({ driver_id: jalurResolveDriverId(driverInput), vehicle_id: vehicleId, rute_tujuan: rute.trim() });
+      rows.push({ 
+        driver_id: jalurResolveDriverId(driverInput), 
+        driver2_id: jalurResolveDriverId(r.querySelector('.jalur-row-driver2')),
+        vehicle_id: vehicleId, 
+        rute_tujuan: rute.trim() 
+      });
     }
   });
   if (!valid) { showToast('Ada nama driver yang tidak dikenal, pilih dari daftar', 'error'); return; }
@@ -271,6 +292,7 @@ function jalurEdit(id) {
       document.getElementById('jalur-edit-tanggal').value = it.tanggal;
       jalurPopulateDriverDatalist();
       document.getElementById('jalur-edit-driver').value = it.nama_driver || jalurDriverNameById(it.driver_id) || '';
+      document.getElementById('jalur-edit-driver2').value = it.nama_driver2 || jalurDriverNameById(it.driver2_id) || '';
       jalurRenderVehicleOptions(document.getElementById('jalur-edit-vehicle'), it.vehicle_id);
       document.getElementById('jalur-edit-rute').value = it.rute_tujuan;
       new bootstrap.Modal(document.getElementById('modal-jalur-edit')).show();
@@ -284,6 +306,7 @@ function jalurSaveEdit() {
     id: document.getElementById('jalur-edit-id').value,
     tanggal: document.getElementById('jalur-edit-tanggal').value,
     driver_id: jalurResolveDriverId(document.getElementById('jalur-edit-driver')),
+    driver2_id: jalurResolveDriverId(document.getElementById('jalur-edit-driver2')),
     vehicle_id: document.getElementById('jalur-edit-vehicle').value,
     rute_tujuan: document.getElementById('jalur-edit-rute').value
   };

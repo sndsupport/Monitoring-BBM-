@@ -21,20 +21,28 @@ function getFlazzCardColIdx(sheet) {
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   const idx = {};
   headers.forEach((h, i) => { idx[String(h)] = i; });
+  // Map nama kolom yang dikenal. Beberapa varian nama (mis. saldo / balance / last_balance)
+  // ditoleransi karena header act di spreadsheet mungkin tidak persis skema DatabaseSetup.
+  function findIdx(names) {
+    for (let i = 0; i < names.length; i++) {
+      if (idx[names[i]] !== undefined) return idx[names[i]];
+    }
+    return undefined;
+  }
   return {
-    ID: idx['id'],
-    CARD_NUMBER: idx['card_number'],
-    CARD_NAME: idx['card_name'],
-    CARD_TYPE: idx['card_type'],
-    CARD_ROLE: idx['card_role'],
-    BRANCH: idx['branch_id'],
-    DRIVER: idx['driver_id'],
-    DEFAULT_DRIVER: idx['default_driver_id'],
-    BALANCE: idx['last_balance'],
-    STATUS: idx['status'],
-    NOTES: idx['notes'],
-    CREATED: idx['created_at'],
-    UPDATED: idx['updated_at']
+    ID: findIdx(['id', 'card_id']),
+    CARD_NUMBER: findIdx(['card_number', 'number', 'no_kartu']),
+    CARD_NAME: findIdx(['card_name', 'name', 'nama_kartu']),
+    CARD_TYPE: findIdx(['card_type', 'type']),
+    CARD_ROLE: findIdx(['card_role', 'role']),
+    BRANCH: findIdx(['branch_id', 'kode_cabang', 'cabang']),
+    DRIVER: findIdx(['driver_id', 'nama_supir', 'pemegang']),
+    DEFAULT_DRIVER: findIdx(['default_driver_id']),
+    BALANCE: findIdx(['last_balance', 'balance', 'saldo', 'saldo_terakhir', 'last balance']),
+    STATUS: findIdx(['status']),
+    NOTES: findIdx(['notes', 'keterangan']),
+    CREATED: findIdx(['created_at']),
+    UPDATED: findIdx(['updated_at'])
   };
 }
 
@@ -508,11 +516,15 @@ function computeFlazzLedger(cardId, ss, sinceTime) {
     const cMetode = headers.indexOf('metode_pembayaran');
     const cCard = headers.indexOf('flazz_card_id');
     const cBiaya = headers.indexOf('biaya_bbm');
+    const cToll = headers.indexOf('biaya_toll');
     const cStamp = headers.indexOf('timestamp');
     const fallbackStamp = headers.indexOf('tanggal');
     for (let i = 1; i < data.length; i++) {
       if (cMetode > -1 && cCard > -1 && data[i][cMetode] === 'FLAZZ' && String(data[i][cCard]) === String(cardId) && after(cStamp > -1 ? data[i][cStamp] : data[i][fallbackStamp])) {
         result.total_bbm_flazz += parseFloat(data[i][cBiaya]) || 0;
+        if (cToll > -1) {
+          result.total_tol += parseFloat(data[i][cToll]) || 0;
+        }
       }
     }
   }
@@ -720,6 +732,7 @@ function getFlazzDashboardData(userRole, cabangId) {
        const tglIdx = headers.indexOf('tanggal');
        const stampIdx = headers.indexOf('timestamp');
        const bbmIdx = headers.indexOf('biaya_bbm');
+       const tollIdx = headers.indexOf('biaya_toll');
        const evidenceIdx = headers.indexOf('foto_struk_bbm');
        const driverIdx = headers.indexOf('nama_supir');
        const vehicleIdx = headers.indexOf('plat_nomor');
@@ -732,7 +745,8 @@ function getFlazzDashboardData(userRole, cabangId) {
                tanggal: (row[tglIdx] instanceof Date) ? row[tglIdx].toISOString() : row[tglIdx],
                timestamp: (stampIdx > -1 && row[stampIdx] instanceof Date) ? row[stampIdx].toISOString() : (stampIdx > -1 ? row[stampIdx] : ''),
                card_id: row[cardIdx],
-               amount: row[bbmIdx],
+               amount: parseFloat(row[bbmIdx]) || 0,
+               toll_amount: tollIdx > -1 ? (parseFloat(row[tollIdx]) || 0) : 0,
                evidence: row[evidenceIdx],
                driver: row[driverIdx],
                vehicle: row[vehicleIdx]

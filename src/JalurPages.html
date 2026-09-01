@@ -77,8 +77,9 @@
     <div class='mt-2 text-muted small'>Memuat jadwal pengiriman...</div>
   </div>
   <div id='jalur-summary-loaded' style='display:none;'>
-    <div id='jalur-shot' class='card shadow-sm border-0 rounded-4 mb-3'>
-      <div class='card-header bg-white border-bottom-0 pt-4 pb-0'>
+    <div id='jalur-shot' class='bg-white p-3 p-md-4 rounded-4 mb-3'>
+      <div class='card shadow-sm border-0 rounded-4 mb-0'>
+        <div class='card-header bg-white border-bottom-0 pt-4 pb-0'>
         <div class='d-flex flex-column align-items-start'>
           <div class='fw-bold text-primary mb-2'><i class='bi bi-truck me-1'></i>Jalur Pengiriman</div>
           <div class='text-muted small mb-1'>Tanggal Pengiriman : <span id='jalur-summary-tanggal' class='fw-semibold'></span></div>
@@ -91,14 +92,18 @@
             <thead class='table-light'>
               <tr>
                 <th>Kendaraan</th>
-                <th>Driver</th>
+                <th>Driver 1</th>
+                <th>Driver 2</th>
                 <th>Rute Tujuan</th>
-                <th>Pajak</th>
+                <th>Pajak Tahunan</th>
+                <th>Pajak 5 Tahunan</th>
+                <th>KIR</th>
               </tr>
             </thead>
             <tbody id='jalur-summary-table'></tbody>
           </table>
         </div>
+      </div>
       </div>
     </div>
     <div class='text-muted small mb-2 py-4 text-center' id='jalur-summary-none' style='display:none;'></div>
@@ -120,8 +125,12 @@
           <input type='date' id='jalur-edit-tanggal' class='form-control' required>
         </div>
         <div class='mb-3'>
-          <label class='form-label text-muted small fw-bold'>Driver</label>
-          <input id='jalur-edit-driver' class='form-control' list='jalur-supir-datalist' autocomplete='off' placeholder='Ketik nama driver...' required>
+          <label class='form-label text-muted small fw-bold'>Driver 1</label>
+          <input id='jalur-edit-driver' class='form-control' list='jalur-supir-datalist' autocomplete='off' placeholder='Ketik nama driver 1...' required>
+        </div>
+        <div class='mb-3'>
+          <label class='form-label text-muted small fw-bold'>Driver 2 (Opsional)</label>
+          <input id='jalur-edit-driver2' class='form-control' list='jalur-supir-datalist' autocomplete='off' placeholder='Ketik nama driver 2...'>
         </div>
         <div class='mb-3'>
           <label class='form-label text-muted small fw-bold'>Kendaraan</label>

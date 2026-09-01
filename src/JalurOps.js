@@ -53,7 +53,9 @@ function jalurVehicleById(vehicleId) {
         plat_nomor: data[i][ci['plat_nomor']],
         nama: data[i][ci['nama_kendaraan']],
         jenis: data[i][ci['jenis_kendaraan']] || 'Mobil',
-        tanggal_pajak: (ci['tanggal_pajak'] !== undefined) ? data[i][ci['tanggal_pajak']] : ''
+        tanggal_pajak: (ci['tanggal_pajak'] !== undefined) ? data[i][ci['tanggal_pajak']] : '',
+        tanggal_pajak_5: (ci['tanggal_pajak_5_tahunan'] !== undefined) ? data[i][ci['tanggal_pajak_5_tahunan']] : '',
+        tanggal_kir: (ci['tanggal_kir'] !== undefined) ? data[i][ci['tanggal_kir']] : ''
       };
     }
   }
@@ -62,7 +64,16 @@ function jalurVehicleById(vehicleId) {
 
 function jalurComputePajak(tanggalPajakStr) {
   if (!tanggalPajakStr) return { sisa_hari_pajak: null, status_pajak: 'TIDAK_ADA' };
-  const due = new Date(String(tanggalPajakStr).slice(0, 10) + 'T00:00:00');
+  
+  let dStr = String(tanggalPajakStr);
+  if (tanggalPajakStr instanceof Date) {
+    const tz = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8').getSpreadsheetTimeZone();
+    dStr = Utilities.formatDate(tanggalPajakStr, tz, 'yyyy-MM-dd');
+  } else {
+    dStr = dStr.slice(0, 10);
+  }
+  
+  const due = new Date(dStr + 'T00:00:00');
   if (isNaN(due.getTime())) return { sisa_hari_pajak: null, status_pajak: 'TIDAK_ADA' };
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -95,6 +106,10 @@ function saveJalur(payload, userInfo) {
       row[idx['tanggal']] = tanggal;
       row[idx['driver_id']] = r.driver_id;
       row[idx['nama_driver']] = jalurDriverNameById(r.driver_id);
+      if (idx['driver2_id'] !== undefined) {
+        row[idx['driver2_id']] = r.driver2_id || '';
+        row[idx['nama_driver2']] = r.driver2_id ? jalurDriverNameById(r.driver2_id) : '';
+      }
       row[idx['vehicle_id']] = vid;
       row[idx['plat_nomor']] = v ? v.plat_nomor : '';
       row[idx['nama_kendaraan']] = v ? v.nama : '';
@@ -125,6 +140,10 @@ function updateJalur(data, userInfo) {
     if (data.driver_id !== undefined) {
       sheet.getRange(found.rowIndex, idx['driver_id'] + 1).setValue(data.driver_id);
       sheet.getRange(found.rowIndex, idx['nama_driver'] + 1).setValue(jalurDriverNameById(data.driver_id));
+    }
+    if (data.driver2_id !== undefined && idx['driver2_id'] !== undefined) {
+      sheet.getRange(found.rowIndex, idx['driver2_id'] + 1).setValue(data.driver2_id || '');
+      sheet.getRange(found.rowIndex, idx['nama_driver2'] + 1).setValue(data.driver2_id ? jalurDriverNameById(data.driver2_id) : '');
     }
     if (data.vehicle_id !== undefined) {
       const v = jalurVehicleById(data.vehicle_id);
@@ -185,12 +204,16 @@ function getJalurByTanggal(tanggal, userInfo) {
       if (iDeleted !== undefined && String(row[iDeleted]) === '1') return;
       if (filteredCabang && row[iCabang] !== filteredCabang) return;
       const veh = jalurVehicleById(row[idx['vehicle_id']]) || {};
-      const pajak = jalurComputePajak(veh.tanggal_pajak);
+      const pajakTahunan = jalurComputePajak(veh.tanggal_pajak);
+      const pajak5 = jalurComputePajak(veh.tanggal_pajak_5);
+      const kir = jalurComputePajak(veh.tanggal_kir);
       list.push({
         id: row[idx['id']],
         tanggal: finalTgl || String(row[idx['tanggal']]),
         driver_id: row[idx['driver_id']],
         nama_driver: row[idx['nama_driver']],
+        driver2_id: row[idx['driver2_id']] || '',
+        nama_driver2: row[idx['nama_driver2']] || '',
         vehicle_id: row[idx['vehicle_id']],
         plat_nomor: row[idx['plat_nomor']],
         nama_kendaraan: row[idx['nama_kendaraan']],
@@ -198,12 +221,24 @@ function getJalurByTanggal(tanggal, userInfo) {
         rute_tujuan: row[idx['rute_tujuan']],
         kode_cabang: row[idx['kode_cabang']],
         created_by: row[idx['created_by']],
-        sisa_hari_pajak: pajak.sisa_hari_pajak,
-        status_pajak: pajak.status_pajak
+        sisa_hari_pajak: pajakTahunan.sisa_hari_pajak,
+        status_pajak: pajakTahunan.status_pajak,
+        sisa_hari_pajak_5: pajak5.sisa_hari_pajak,
+        status_pajak_5: pajak5.status_pajak,
+        sisa_hari_kir: kir.sisa_hari_pajak,
+        status_kir: kir.status_pajak
       });
     });
     list.sort((a, b) => {
       if (a.tanggal !== b.tanggal) return String(b.tanggal).localeCompare(String(a.tanggal));
+      
+      const jenisA = String(a.jenis_kendaraan || 'Mobil').toLowerCase();
+      const jenisB = String(b.jenis_kendaraan || 'Mobil').toLowerCase();
+      
+      if (jenisA === 'mobil' && jenisB !== 'mobil') return -1;
+      if (jenisA !== 'mobil' && jenisB === 'mobil') return 1;
+      if (jenisA !== jenisB) return jenisA.localeCompare(jenisB);
+      
       return String(a.nama_driver || '').localeCompare(String(b.nama_driver || ''));
     });
     
