@@ -71,7 +71,9 @@ function getActiveVehicles(role, userCabang) {
         standar_km_l: row[ci['standar_km_l']],
         cabang: row[ci['kode_cabang']],
         jenis_indikator: (ci['jenis_indikator'] !== undefined && row[ci['jenis_indikator']]) || 'DIGITAL_BAR',
-        tanggal_pajak: (ci['tanggal_pajak'] !== undefined) ? row[ci['tanggal_pajak']] : ''
+        tanggal_pajak: (ci['tanggal_pajak'] !== undefined) ? row[ci['tanggal_pajak']] : '',
+        tanggal_pajak_5_tahunan: (ci['tanggal_pajak_5_tahunan'] !== undefined) ? row[ci['tanggal_pajak_5_tahunan']] : '',
+        tanggal_kir: (ci['tanggal_kir'] !== undefined) ? row[ci['tanggal_kir']] : ''
       });
     }
   }
@@ -126,7 +128,9 @@ function saveTransactionEndOfDay(payload) {
     payload.serverData.files.odo_awal, payload.serverData.km_awal, km_awal, payload.bar_awal,
     payload.serverData.files.odo_akhir, payload.serverData.km_akhir, km_akhir, payload.bar_akhir,
     km_tempuh, (payload.bar_awal - payload.bar_akhir), liter, payload.biaya_bbm,
-    payload.serverData.files.struk_bbm || '', 0, '',
+    payload.serverData.files.struk_bbm || '',
+    parseFloat(payload.biaya_toll) || 0,
+    (payload.serverData && payload.serverData.files && payload.serverData.files.struk_toll) || '',
     efisiensi, 'COMPLETED', warning, payload.nama_supir,
     payload.metode_pembayaran || 'TUNAI', payload.flazz_card_id || '',
     (payload.serverData && payload.serverData.files && payload.serverData.files.indikator) || '',
@@ -135,21 +139,87 @@ function saveTransactionEndOfDay(payload) {
     payload.keterangan || ''
   ];
   sheet.appendRow(row);
-  
-  // Jika menggunakan Flazz, potong saldo dan catat log
-  if (payload.metode_pembayaran === 'FLAZZ' && payload.flazz_card_id && parseFloat(payload.biaya_bbm) > 0) {
+
+  // Jika menggunakan Flazz, potong saldo (BBM + tol) dan catat penyerahan otomatis bila perlu
+  if (payload.metode_pembayaran === 'FLAZZ' && payload.flazz_card_id) {
     try {
-       // Logika pemotongan Flazz akan didelegasikan ke FlazzOps
-       // Jika FlazzOps.js di-load, panggil pengurangan saldo
-       if (typeof recordFlazzExpense === 'function') {
-           recordFlazzExpense(payload.flazz_card_id, 'BBM', parseFloat(payload.biaya_bbm), payload.serverData.files.struk_bbm, payload.tanggal);
-       }
+      const cardId = payload.flazz_card_id;
+      const biayaBbm = parseFloat(payload.biaya_bbm) || 0;
+      const biayaTol = parseFloat(payload.biaya_toll) || 0;
+
+      // 1. Potong saldo kartu untuk BBM
+      if (biayaBbm > 0 && typeof recordFlazzExpense === 'function') {
+        recordFlazzExpense(cardId, 'BBM', biayaBbm, payload.serverData.files.struk_bbm, payload.tanggal);
+      }
+      // 2. Potong saldo kartu untuk tol (dipisah agar rekonsiliasi dapat memisahkan nominal)
+      if (biayaTol > 0 && typeof recordFlazzExpense === 'function') {
+        const tolFoto = (payload.serverData && payload.serverData.files && payload.serverData.files.struk_toll) || '';
+        recordFlazzExpense(cardId, 'TOL', biayaTol, tolFoto, payload.tanggal);
+      }
+
+      // 3. Auto-create penyerahan (Flazz_Usage) bila kartu belum sedang digunakan
+      autoCreateFlazzUsage(cardId, payload.nama_supir, payload.vehicle_id);
     } catch (e) {
-       Logger.log("Gagal memotong saldo flazz: " + e.toString());
+      Logger.log("Gagal memproses flazz: " + e.toString());
     }
   }
-  
+
   return { success: true };
+}
+
+// Buat catatan penyerahan kartu (Flazz_Usage) otomatis bila kartu belum punya status DIBERIKAN.
+// Membantu pengguna yang tidak lagi mengisi halaman "Penggunaan Kartu" secara manual.
+function autoCreateFlazzUsage(cardId, driverName, vehicleId) {
+  const ss = getDB();
+  const usageSheet = ss.getSheetByName('Flazz_Usage');
+  const cardSheet = ss.getSheetByName('Flazz_Card');
+  if (!usageSheet || !cardSheet) return;
+
+  // Cek apakah kartu sudah punya catatan DIBERIKAN (sedang dipakai)
+  const uData = usageSheet.getDataRange().getValues();
+  const uHeaders = uData[0];
+  const uCard = uHeaders.indexOf('card_id');
+  const uStatus = uHeaders.indexOf('status');
+  for (let i = 1; i < uData.length; i++) {
+    if (String(uData[i][uCard]) === String(cardId) && (uStatus < 0 || uData[i][uStatus] === 'DIBERIKAN')) {
+      return; // sudah digunakan, jangan buat ulang
+    }
+  }
+
+  const now = new Date();
+  const id = 'USE-' + now.getTime();
+  const opening = getCardBalance ? (parseFloat(getCardBalance(cardId)) || 0) : 0;
+
+  appendFlazzRow(usageSheet, {
+    id: id,
+    date: now,
+    card_id: cardId,
+    driver_id: driverName || '',
+    vehicle_id: vehicleId || '',
+    usage_type: 'PRIMARY',
+    primary_card_id: '',
+    backup_card_id: '',
+    reason: '',
+    opening_balance: opening,
+    used_at: now,
+    status: 'DIBERIKAN',
+    notes: 'Dibuat otomatis dari transaksi BBM',
+    created_at: now
+  });
+
+  // Update status & pemegang di master
+  const found = findFlazzCardRow(cardSheet, cardId);
+  if (found) {
+    if (found.colIdx.STATUS !== undefined) {
+      cardSheet.getRange(found.rowIndex, found.colIdx.STATUS + 1).setValue('SEDANG_DIGUNAKAN');
+    }
+    if (found.colIdx.DRIVER !== undefined && !found.row[found.colIdx.DRIVER]) {
+      cardSheet.getRange(found.rowIndex, found.colIdx.DRIVER + 1).setValue(driverName || '');
+    }
+    if (found.colIdx.UPDATED !== undefined) {
+      cardSheet.getRange(found.rowIndex, found.colIdx.UPDATED + 1).setValue(now);
+    }
+  }
 }
 
 function getLastTransactionForVehicle(vehicleId) {
@@ -187,42 +257,136 @@ function driveThumbnail(url) {
   return m ? 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=w200' : '';
 }
 
-function hitungEfisiensi7Riwayat(rowsKendaraan, tanggalD, literPerBar) {
-  const d = new Date(tanggalD);
-  if (isNaN(d.getTime())) return { efisiensi: '', label: '', isDataCukup: false };
-  const dWaktu = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+function hitungEfisiensi7Riwayat(trxs, currIdx, literPerBar) {
+  if (!trxs || currIdx < 0) return { efisiensi: '', label: '', isDataCukup: false };
+  
+  const tripNumber = currIdx + 1;
+  // Hanya tampilkan efisiensi setiap kelipatan 7 trip (Trip 7, 14, 21, dst)
+  if (tripNumber % 7 !== 0) {
+    return { efisiensi: '', label: '', isDataCukup: false };
+  }
 
-  let validRows = rowsKendaraan.filter(function (r) {
-    const t = new Date(r[2]); // tanggal index 2
-    if (isNaN(t.getTime())) return false;
-    const hari = new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime();
-    return hari <= dWaktu;
-  });
-
-  validRows.sort(function (a, b) {
-    const tA = new Date(a[2]).getTime();
-    const tB = new Date(b[2]).getTime();
-    return tB - tA; // descending, newest first
-  });
-
-  let recentRows = validRows.slice(0, 7);
-  let isDataCukup = recentRows.length >= 7;
+  let recentRows = trxs.slice(currIdx - 6, currIdx + 1);
+  let isDataCukup = recentRows.length === 7;
 
   let totalKm = 0;
-  let totalLiter = 0;
+  let totalBeli = 0;
   recentRows.forEach(function (r) {
-    totalKm += parseFloat(r[16]) || 0; // km_tempuh index 16
-    const literBeli = parseFloat(r[18]) || 0; // liter_bbm index 18
-    const barA = parseFloat(r[11]) || 0;      // bar_awal index 11
-    const barK = parseFloat(r[15]) || 0;      // bar_akhir index 15
-    let literKonsumsi = literBeli + ((barA - barK) * literPerBar);
-    if (literKonsumsi <= 0) literKonsumsi = literBeli;
-    totalLiter += literKonsumsi;
+    totalKm += parseFloat(r[16]) || 0; 
+    totalBeli += parseFloat(r[18]) || 0; 
   });
+  
+  const barAwalPertama = parseFloat(recentRows[0][11]) || 0;
+  const barAkhirTerakhir = parseFloat(recentRows[recentRows.length - 1][15]) || 0;
 
-  const efisiensi = (totalLiter > 0 && totalKm > 0) ? (totalKm / totalLiter).toFixed(2) : '';
+  let totalKonsumsi = totalBeli + ((barAwalPertama - barAkhirTerakhir) * literPerBar);
+  if (totalKonsumsi <= 0) totalKonsumsi = totalBeli;
+
+  const efisiensi = (totalKonsumsi > 0 && totalKm > 0) ? (totalKm / totalKonsumsi).toFixed(2) : '';
   const label = efisiensi ? 'Rata-rata 7 Trip' : '';
-  return { efisiensi: efisiensi, label: label, isDataCukup: isDataCukup };
+  
+  return { 
+    efisiensi: efisiensi, 
+    label: label, 
+    isDataCukup: isDataCukup,
+    total_km: totalKm,
+    total_beli: totalBeli,
+    total_konsumsi: totalKonsumsi,
+    tgl_mulai: recentRows[0][2],
+    tgl_selesai: recentRows[recentRows.length - 1][2],
+    supir: recentRows[recentRows.length - 1][26] || '-'
+  };
+}
+
+function getPerformaSummary(role, userCabang) {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('Penggunaan_BBM');
+  if (!sheet) return [];
+  
+  const data = sheet.getDataRange().getValues();
+
+  let kendaraanMap = {};
+  const kendaraanSheet = ss.getSheetByName('Kendaraan');
+  if (kendaraanSheet) {
+    const kd = kendaraanSheet.getDataRange().getValues();
+    for (let i = 1; i < kd.length; i++) {
+      kendaraanMap[kd[i][0]] = {
+        kapasitas: parseFloat(kd[i][6]) || 0,
+        jumlah_bar: parseFloat(kd[i][7]) || 0,
+        standar: parseFloat(kd[i][8]) || 0
+      };
+    }
+  }
+
+  let cabangNamaMap = {};
+  const cabangSheet = ss.getSheetByName('Cabang');
+  if (cabangSheet) {
+    const cd = cabangSheet.getDataRange().getValues();
+    for (let i = 1; i < cd.length; i++) {
+      cabangNamaMap[cd[i][0]] = cd[i][1];
+    }
+  }
+
+  let transaksiMap = {};
+  for (let i = 1; i < data.length; i++) {
+    const vid = data[i][6];
+    if (!vid) continue;
+    if (role !== 'SUPERADMIN' && data[i][5] !== userCabang) continue;
+    if (!transaksiMap[vid]) transaksiMap[vid] = [];
+    transaksiMap[vid].push(data[i]);
+  }
+  
+  for (let vid in transaksiMap) {
+    transaksiMap[vid].sort((a, b) => {
+      let tA = new Date(a[2]).getTime();
+      let tB = new Date(b[2]).getTime();
+      if (tA === tB) {
+        return new Date(a[1]).getTime() - new Date(b[1]).getTime();
+      }
+      return tA - tB;
+    });
+  }
+
+  const result = [];
+  
+  for (let vid in transaksiMap) {
+    const trxs = transaksiMap[vid];
+    const k = kendaraanMap[vid] || {};
+    let literPerBar = (k.kapasitas > 0 && k.jumlah_bar > 0) ? (k.kapasitas / k.jumlah_bar) : 0;
+    
+    for (let i = 0; i < trxs.length; i++) {
+      let roll = hitungEfisiensi7Riwayat(trxs, i, literPerBar);
+      if (roll.isDataCukup) {
+        let statusEfisiensi = '';
+        let efisiensiVal = parseFloat(roll.efisiensi);
+        if (efisiensiVal > 0 && k.standar > 0) {
+          if (efisiensiVal < k.standar) statusEfisiensi = 'Di bawah standar';
+          else if (efisiensiVal <= k.standar * 1.3) statusEfisiensi = 'Sesuai standar';
+          else statusEfisiensi = 'Di atas standar';
+        }
+        
+        const r = trxs[i];
+        let tglMulai = new Date(roll.tgl_mulai).toLocaleDateString('id-ID');
+        let tglSelesai = new Date(roll.tgl_selesai).toLocaleDateString('id-ID');
+        
+        result.push({
+          periode: tglMulai + ' s/d ' + tglSelesai,
+          timestamp: new Date(roll.tgl_selesai).getTime(),
+          cabang: cabangNamaMap[r[5]] || r[5],
+          vehicle: r[7],
+          supir: roll.supir,
+          total_km: roll.total_km,
+          total_beli: roll.total_beli,
+          total_konsumsi: Math.round(roll.total_konsumsi * 100) / 100,
+          efisiensi: roll.efisiensi,
+          status_efisiensi: statusEfisiensi
+        });
+      }
+    }
+  }
+  
+  result.sort((a, b) => b.timestamp - a.timestamp);
+  return result;
 }
 
 function getRecentTransactions(role, userCabang) {
@@ -261,10 +425,24 @@ function getRecentTransactions(role, userCabang) {
     if (!transaksiMap[vid]) transaksiMap[vid] = [];
     transaksiMap[vid].push(data[i]);
   }
+  
+  // Sort each vehicle's transactions chronologically by date, then timestamp
+  for (let vid in transaksiMap) {
+    transaksiMap[vid].sort((a, b) => {
+      let tA = new Date(a[2]).getTime();
+      let tB = new Date(b[2]).getTime();
+      if (tA === tB) {
+        return new Date(a[1]).getTime() - new Date(b[1]).getTime();
+      }
+      return tA - tB;
+    });
+  }
 
   const result = [];
   
-  let start = data.length > 100 ? data.length - 100 : 1;
+  // We can just iterate the whole data and filter/sort later, or keep the existing reverse loop.
+  // Actually, to display globally sorted by date, we should gather all relevant rows first.
+  let start = data.length > 200 ? data.length - 200 : 1;
   for (let i = data.length - 1; i >= start; i--) {
     let row = data[i];
     if (role !== 'SUPERADMIN' && row[5] !== userCabang) continue;
@@ -279,7 +457,10 @@ function getRecentTransactions(role, userCabang) {
     
     let kmTempuh = parseFloat(row[16]) || 0;
 
-    let roll = hitungEfisiensi7Riwayat(transaksiMap[row[6]] || [row], row[2], literPerBar);
+    let trxs = transaksiMap[row[6]];
+    let currIdx = trxs ? trxs.indexOf(row) : -1;
+
+    let roll = hitungEfisiensi7Riwayat(trxs, currIdx, literPerBar);
     let efisiensi = roll.efisiensi;
 
     let statusEfisiensi = '';
@@ -298,10 +479,31 @@ function getRecentTransactions(role, userCabang) {
         statusEfisiensi = 'Di atas standar';
       }
     }
+
+    // Dynamic warning calculation
+    let dynamicWarning = '';
+    if (currIdx > 0) {
+      let prev = trxs[currIdx - 1];
+      let prevKmAkhir = parseFloat(prev[14]);
+      let currKmAwal = parseFloat(row[10]);
+      if (!isNaN(prevKmAkhir) && !isNaN(currKmAwal) && prevKmAkhir !== currKmAwal) {
+        let selisih = currKmAwal - prevKmAkhir;
+        let tgl = new Date(prev[2]);
+        let tglStr = isNaN(tgl.getTime()) ? String(prev[2] || '-') : tgl.toLocaleDateString('id-ID');
+        dynamicWarning = 'SELISIH ODO: KM akhir terakhir ' + prevKmAkhir.toLocaleString('id-ID') +
+          ' (' + tglStr + '), KM awal ' + currKmAwal.toLocaleString('id-ID') +
+          ', selisih ' + selisih.toLocaleString('id-ID') + ' KM - indikasi pemakaian di luar jam kerja';
+      }
+    } else if (currIdx === 0 && row[25]) {
+       // If it's the first in the current map but had a warning in DB (maybe from before cutoff), use it or clear it.
+       // It's better to clear it if we have all data, but getRecentTransactions reads all data anyway.
+       dynamicWarning = ''; 
+    }
     
     result.push({
       tanggal: new Date(row[2]).toLocaleDateString('id-ID'),
       timestamp: new Date(row[2]).getTime(),
+      sub_timestamp: new Date(row[1]).getTime(),
       user: row[4], 
       cabang: cabangNamaMap[row[5]] || row[5], 
       vehicle: row[7],
@@ -312,18 +514,34 @@ function getRecentTransactions(role, userCabang) {
       efisiensi: efisiensi, 
       status_efisiensi: statusEfisiensi,
       efisiensi_label: roll.label,
-      warning: row[25] || '',
+      warning: dynamicWarning,
       supir: row[26] || '-',
       transaction_id: row[0],
       biaya_bbm: parseFloat(row[19]) || 0,
       metode_pembayaran: row[27] || 'TUNAI',
       flazz_card_id: row[28] || '',
+      km_awal: parseFloat(row[10]) || 0,
+      km_akhir: parseFloat(row[14]) || 0,
       foto_odo_awal: row[8],
       foto_odo_akhir: row[12],
+      foto_struk_bbm: row[20],
+      foto_struk_toll: row[22],
+      foto_indikator: row[29],
       foto_odo_awal_thumb: driveThumbnail(row[8]),
-      foto_odo_akhir_thumb: driveThumbnail(row[12])
+      foto_odo_akhir_thumb: driveThumbnail(row[12]),
+      foto_struk_bbm_thumb: driveThumbnail(row[20]),
+      foto_struk_toll_thumb: driveThumbnail(row[22]),
+      foto_indikator_thumb: driveThumbnail(row[29])
     });
   }
+  
+  result.sort((a, b) => {
+    if (b.timestamp === a.timestamp) {
+      return b.sub_timestamp - a.sub_timestamp;
+    }
+    return b.timestamp - a.timestamp; // descending by date
+  });
+  
   return result;
 }
 
@@ -339,16 +557,24 @@ function editDailyTransaction(payload) {
     const idxMetode = headers.indexOf('metode_pembayaran');
     const idxCard = headers.indexOf('flazz_card_id');
     const idxBiaya = headers.indexOf('biaya_bbm');
+    const idxToll = headers.indexOf('biaya_toll');
     const idxNama = headers.indexOf('nama_supir');
+    const idxKmAwal = headers.indexOf('km_awal_confirmed');
+    const idxKmAkhir = headers.indexOf('km_akhir_confirmed');
+    const idxKmTempuh = headers.indexOf('km_tempuh');
     const idxTgl = headers.indexOf('tanggal');
+    const idxStamp = headers.indexOf('timestamp');
+    const idxFotoAwal = headers.indexOf('foto_odo_awal');
+    const idxFotoAkhir = headers.indexOf('foto_odo_akhir');
 
-    let rowIndex = -1, oldMetode = '', oldCard = null, oldBiaya = 0;
+    let rowIndex = -1, oldMetode = '', oldCard = null, oldBiaya = 0, oldToll = 0;
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][idxTrx]) === String(payload.transaction_id)) {
         rowIndex = i + 1;
         oldMetode = data[i][idxMetode];
         oldCard = data[i][idxCard];
         oldBiaya = parseFloat(data[i][idxBiaya]) || 0;
+        oldToll = idxToll > -1 ? (parseFloat(data[i][idxToll]) || 0) : 0;
         break;
       }
     }
@@ -357,25 +583,85 @@ function editDailyTransaction(payload) {
     const newMetode = payload.metode_pembayaran || oldMetode;
     const newCard = payload.flazz_card_id || '';
     const newBiaya = parseFloat(payload.biaya_bbm) || 0;
+    const newToll = parseFloat(payload.biaya_toll) || 0;
 
     sheet.getRange(rowIndex, idxMetode + 1).setValue(newMetode);
     sheet.getRange(rowIndex, idxCard + 1).setValue(newCard);
     sheet.getRange(rowIndex, idxBiaya + 1).setValue(newBiaya);
+    if (idxToll > -1) sheet.getRange(rowIndex, idxToll + 1).setValue(newToll);
+    // Tulis liter_bbm. Pakai lokasi kolom via header bila ditemukan; bila tidak (nama
+    // header berbeda di sheet), fallback ke index tetap 18 sesuai skema seluruh codebase
+    // (getRecentTransactions/saveTransactionEndOfDay membaca liter_bbm di index 18).
+    let idxLiterWrite = headers.indexOf('liter_bbm');
+    if (idxLiterWrite < 0) idxLiterWrite = 18;
+    if (payload.liter_bbm !== undefined && payload.liter_bbm !== '') {
+      sheet.getRange(rowIndex, idxLiterWrite + 1).setValue(parseFloat(payload.liter_bbm) || 0);
+    }
     if (payload.nama_supir) sheet.getRange(rowIndex, idxNama + 1).setValue(payload.nama_supir);
+
+    if (payload.km_awal !== undefined) {
+      sheet.getRange(rowIndex, idxKmAwal + 1).setValue(parseFloat(payload.km_awal) || 0);
+    }
+    if (payload.km_akhir !== undefined) {
+      sheet.getRange(rowIndex, idxKmAkhir + 1).setValue(parseFloat(payload.km_akhir) || 0);
+    }
+    
+    // Recalculate km_tempuh
+    const newKmAwal = payload.km_awal !== undefined ? parseFloat(payload.km_awal) : parseFloat(sheet.getRange(rowIndex, idxKmAwal + 1).getValue());
+    const newKmAkhir = payload.km_akhir !== undefined ? parseFloat(payload.km_akhir) : parseFloat(sheet.getRange(rowIndex, idxKmAkhir + 1).getValue());
+    sheet.getRange(rowIndex, idxKmTempuh + 1).setValue((newKmAkhir || 0) - (newKmAwal || 0));
 
     const wasFlazz = oldMetode === 'FLAZZ' && oldCard;
     const isFlazz = newMetode === 'FLAZZ' && newCard;
+
+    const oldTotal = oldBiaya + oldToll;
+    const newTotal = newBiaya + newToll;
+
+    // Bila transaksi akhirnya ber-Flazz, perbarui kolom timestamp ke waktu edit ini.
+    // Ledger rekonsiliasi memilah transaksi berdasarkan timestamp (> used_at/penyerahan
+    // kartu). Tanpa ini, transaksi yang diubah jadi FLAZZ dari data lama (timestamp sebelum
+    // penyerahan) dianggap sudah masuk opening_balance sehingga tidak terhitung sebagai
+    // pengeluaran, membuat saldo sistem lebih tinggi dari saldo fisik.
+    if (isFlazz && idxStamp > -1) {
+      sheet.getRange(rowIndex, idxStamp + 1).setValue(new Date());
+    }
+
     if (wasFlazz && isFlazz) {
       if (oldCard === newCard) {
-        setCardBalance(newCard, (getCardBalance(newCard) || 0) + (oldBiaya - newBiaya));
+        setCardBalance(newCard, (getCardBalance(newCard) || 0) + (oldTotal - newTotal));
       } else {
-        setCardBalance(oldCard, (getCardBalance(oldCard) || 0) + oldBiaya);
-        setCardBalance(newCard, (getCardBalance(newCard) || 0) - newBiaya);
+        setCardBalance(oldCard, (getCardBalance(oldCard) || 0) + oldTotal);
+        setCardBalance(newCard, (getCardBalance(newCard) || 0) - newTotal);
       }
     } else if (wasFlazz && !isFlazz) {
-      setCardBalance(oldCard, (getCardBalance(oldCard) || 0) + oldBiaya);
+      setCardBalance(oldCard, (getCardBalance(oldCard) || 0) + oldTotal);
     } else if (!wasFlazz && isFlazz) {
-      setCardBalance(newCard, (getCardBalance(newCard) || 0) - newBiaya);
+      setCardBalance(newCard, (getCardBalance(newCard) || 0) - newTotal);
+    }
+
+    // Jika transaksi menjadi FLAZZ dan kartu belum digunakan, ciptakan penyerahan otomatis
+    if (isFlazz) {
+      try { autoCreateFlazzUsage(newCard, payload.nama_supir || (sheet.getRange(rowIndex, idxNama + 1).getValue()) , ''); }
+      catch (e) { Logger.log("autoCreateFlazzUsage gagal: " + e.toString()); }
+    }
+
+    // Ganti foto odometer awal jika ada file baru
+    if (payload.foto_odo_awal && idxFotoAwal > -1) {
+      const up = uploadImageToDrive(payload.foto_odo_awal, payload.foto_odo_awal_name || 'odo_awal.jpg', 'KM_Awal');
+      if (!up.success) return { success: false, msg: 'Upload foto odometer awal gagal: ' + up.error };
+      const oldVal = sheet.getRange(rowIndex, idxFotoAwal + 1).getValue();
+      const oldId = extractDriveFileId(oldVal);
+      if (oldId) deleteDriveFileById(oldId);
+      sheet.getRange(rowIndex, idxFotoAwal + 1).setValue(up.fileUrl);
+    }
+    // Ganti foto odometer akhir jika ada file baru
+    if (payload.foto_odo_akhir && idxFotoAkhir > -1) {
+      const up = uploadImageToDrive(payload.foto_odo_akhir, payload.foto_odo_akhir_name || 'odo_akhir.jpg', 'KM_Akhir');
+      if (!up.success) return { success: false, msg: 'Upload foto odometer akhir gagal: ' + up.error };
+      const oldVal = sheet.getRange(rowIndex, idxFotoAkhir + 1).getValue();
+      const oldId = extractDriveFileId(oldVal);
+      if (oldId) deleteDriveFileById(oldId);
+      sheet.getRange(rowIndex, idxFotoAkhir + 1).setValue(up.fileUrl);
     }
 
     return { success: true, msg: 'Transaksi BBM berhasil diperbarui.' };
@@ -396,14 +682,16 @@ function deleteDailyTransaction(transactionId) {
     const idxMetode = headers.indexOf('metode_pembayaran');
     const idxCard = headers.indexOf('flazz_card_id');
     const idxBiaya = headers.indexOf('biaya_bbm');
+    const idxToll = headers.indexOf('biaya_toll');
 
-    let rowIndex = -1, isFlazz = false, cardId = null, biaya = 0;
+    let rowIndex = -1, isFlazz = false, cardId = null, biaya = 0, toll = 0;
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][idxTrx]) === String(transactionId)) {
         rowIndex = i + 1;
         isFlazz = data[i][idxMetode] === 'FLAZZ';
         cardId = data[i][idxCard];
         biaya = parseFloat(data[i][idxBiaya]) || 0;
+        toll = idxToll > -1 ? (parseFloat(data[i][idxToll]) || 0) : 0;
         break;
       }
     }
@@ -411,7 +699,7 @@ function deleteDailyTransaction(transactionId) {
 
     sheet.deleteRow(rowIndex);
     if (isFlazz && cardId) {
-      setCardBalance(cardId, (getCardBalance(cardId) || 0) + biaya);
+      setCardBalance(cardId, (getCardBalance(cardId) || 0) + (biaya + toll));
     }
     return { success: true, msg: 'Transaksi BBM dihapus.' };
   } catch (err) {
@@ -428,7 +716,7 @@ function insertCabang(data) {
 function insertKendaraan(data) {
   const ss = getDB();
   let id = 'V-' + new Date().getTime();
-  ss.getSheetByName('Kendaraan').appendRow([id, data.plat, data.nama, data.jenis || 'Mobil', data.merk || '', data.model || '', data.kapasitas_tangki || '', data.jumlah_bar || '', data.standar_km_l || '', data.cabang, 'Aktif', data.jenis_indikator || 'DIGITAL_BAR', data.tanggal_pajak || '']);
+  ss.getSheetByName('Kendaraan').appendRow([id, data.plat, data.nama, data.jenis || 'Mobil', data.merk || '', data.model || '', data.kapasitas_tangki || '', data.jumlah_bar || '', data.standar_km_l || '', data.cabang, 'Aktif', data.jenis_indikator || 'DIGITAL_BAR', data.tanggal_pajak || '', data.tanggal_pajak_5_tahunan || '', data.tanggal_kir || '']);
   return { msg: 'Kendaraan Berhasil Ditambahkan' };
 }
 
@@ -518,9 +806,14 @@ function updateKendaraan(data) {
       sheet.getRange(i + 1, 12).setValue(data.jenis_indikator || 'DIGITAL_BAR');
       const hd = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
       const iPajak = hd.indexOf('tanggal_pajak');
-      if (iPajak > -1) {
-        sheet.getRange(i + 1, iPajak + 1).setValue(data.tanggal_pajak || '');
-      }
+      if (iPajak > -1) sheet.getRange(i + 1, iPajak + 1).setValue(data.tanggal_pajak || '');
+      
+      const iPajak5 = hd.indexOf('tanggal_pajak_5_tahunan');
+      if (iPajak5 > -1) sheet.getRange(i + 1, iPajak5 + 1).setValue(data.tanggal_pajak_5_tahunan || '');
+      
+      const iKir = hd.indexOf('tanggal_kir');
+      if (iKir > -1) sheet.getRange(i + 1, iKir + 1).setValue(data.tanggal_kir || '');
+      
       return { msg: 'Kendaraan Berhasil Diupdate' };
     }
   }
