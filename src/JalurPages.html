@@ -15,9 +15,14 @@
       <button type='button' class='btn btn-outline-primary w-100 rounded-4 fw-bold mb-2' onclick='jalurAddRow()'>
         <i class='bi bi-plus-circle me-1'></i> Tambah Baris
       </button>
-      <button type='button' class='btn btn-primary w-100 rounded-4 shadow-sm fw-bold' onclick='jalurSave()'>
-        <i class='bi bi-check-circle me-1'></i> Simpan Jadwal
-      </button>
+      <div class='d-flex gap-2'>
+        <button type='button' class='btn btn-outline-secondary flex-fill rounded-4 fw-bold' onclick='jalurBatal()'>
+          <i class='bi bi-x-circle me-1'></i> Batal
+        </button>
+        <button type='button' class='btn btn-primary flex-fill rounded-4 shadow-sm fw-bold' onclick='jalurSave()'>
+          <i class='bi bi-check-circle me-1'></i> Simpan Jadwal
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -41,6 +46,7 @@
                 <th>Kendaraan</th>
                 <th>Driver</th>
                 <th>Rute Tujuan</th>
+                <th>Etoll</th>
                 <th>Pajak</th>
                 <th class='text-end'>Aksi</th>
               </tr>
@@ -95,6 +101,7 @@
                 <th>Driver 1</th>
                 <th>Driver 2</th>
                 <th>Rute Tujuan</th>
+                <th>Etoll</th>
                 <th>Pajak Tahunan</th>
                 <th>Pajak 5 Tahunan</th>
                 <th>KIR</th>
@@ -139,6 +146,10 @@
         <div class='mb-3'>
           <label class='form-label text-muted small fw-bold'>Rute Tujuan</label>
           <input type='text' id='jalur-edit-rute' class='form-control' required placeholder='ex: Gudang A - Toserba B'>
+        </div>
+        <div class='mb-3'>
+          <label class='form-label text-muted small fw-bold'>Kartu Etoll</label>
+          <select id='jalur-edit-etoll' class='form-select'></select>
         </div>
         <button type='button' class='btn btn-primary w-100 rounded-4 fw-bold' onclick='jalurSaveEdit()'><i class='bi bi-check me-1'></i>Simpan</button>
       </div>

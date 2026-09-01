@@ -15,6 +15,7 @@ function jalurEnsureMaster(callback) {
         if (Array.isArray(data.drivers)) window.masterData.supir = data.drivers;
         if (Array.isArray(data.cabangList)) window.masterData.cabang = data.cabangList;
         if (Array.isArray(data.bbmList)) window.masterData.bbm = data.bbmList;
+        if (Array.isArray(data.flazzCards)) window.masterData.flazzCards = data.flazzCards;
       }
       if (typeof callback === 'function') callback();
     })
@@ -69,6 +70,38 @@ function jalurAutofillFromDriver(driverInput) {
   var vehSel = row.querySelector('.jalur-row-vehicle');
   var defVeh = jalurResolveDefaultVehicle(driverInput);
   if (vehSel) vehSel.value = defVeh || '';
+  var etollSel = row.querySelector('.jalur-row-etoll');
+  if (etollSel) {
+    var defCard = jalurResolveDefaultCard((driverInput.value || '').trim());
+    jalurRenderCardOptions(etollSel, defCard ? defCard.id : '');
+  }
+}
+
+function jalurResolveDefaultCard(driverName) {
+  if (!driverName) return null;
+  var cards = (window.masterData && window.masterData.flazzCards) || [];
+  return cards.find(function(x) {
+    return String(x.default_driver_id || '') === driverName && String(x.status || '').toUpperCase() !== 'NONAKTIF';
+  }) || null;
+}
+
+function jalurRenderCardOptions(selectEl, selectedId) {
+  if (!selectEl) return;
+  var cards = (window.masterData && window.masterData.flazzCards) || [];
+  var html = '<option value="">-- Pilih Kartu Etoll --</option>';
+  cards.forEach(function(c) {
+    if (String(c.status || '').toUpperCase() === 'NONAKTIF') return;
+    var sel = (selectedId && String(c.id) === String(selectedId)) ? ' selected' : '';
+    var st = String(c.status || '');
+    var label = (c.card_name || c.card_number || c.id) + (st === 'SEDANG_DIGUNAKAN' ? ' (Dipakai)' : (st ? ' (' + st + ')' : ''));
+    html += '<option value="' + c.id + '" data-name="' + (c.card_name || '') + '"' + sel + '>' + label + '</option>';
+  });
+  selectEl.innerHTML = html;
+}
+
+function jalurSelectedCardName(selectEl) {
+  if (!selectEl || !selectEl.selectedOptions || !selectEl.selectedOptions[0]) return '';
+  return selectEl.selectedOptions[0].getAttribute('data-name') || '';
 }
 
 function jalurValidateRow(row) {
@@ -109,11 +142,14 @@ function jalurAddRow() {
     '<input class="form-control jalur-row-driver2" list="jalur-supir-datalist" autocomplete="off" placeholder="Nama driver 2..."></div>' +
     '<div class="col-12 col-md-3"><label class="form-label text-muted small text-uppercase fw-bold">Kendaraan</label>' +
     '<select class="form-select jalur-row-vehicle"></select></div>' +
-    '<div class="col-12 col-md-3"><label class="form-label text-muted small text-uppercase fw-bold">Rute Tujuan</label>' +
+    '<div class="col-12 col-md-3"><label class="form-label text-muted small text-uppercase fw-bold">Kartu Etoll</label>' +
+    '<select class="form-select jalur-row-etoll"></select></div>' +
+    '<div class="col-12"><label class="form-label text-muted small text-uppercase fw-bold">Rute Tujuan</label>' +
     '<div class="input-group"><input type="text" class="form-control jalur-row-rute" placeholder="ex: Gudang A - Toko B">' +
     '<button type="button" class="btn btn-outline-danger" onclick="this.closest(\'.jalur-row\').remove()"><i class="bi bi-x"></i></button></div></div>';
   container.appendChild(row);
   jalurRenderVehicleOptions(row.querySelector('.jalur-row-vehicle'));
+  jalurRenderCardOptions(row.querySelector('.jalur-row-etoll'), '');
 }
 
 function jalurInitForm() {
@@ -126,6 +162,10 @@ function jalurInitForm() {
     if (t && !t.value) t.value = new Date().toISOString().slice(0, 10);
     jalurAddRow();
   });
+}
+
+function jalurBatal() {
+  jalurInitForm();
 }
 
 function jalurShowListing() {
@@ -160,6 +200,7 @@ function jalurShowListing() {
             '<td><i class="bi ' + icon + ' me-2 text-primary"></i>' + it.plat_nomor + ' <span class="text-muted small">' + it.nama_kendaraan + '</span></td>' +
             '<td>' + it.nama_driver + '</td>' +
             '<td>' + it.rute_tujuan + '</td>' +
+            '<td>' + (it.flazz_card_name || '-') + '</td>' +
             '<td>' + jalurPajakBadge(it.status_pajak, it.sisa_hari_pajak) + '</td>' +
             '<td class="text-end"><button class="btn btn-sm btn-outline-primary me-1" onclick="jalurEdit(\'' + it.id + '\')"><i class="bi bi-pencil"></i></button>' +
             '<button class="btn btn-sm btn-outline-danger" onclick="jalurDelete(\'' + it.id + '\')"><i class="bi bi-trash"></i></button></td>' +
@@ -214,6 +255,7 @@ function jalurShowSummary() {
             '<td>' + it.nama_driver + '</td>' +
             '<td>' + (it.nama_driver2 || '-') + '</td>' +
             '<td>' + it.rute_tujuan + '</td>' +
+            '<td>' + (it.flazz_card_name || '-') + '</td>' +
             '<td>' + jalurPajakBadge(it.status_pajak, it.sisa_hari_pajak) + '</td>' +
             '<td>' + jalurPajakBadge(it.status_pajak_5, it.sisa_hari_pajak_5) + '</td>' +
             '<td>' + (it.jenis_kendaraan === 'Mobil' ? jalurPajakBadge(it.status_kir, it.sisa_hari_kir) : '<span class="badge bg-light text-muted fw-normal border">N/A</span>') + '</td>' +
@@ -254,11 +296,14 @@ function jalurSave() {
     const rute = r.querySelector('.jalur-row-rute').value;
     if (driverInput && (driverInput.value || '').trim() && vehicleId && rute.trim()) {
       if (!jalurValidateRow(r)) { valid = false; return; }
+      const etollSel = r.querySelector('.jalur-row-etoll');
       rows.push({ 
         driver_id: jalurResolveDriverId(driverInput), 
         driver2_id: jalurResolveDriverId(r.querySelector('.jalur-row-driver2')),
         vehicle_id: vehicleId, 
-        rute_tujuan: rute.trim() 
+        rute_tujuan: rute.trim(),
+        etoll_card_id: etollSel ? etollSel.value : '',
+        etoll_card_name: etollSel ? jalurSelectedCardName(etollSel) : ''
       });
     }
   });
@@ -267,7 +312,14 @@ function jalurSave() {
   google.script.run
     .withSuccessHandler(function(res) {
       showToast(res.msg, res.success ? 'success' : 'error');
-      if (res.success) jalurInitForm();
+      if (res.success) {
+        if (res.warnings && res.warnings.length) {
+          setTimeout(function() { 
+            res.warnings.forEach(function(w) { showToast(w, 'error'); });
+          }, 400);
+        }
+        jalurInitForm();
+      }
     })
     .withFailureHandler(function(err) { showToast('Gagal menyimpan: ' + err.message, 'error'); })
     .apiSaveJalur({ tanggal: tanggal, rows: rows }, userInfo);
@@ -295,6 +347,7 @@ function jalurEdit(id) {
       document.getElementById('jalur-edit-driver2').value = it.nama_driver2 || jalurDriverNameById(it.driver2_id) || '';
       jalurRenderVehicleOptions(document.getElementById('jalur-edit-vehicle'), it.vehicle_id);
       document.getElementById('jalur-edit-rute').value = it.rute_tujuan;
+      jalurRenderCardOptions(document.getElementById('jalur-edit-etoll'), it.flazz_card_id || '');
       new bootstrap.Modal(document.getElementById('modal-jalur-edit')).show();
     })
     .withFailureHandler(function(err) { showToast('Gagal memuat data edit: ' + err.message, 'error'); })
@@ -302,13 +355,16 @@ function jalurEdit(id) {
 }
 
 function jalurSaveEdit() {
+  const etollEl = document.getElementById('jalur-edit-etoll');
   const data = {
     id: document.getElementById('jalur-edit-id').value,
     tanggal: document.getElementById('jalur-edit-tanggal').value,
     driver_id: jalurResolveDriverId(document.getElementById('jalur-edit-driver')),
     driver2_id: jalurResolveDriverId(document.getElementById('jalur-edit-driver2')),
     vehicle_id: document.getElementById('jalur-edit-vehicle').value,
-    rute_tujuan: document.getElementById('jalur-edit-rute').value
+    rute_tujuan: document.getElementById('jalur-edit-rute').value,
+    etoll_card_id: etollEl ? etollEl.value : '',
+    etoll_card_name: etollEl ? jalurSelectedCardName(etollEl) : ''
   };
   if (!data.driver_id) { showToast('Nama driver tidak valid, pilih dari daftar', 'error'); return; }
   if (!data.tanggal || !data.vehicle_id || !data.rute_tujuan.trim()) {
@@ -344,8 +400,8 @@ function jalurSummaryText() {
   let text = 'JALUR PENGIRIMAN\nTanggal: ' + tanggal + '\nDibuat oleh: ' + created + '\n\n';
   rows.forEach(function(tr) {
     const tds = tr.querySelectorAll('td');
-    if (tds.length >= 4) {
-      text += '- ' + tds[0].textContent.trim() + ' | Driver: ' + tds[1].textContent.trim() + ' | Rute: ' + tds[2].textContent.trim() + '\n';
+    if (tds.length >= 5) {
+      text += '- ' + tds[0].textContent.trim() + ' | Driver: ' + tds[1].textContent.trim() + ' | Rute: ' + tds[3].textContent.trim() + ' | Etoll: ' + tds[4].textContent.trim() + '\n';
     }
   });
   return text;
