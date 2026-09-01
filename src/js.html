@@ -63,6 +63,7 @@
     document.getElementById('page-login').style.display = 'block';
     document.getElementById('page-form').style.display = 'none';
     document.getElementById('page-dashboard').style.display = 'none';
+    document.getElementById('page-dashboard-history').style.display = 'none';
     document.getElementById('page-master').style.display = 'none';
     document.getElementById('page-settings').style.display = 'none';
     document.getElementById('login_username').value = '';
@@ -265,7 +266,7 @@
         populateSupirDatalist();
 
         loadAppSettings();
-        switchTab('form');
+        switchTab('dashboard');
         prefillFormFromLast(uInfo);
       })
       .processInitialData(uInfo);
@@ -304,6 +305,7 @@
   function switchTab(tab) {
     document.getElementById('page-form').style.display = 'none';
     document.getElementById('page-dashboard').style.display = 'none';
+    document.getElementById('page-dashboard-history').style.display = 'none';
     document.getElementById('page-performa').style.display = 'none';
     document.getElementById('page-gallery').style.display = 'none';
     document.getElementById('page-master').style.display = 'none';
@@ -322,12 +324,15 @@
     });
     
     let sharedFilter = document.getElementById('shared-filter-card');
-    if(sharedFilter) sharedFilter.style.display = (tab === 'dashboard' || tab === 'gallery') ? 'block' : 'none';
+    if(sharedFilter) sharedFilter.style.display = (tab === 'history' || tab === 'gallery') ? 'block' : 'none';
     
     if (tab === 'form') {
       document.getElementById('page-form').style.display = 'block';
     } else if (tab === 'dashboard') {
       document.getElementById('page-dashboard').style.display = 'block';
+      renderDashboard();
+    } else if (tab === 'history') {
+      document.getElementById('page-dashboard-history').style.display = 'block';
       loadDashboard();
     } else if (tab === 'performa') {
       document.getElementById('page-performa').style.display = 'block';
@@ -809,6 +814,99 @@
       `;
       tbody.appendChild(tr);
     });
+  }
+
+  function renderDashboard() {
+    let greetEl = document.getElementById('dash-greeting');
+    let greetSubEl = document.getElementById('dash-greeting-sub');
+    if (greetEl) {
+      let hour = new Date().getHours();
+      let greet = 'Selamat Malam';
+      if (hour >= 5 && hour < 11) greet = 'Selamat Pagi';
+      else if (hour >= 11 && hour < 15) greet = 'Selamat Siang';
+      else if (hour >= 15 && hour < 18) greet = 'Selamat Sore';
+      let name = (userInfo && userInfo.user) ? userInfo.user : '';
+      greetEl.innerHTML = greet + (name ? ', ' + name : '') + '!';
+    }
+    if (greetSubEl) {
+      let opt = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      greetSubEl.textContent = new Date().toLocaleDateString('id-ID', opt);
+    }
+    renderDashboardQuickAccess();
+    loadDashboardGallery();
+    if (typeof loadFlazzDataWrapper === 'function') loadFlazzDataWrapper(true);
+  }
+
+  function renderDashboardQuickAccess() {
+    let box = document.getElementById('dash-quick-access');
+    if (!box) return;
+    let links = [
+      { label: 'Input Laporan', icon: 'bi-pencil-square', tab: 'form' },
+      { label: 'History Laporan', icon: 'bi-clock-history', tab: 'history' },
+      { label: 'Buat Jadwal', icon: 'bi-calendar-plus', tab: 'jalur-buat' },
+      { label: 'Daftar Jadwal', icon: 'bi-list-ul', tab: 'jalur-listing' },
+      { label: 'Galeri Foto', icon: 'bi-images', tab: 'gallery' },
+      { label: 'Top Up Flazz', icon: 'bi-wallet2', tab: 'flazz-topup' },
+      { label: 'Rekonsiliasi Flazz', icon: 'bi-check2-all', tab: 'flazz-recon' },
+      { label: 'Performa Kendaraan', icon: 'bi-speedometer2', tab: 'performa' }
+    ];
+    if (userRole === 'SUPERADMIN' || userRole === 'PIC CABANG') {
+      links.push({ label: 'Data Master', icon: 'bi-database', tab: 'master' });
+    }
+    if (userRole === 'SUPERADMIN') {
+      links.push({ label: 'Pengaturan', icon: 'bi-sliders', tab: 'settings' });
+    }
+    let html = '';
+    links.forEach(l => {
+      html += "<div class='col-6 col-md-3'>" +
+        "<a href='#' onclick='switchTab(\"" + l.tab + "\"); return false;' class='card h-100 border-0 shadow-sm text-decoration-none'>" +
+          "<div class='card-body d-flex align-items-center gap-2'>" +
+            "<i class='bi " + l.icon + " fs-4 text-primary'></i>" +
+            "<div><div class='fw-bold text-dark'>" + l.label + "</div></div>" +
+          "</div>" +
+        "</a>" +
+      "</div>";
+    });
+    box.querySelector('.row').innerHTML = html;
+  }
+
+  function loadDashboardGallery() {
+    let galleryEl = document.getElementById('dash-gallery-content');
+    if (!galleryEl) return;
+    galleryEl.innerHTML = "<div class='col-12 text-center text-muted py-4'>Memuat galeri...</div>";
+    google.script.run
+      .withSuccessHandler(function(allData) {
+        window.__dashData = allData || [];
+        let items = (allData || []).filter(r => r.foto_odo_awal || r.foto_odo_akhir || r.foto_struk_bbm || r.foto_struk_toll || r.foto_indikator);
+        items = items.slice(0, 6);
+        let html = '';
+        if (items.length === 0) {
+          html = "<div class='col-12 text-center text-muted py-4'>Belum ada foto operasional.</div>";
+        } else {
+          items.forEach(row => {
+            let imgHtml = '';
+            if (row.foto_odo_awal) imgHtml = "<img src='" + (row.foto_odo_awal_thumb || row.foto_odo_awal) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
+            else if (row.foto_odo_akhir) imgHtml = "<img src='" + (row.foto_odo_akhir_thumb || row.foto_odo_akhir) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
+            else if (row.foto_struk_bbm) imgHtml = "<img src='" + (row.foto_struk_bbm_thumb || row.foto_struk_bbm) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
+            else if (row.foto_struk_toll) imgHtml = "<img src='" + (row.foto_struk_toll_thumb || row.foto_struk_toll) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
+            else if (row.foto_indikator) imgHtml = "<img src='" + (row.foto_indikator_thumb || row.foto_indikator) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
+            let link = row.foto_odo_awal || row.foto_odo_akhir || row.foto_struk_bbm || row.foto_struk_toll || row.foto_indikator;
+            html += "<div class='col-6 col-md-2'>" +
+              "<a href='" + link + "' target='_blank' class='text-decoration-none'>" +
+                "<div class='card border-0 shadow-sm h-100'>" +
+                  imgHtml +
+                  "<div class='card-body py-1 px-2 small text-truncate'>" + escapeAttr(row.tanggal) + "</div>" +
+                "</div>" +
+              "</a>" +
+            "</div>";
+          });
+        }
+        galleryEl.innerHTML = html;
+      })
+      .withFailureHandler(function(err) {
+        galleryEl.innerHTML = "<div class='col-12 text-center text-muted py-4'>Gagal memuat galeri.</div>";
+      })
+      .getDashboardData(userInfo);
   }
 
   function loadDashboard() {

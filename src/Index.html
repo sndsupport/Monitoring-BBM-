@@ -73,11 +73,15 @@
       <!-- BOTTOM NAVIGATION (Mobile) -->
       <nav class='bottom-nav fixed-bottom bg-white border-top d-md-none' id='bottom-nav' style='display:none;'>
         <div class='d-flex justify-content-around align-items-center h-100'>
-          <button class='btn-nav active' onclick='switchTab("form")' data-tab='form'>
+          <button class='btn-nav active' onclick='switchTab("dashboard")' data-tab='dashboard'>
+            <i class='bi bi-grid-1x2'></i>
+            <span>Dashboard</span>
+          </button>
+          <button class='btn-nav' onclick='switchTab("form")' data-tab='form'>
             <i class='bi bi-pencil-square'></i>
             <span>Input</span>
           </button>
-          <button class='btn-nav' onclick='switchTab("dashboard")' data-tab='dashboard'>
+          <button class='btn-nav' onclick='switchTab("history")' data-tab='history'>
             <i class='bi bi-clock-history'></i>
             <span>History</span>
           </button>
@@ -107,31 +111,15 @@
       <div class='app-shell'>
         <!-- SIDEBAR NAVIGATION (Desktop) -->
         <nav class='app-sidebar top-tabs d-none d-md-flex' id='menu-tabs'>
-          <a class='nav-link sidebar-link active' id='tab-form' href='#' onclick='switchTab("form")'>
+          <a class='nav-link sidebar-link' id='tab-dashboard' href='#' onclick='switchTab("dashboard")'>
+            <i class='bi bi-grid-1x2'></i> <span>Dashboard</span>
+          </a>
+          <div class='sidebar-heading text-muted mt-3 mb-1 px-3 fw-bold' style='font-size:0.75rem'>INPUT</div>
+          <a class='nav-link sidebar-link' id='tab-form' href='#' onclick='switchTab("form")'>
             <i class='bi bi-pencil-square'></i> <span>Input Laporan</span>
           </a>
-          <a class='nav-link sidebar-link' id='tab-dashboard' href='#' onclick='switchTab("dashboard")'>
-            <i class='bi bi-clock-history'></i> <span>History Laporan</span>
-          </a>
-          <a class='nav-link sidebar-link' id='tab-performa' href='#' onclick='switchTab("performa")'>
-            <i class='bi bi-speedometer2'></i> <span>Ringkasan Performa Kendaraan</span>
-          </a>
-          <a class='nav-link sidebar-link' id='tab-gallery' href='#' onclick='switchTab("gallery")'>
-            <i class='bi bi-images'></i> <span>Galeri Foto</span>
-          </a>
-          <div class='sidebar-heading text-muted mt-3 mb-1 px-3 fw-bold' style='font-size:0.75rem'>JALUR</div>
           <a class='nav-link sidebar-link' id='tab-jalur-buat' href='#' onclick='switchTab("jalur-buat")'>
-            <i class='bi bi-pencil-square'></i> <span>Buat Jadwal</span>
-          </a>
-          <a class='nav-link sidebar-link' id='tab-jalur-listing' href='#' onclick='switchTab("jalur-listing")'>
-            <i class='bi bi-list-ul'></i> <span>Daftar Jadwal</span>
-          </a>
-          <a class='nav-link sidebar-link' id='tab-jalur-summary' href='#' onclick='switchTab("jalur-summary")'>
-            <i class='bi bi-clipboard-data'></i> <span>Summary Pengiriman</span>
-          </a>
-          <div class='sidebar-heading text-muted mt-3 mb-1 px-3 fw-bold' style='font-size:0.75rem'>FLAZZ</div>
-          <a class='nav-link sidebar-link' id='tab-flazz-dashboard' href='#' onclick='switchTab("flazz-dashboard")'>
-            <i class='bi bi-credit-card-2-front'></i> <span>Dashboard Flazz</span>
+            <i class='bi bi-calendar-plus'></i> <span>Buat Jadwal</span>
           </a>
           <a class='nav-link sidebar-link' id='tab-flazz-topup' href='#' onclick='switchTab("flazz-topup")'>
             <i class='bi bi-wallet2'></i> <span>Top Up Flazz</span>
@@ -139,15 +127,34 @@
           <a class='nav-link sidebar-link' id='tab-flazz-recon' href='#' onclick='switchTab("flazz-recon")'>
             <i class='bi bi-check2-all'></i> <span>Rekonsiliasi Flazz</span>
           </a>
+          <div class='sidebar-heading text-muted mt-3 mb-1 px-3 fw-bold' style='font-size:0.75rem'>LISTING</div>
+          <a class='nav-link sidebar-link' id='tab-history' href='#' onclick='switchTab("history")'>
+            <i class='bi bi-clock-history'></i> <span>History Laporan</span>
+          </a>
+          <a class='nav-link sidebar-link' id='tab-jalur-listing' href='#' onclick='switchTab("jalur-listing")'>
+            <i class='bi bi-list-ul'></i> <span>Daftar Jadwal</span>
+          </a>
           <a class='nav-link sidebar-link' id='tab-flazz-history' href='#' onclick='switchTab("flazz-history")'>
             <i class='bi bi-journal-text'></i> <span>Riwayat Flazz</span>
           </a>
+          <a class='nav-link sidebar-link' id='tab-gallery' href='#' onclick='switchTab("gallery")'>
+            <i class='bi bi-images'></i> <span>Galeri Foto</span>
+          </a>
+          <div class='sidebar-heading text-muted mt-3 mb-1 px-3 fw-bold' style='font-size:0.75rem'>LAPORAN</div>
+          <a class='nav-link sidebar-link' id='tab-performa' href='#' onclick='switchTab("performa")'>
+            <i class='bi bi-speedometer2'></i> <span>Ringkasan Performa Kendaraan</span>
+          </a>
+          <a class='nav-link sidebar-link' id='tab-jalur-summary' href='#' onclick='switchTab("jalur-summary")'>
+            <i class='bi bi-clipboard-data'></i> <span>Summary Pengiriman</span>
+          </a>
           <div class='d-none sidebar-admin-group' id='nav-master'>
+            <div class='sidebar-heading text-muted mt-3 mb-1 px-3 fw-bold' style='font-size:0.75rem'>ADMIN</div>
             <a class='nav-link sidebar-link' id='tab-master' href='#' onclick='switchTab("master")'>
               <i class='bi bi-database'></i> <span>Data Master</span>
             </a>
           </div>
           <div class='d-none' id='nav-settings'>
+            <div class='sidebar-heading text-muted mt-3 mb-1 px-3 fw-bold' style='font-size:0.75rem'>ADMIN</div>
             <a class='nav-link sidebar-link' id='tab-settings' href='#' onclick='switchTab("settings")'>
               <i class='bi bi-sliders'></i> <span>Pengaturan</span>
             </a>
@@ -473,8 +480,69 @@
         </div>
       </div>
 
-      <!-- HALAMAN 2: DASHBOARD (ADMIN & PIC) -->
+      <!-- HALAMAN 2: DASHBOARD UMUM (LANDING) -->
       <div id='page-dashboard' style='display:none;'>
+        <div class='rounded-4 bg-primary text-white p-4 mb-4 shadow-sm'>
+          <h3 class='fw-bold mb-1' id='dash-greeting'>Halo!</h3>
+          <p class='text-white-50 mb-0' id='dash-greeting-sub'></p>
+        </div>
+
+        <div class='card shadow-sm border-0 rounded-4 mb-4'>
+          <div class='card-header bg-white border-bottom-0 pt-4 pb-0'>
+            <h5 class='fw-bold'><i class='bi bi-lightning-charge me-2'></i>Akses Cepat</h5>
+          </div>
+          <div class='card-body' id='dash-quick-access'>
+            <div class='row g-2'></div>
+          </div>
+        </div>
+
+        <div class='card shadow-sm border-0 rounded-4 mb-4'>
+          <div class='card-header bg-white border-bottom-0 pt-4 pb-0 d-flex justify-content-between align-items-center'>
+            <h5 class='fw-bold'><i class='bi bi-credit-card-2-front me-2'></i>Status Kartu Etoll</h5>
+            <button class='btn btn-outline-primary btn-sm' onclick="loadFlazzDataWrapper(true)"><i class='bi bi-arrow-clockwise'></i> Refresh</button>
+          </div>
+          <div class='card-body'>
+            <div id='flazz-dashboard-loading' class='text-center py-4'>
+              <div class='spinner-border text-primary' role='status'></div>
+              <div class='mt-2 text-muted'>Memuat data kartu etoll...</div>
+            </div>
+            <div id='flazz-dashboard-content' style='display:none;'>
+              <div class='row g-3 mb-3' id='flazz-summary-cards'>
+                <!-- cards injected here -->
+              </div>
+              <div class='table-responsive'>
+                <table class='table table-hover align-middle'>
+                  <thead class='table-light'>
+                    <tr>
+                      <th>Nomor Kartu</th>
+                      <th>Tipe</th>
+                      <th>Driver/Kendaraan</th>
+                      <th>Saldo Terakhir</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id='flazz-dashboard-table'></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class='card shadow-sm border-0 rounded-4'>
+          <div class='card-header bg-white border-bottom-0 pt-4 pb-0 d-flex justify-content-between align-items-center'>
+            <h5 class='fw-bold'><i class='bi bi-images me-2'></i>Galeri Foto Terbaru</h5>
+            <a href='#' onclick='switchTab("gallery")' class='text-decoration-none small'>Lihat Semua<i class='bi bi-arrow-right ms-1'></i></a>
+          </div>
+          <div class='card-body'>
+            <div id='dash-gallery-content' class='row g-2'>
+              <div class='col-12 text-center text-muted py-4'>Memuat galeri...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HALAMAN 2B: HISTORY LAPORAN (dipisah dari dashboard) -->
+      <div id='page-dashboard-history' style='display:none;'>
         <div class='card mb-4'>
           <div class='card-body p-4'>
             <h4 class='mb-4 pb-2 border-bottom text-primary'>
