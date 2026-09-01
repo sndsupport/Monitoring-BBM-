@@ -48,6 +48,9 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - **Validasi:** nomor kartu unik, nominal top-up/tol > 0, saldo tidak boleh negatif, dan nama kartu wajib untuk kartu `UTAMA`.
 - **Pre-fill formulir laporan:** form *Input Laporan* otomatis terisi tanggal hari ini serta data laporan harian terakhir (kendaraan, supir, bar BBM, biaya/liter, metode bayar, dll.).
 - **Performa:** Data dimuat sekali lalu di-cache di sisi client agar perpindahan tab menu Flazz cepat, dan otomatis di-refresh setelah aksi simpan/hapus.
+- **List Flazz (Laporan Per Kartu):** menu **List Flazz** menampilkan ringkasan **Saldo Awal, Total Pengeluaran, dan Saldo Akhir** per kartu dengan filter tanggal. Klik kartu membuka **detail modal** (Top Up, Rincian Pengeluaran Tol+BBM, Rekonsiliasi Harian) dan tombol **Cetak A4** untuk mencetak laporan lengkap (header kartu, summary harian, tabel Top Up/Rincian/Rekonsiliasi) langsung dari browser.
+- **Saldo Awal dari Rekonsiliasi:** pada listing dan laporan cetak, **Saldo Awal** memakai `opening_balance` dari record Rekonsiliasi pada tanggal tersebut (akurat terhadap selisih/saldo fisik), dengan fallback ke rumus `saldo_akhir + pengeluaran − topup` bila belum ada rekonsiliasi.
+- **Pencocokan tanggal aman zona waktu:** seluruh filter tanggal (BBM, Tol, Top Up, Rekonsiliasi) di listing/print membandingkan tanggal dalam zona waktu lokal, sehingga transaksi yang dicatat pada tanggal tertentu tidak hilang karena pergeseran UTC.
 
 ### Smart OCR Odometer
 - Upload foto odometer awal dan akhir.
@@ -153,7 +156,7 @@ Setelah menjalankan `seedDummyData()`:
 | `css.html` | Gaya desain custom (responsive, mobile-first). |
 | `Settings.html` | Halaman pengaturan aplikasi (logo, nama, perusahaan, footer). |
 | `FlazzPages.html` | Halaman UI modul Flazz (dashboard, kartu, top-up, rekonsiliasi, riwayat). |
-| `FlazzScript.html` | Logika interaksi sisi client untuk modul Flazz (termasuk tab riwayat & rekonsiliasi, edit top-up/tol). |
+| `FlazzScript.html` | Logika interaksi sisi client untuk modul Flazz (termasuk tab riwayat & rekonsiliasi, edit top-up/tol, List Flazz, dan cetak laporan A4). |
 | `JalurPages.html` | Halaman UI modul Jalur Pengiriman (buat jadwal & summary per tanggal). |
 | `JalurScript.html` | Logika interaksi sisi client untuk modul Jalur Pengiriman (render jadwal, screenshot, share WA). |
 | `Html2canvasLib.html` | Library html2canvas lokal (di-embed client-side) untuk pratinjau screenshot summary agar bisa disalin ke WhatsApp. |
