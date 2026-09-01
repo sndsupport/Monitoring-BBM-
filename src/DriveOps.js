@@ -61,3 +61,22 @@ function fixPhotoPermissions() {
   return count + ' foto diperbarui izinnya';
 }
 
+function extractDriveFileId(urlOrId) {
+  if (!urlOrId) return '';
+  let s = String(urlOrId);
+  let m = s.match(/\/file\/d\/([\w-]+)/);       // https://drive.google.com/file/d/<ID>/view
+  if (m) return m[1];
+  m = s.match(/[-\w]{25,}/);                      // fallback: pola ID standalone/thumbnail
+  return m ? m[0] : '';
+}
+
+function deleteDriveFileById(fileId) {
+  try {
+    if (!fileId) return { success: true };
+    DriveApp.getFileById(fileId).setTrashed(true);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
