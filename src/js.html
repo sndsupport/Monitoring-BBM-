@@ -500,6 +500,11 @@
     document.getElementById(id).style.display = (val === 'Ya') ? 'block' : 'none';
   }
 
+  function confirmResetForm() {
+    if (!confirm('Laporan yang sudah diisi akan dihapus. Lanjutkan?')) return;
+    resetDailyForm();
+  }
+
   function resetDailyForm() {
     document.getElementById('daily-form').reset();
     document.getElementById('isi_bensin').value = 'Tidak';
