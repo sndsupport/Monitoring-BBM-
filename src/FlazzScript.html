@@ -165,6 +165,14 @@ function renderFlazzMasterTable(cards) {
   });
 }
 
+function renderFlazzMasterSearch(q) {
+  q = (q || '').toLowerCase();
+  document.querySelectorAll('#flazz-master-table tr').forEach(function(tr) {
+    var text = tr.textContent.toLowerCase();
+    tr.style.display = (!q || text.indexOf(q) >= 0) ? '' : 'none';
+  });
+}
+
 function populateFlazzDropdowns(data) {
   let cards = data.cards || [];
   
@@ -745,6 +753,11 @@ function renderFlazzListingTable() {
   if (!__flazzListingData) return;
   let data = __flazzListingData;
   let cards = data.cards || [];
+  var q = (document.getElementById('flazz-listing-search') || {}).value || '';
+  q = q.toLowerCase();
+  cards = cards.filter(function(c) {
+    return !q || String(c.card_number||'').toLowerCase().indexOf(q) >= 0 || String(c.card_name||'').toLowerCase().indexOf(q) >= 0;
+  });
   let selectedDate = document.getElementById('flazz-listing-date').value;
   if (!selectedDate) {
     selectedDate = new Date().toISOString().slice(0, 10);
