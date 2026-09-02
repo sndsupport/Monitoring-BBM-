@@ -7,6 +7,24 @@
   let allVehicles = [];
   let allDrivers = [];
 
+  var SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+  function loadSessionUser() {
+    try {
+      var raw = localStorage.getItem('bbm_user');
+      if (!raw) return null;
+      var obj = JSON.parse(raw);
+      if (!obj || typeof obj !== 'object') return null;
+      if (obj.__ts && (Date.now() - obj.__ts > SESSION_MAX_AGE_MS)) {
+        localStorage.removeItem('bbm_user');
+        return null;
+      }
+      return obj;
+    } catch (e) {
+      localStorage.removeItem('bbm_user');
+      return null;
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', function() {
     ocrModal = new bootstrap.Modal(document.getElementById('ocrModal'));
     document.getElementById('tanggal').valueAsDate = new Date();
@@ -18,19 +36,37 @@
     if (kmAwalInput) kmAwalInput.addEventListener('input', updateOCRSummary);
     if (kmAkhirInput) kmAkhirInput.addEventListener('input', updateOCRSummary);
     
-    let storedUser = localStorage.getItem('bbm_user');
+    let storedUser = loadSessionUser();
     if (storedUser) {
-       userInfo = JSON.parse(storedUser);
+       userInfo = storedUser;
        loadInitialData(userInfo);
     } else {
        document.getElementById('page-login').style.display = 'block';
+       var loginUserInput = document.getElementById('login_username');
+       if (loginUserInput) loginUserInput.focus();
     }
   });
+
+  var btnTogglePw = document.getElementById('btn-toggle-pw');
+  var pwInput = document.getElementById('login_password');
+  if (btnTogglePw && pwInput) {
+    btnTogglePw.addEventListener('click', function() {
+      var isPw = pwInput.type === 'password';
+      pwInput.type = isPw ? 'text' : 'password';
+      btnTogglePw.querySelector('i').className = isPw ? 'bi bi-eye-slash' : 'bi bi-eye';
+    });
+  }
 
   function handleLogin() {
     let un = document.getElementById('login_username').value;
     let pw = document.getElementById('login_password').value;
-    if(!un || !pw) return;
+    var errBox = document.getElementById('login-error');
+    function showLoginError(msg) {
+      if (errBox) { errBox.textContent = msg; errBox.classList.remove('d-none'); }
+      else showToast(msg, 'error');
+    }
+    if (!un || !pw) { showLoginError('Username dan password wajib diisi.'); return; }
+    if (errBox) errBox.classList.add('d-none');
 
     let btn = document.getElementById('btn-login');
     btn.disabled = true;
@@ -38,12 +74,13 @@
 
     google.script.run.withSuccessHandler(function(res) {
        if (res.success) {
+         res.__ts = Date.now();
          userInfo = res;
          localStorage.setItem('bbm_user', JSON.stringify(res));
          showToast('Login berhasil!', 'success');
          loadInitialData(userInfo);
        } else {
-          showToast(res.msg, 'error');
+          showLoginError(res.msg);
           btn.disabled = false;
           btn.innerText = 'Masuk';
        }
