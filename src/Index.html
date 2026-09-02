@@ -269,7 +269,7 @@
                         </div>
                         <div class='mb-0'>
                           <label class='form-label fw-bold text-muted small text-uppercase'>Foto Dasbor Awal</label>
-                          <div class='photo-upload rounded-3' onclick='document.getElementById("foto_odo_awal").click()'>
+                          <div class='photo-upload rounded-3' role='button' tabindex='0' onclick='document.getElementById("foto_odo_awal").click()' onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();document.getElementById("foto_odo_awal").click();}'>
                             <i class='bi bi-camera fs-3 text-secondary mb-2'></i>
                             <span class='text-muted small'>Tap untuk upload foto</span>
                             <input type='file' id='foto_odo_awal' accept='image/*' required style='display:none;' onchange='previewPhoto(this, "preview-awal")'>
@@ -297,7 +297,7 @@
                         </div>
                         <div class='mb-0'>
                           <label class='form-label fw-bold text-muted small text-uppercase'>Foto Dasbor Akhir</label>
-                          <div class='photo-upload rounded-3' onclick='document.getElementById("foto_odo_akhir").click()'>
+                          <div class='photo-upload rounded-3' role='button' tabindex='0' onclick='document.getElementById("foto_odo_akhir").click()' onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();document.getElementById("foto_odo_akhir").click();}'>
                             <i class='bi bi-camera fs-3 text-secondary mb-2'></i>
                             <span class='text-muted small'>Tap untuk upload foto</span>
                             <input type='file' id='foto_odo_akhir' accept='image/*' required style='display:none;' onchange='previewPhoto(this, "preview-akhir")'>
@@ -382,19 +382,25 @@
                             </div>
                             <div class='mb-3'>
                               <label class='form-label fw-bold text-muted small'>Foto Struk Tol</label>
-                              <div class='photo-upload rounded-3' onclick='document.getElementById("foto_struk_toll").click()'>
+                              <div class='photo-upload rounded-3' role='button' tabindex='0' onclick='document.getElementById("foto_struk_toll").click()' onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();document.getElementById("foto_struk_toll").click();}'>
                                 <i class='bi bi-receipt-cutoff fs-3 text-secondary mb-2'></i>
                                 <span class='text-muted small'>Tap untuk upload struk tol</span>
-                                <input type='file' id='foto_struk_toll' accept='image/*' style='display:none;'>
+                                <input type='file' id='foto_struk_toll' accept='image/*' style='display:none;' onchange='previewPhoto(this, "preview-toll")'>
+                              </div>
+                              <div id='preview-toll' class='mt-2 text-center' style='display:none;'>
+                                <img src='' alt='Preview struk tol' class='img-fluid rounded-3 shadow-sm'>
                               </div>
                             </div>
                           </div>
                           <div class='mb-0'>
                             <label class='form-label fw-bold text-muted small text-uppercase'>Foto Struk BBM</label>
-                            <div class='photo-upload rounded-3' onclick='document.getElementById("foto_struk_bbm").click()'>
+                            <div class='photo-upload rounded-3' role='button' tabindex='0' onclick='document.getElementById("foto_struk_bbm").click()' onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();document.getElementById("foto_struk_bbm").click();}'>
                               <i class='bi bi-receipt fs-3 text-secondary mb-2'></i>
                               <span class='text-muted small'>Tap untuk upload struk</span>
-                              <input type='file' id='foto_struk_bbm' accept='image/*' style='display:none;'>
+                              <input type='file' id='foto_struk_bbm' accept='image/*' style='display:none;' onchange='previewPhoto(this, "preview-bbm")'>
+                            </div>
+                            <div id='preview-bbm' class='mt-2 text-center' style='display:none;'>
+                              <img src='' alt='Preview struk BBM' class='img-fluid rounded-3 shadow-sm'>
                             </div>
                           </div>
                         </div>
@@ -412,7 +418,7 @@
                       <div class='col-md-4'>
                         <div class='mb-3'>
                           <label class='form-label fw-bold text-muted small text-uppercase'>Foto Indikator BBM</label>
-                          <div class='photo-upload rounded-3' onclick='document.getElementById("foto_indikator").click()'>
+                          <div class='photo-upload rounded-3' role='button' tabindex='0' onclick='document.getElementById("foto_indikator").click()' onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();document.getElementById("foto_indikator").click();}'>
                             <i class='bi bi-speedometer2 fs-3 text-secondary mb-2'></i>
                             <span class='text-muted small'>Tap untuk upload foto</span>
                             <input type='file' id='foto_indikator' accept='image/*' style='display:none;' onchange='previewPhoto(this, "preview-indikator")'>

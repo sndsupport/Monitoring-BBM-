@@ -419,18 +419,28 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  function previewPhoto(input, previewId) {
-    if (input.files && input.files[0]) {
-      var reader = new FileReader();
-      reader.onload = function(e) {
-        var previewDiv = document.getElementById(previewId);
-        previewDiv.style.display = 'block';
-        previewDiv.querySelector('img').src = e.target.result;
-        input.closest('.photo-upload').classList.add('has-image');
-        input.closest('.photo-upload').querySelector('span').textContent = 'Foto sudah dipilih';
-      };
-      reader.readAsDataURL(input.files[0]);
+  var MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+  function validatePhotoFile(file) {
+    if (!file) return { ok: true };
+    if (file.size > MAX_PHOTO_BYTES) {
+      return { ok: false, msg: 'Ukuran foto maksimal 5MB. Foto Anda ' + Math.ceil(file.size / 1024 / 1024) + 'MB.' };
     }
+    return { ok: true };
+  }
+
+  function previewPhoto(input, previewId) {
+    if (!(input.files && input.files[0])) return;
+    var v = validatePhotoFile(input.files[0]);
+    if (!v.ok) { showToast(v.msg, 'error'); input.value = ''; return; }
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var previewDiv = document.getElementById(previewId);
+      previewDiv.style.display = 'block';
+      previewDiv.querySelector('img').src = e.target.result;
+      input.closest('.photo-upload').classList.add('has-image');
+      input.closest('.photo-upload').querySelector('span').textContent = 'Foto sudah dipilih';
+    };
+    reader.readAsDataURL(input.files[0]);
   }
 
   function previewEditPhoto(input, previewId) {
@@ -562,7 +572,7 @@
       group.querySelectorAll('.toggle-btn').forEach((b, idx) => b.classList.toggle('active', idx === 0));
     });
 
-    ['preview-awal', 'preview-akhir', 'preview-indikator'].forEach(id => {
+    ['preview-awal', 'preview-akhir', 'preview-indikator', 'preview-bbm', 'preview-toll'].forEach(id => {
       const p = document.getElementById(id);
       p.style.display = 'none';
       const img = p.querySelector('img');
