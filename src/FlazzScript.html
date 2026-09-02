@@ -11,6 +11,17 @@ function flazzUserInfo() {
   return { username: u.username || loginName || '', nama: u.nama || '' };
 }
 
+function flazzFailHandler(label, resetBtnIds) {
+  return function(err) {
+    var msg = (err && err.message) ? err.message : (err ? String(err) : 'Terjadi kesalahan server');
+    showToast(label + ': ' + msg, 'error');
+    (resetBtnIds || []).forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) { el.disabled = false; el.innerHTML = el.dataset.origHtml || el.innerHTML; }
+    });
+  };
+}
+
 function loadFlazzDashboard() {
   document.getElementById('flazz-dashboard-loading').style.display = 'block';
   document.getElementById('flazz-dashboard-content').style.display = 'none';
@@ -71,6 +82,11 @@ function loadFlazzDataWrapper(force) {
        renderFlazzMasterTable(res.cards);
        populateFlazzDropdowns(res);
        renderFlazzHistory(res);
+    })
+    .withFailureHandler(function(err) {
+      document.getElementById('flazz-dashboard-loading').style.display = 'none';
+      document.getElementById('flazz-dashboard-content').style.display = 'block';
+      showToast('Gagal memuat data Flazz: ' + (err && err.message || err), 'error');
     })
     .apiGetFlazzDashboardData(uInfo);
 }
@@ -276,6 +292,7 @@ function saveFlazzCardForm(e) {
   e.preventDefault();
   let btn = document.getElementById('btn-save-flazz-card');
   let orig = btn.innerHTML;
+  btn.dataset.origHtml = orig;
   btn.disabled = true;
   btn.innerHTML = 'Menyimpan...';
 
@@ -304,6 +321,7 @@ function saveFlazzCardForm(e) {
          showToast(res.msg, 'error');
        }
     })
+    .withFailureHandler(flazzFailHandler('Menyimpan kartu', ['btn-save-flazz-card']))
     .apiSaveFlazzCard(payload, uInfo);
 }
 
@@ -314,6 +332,7 @@ function saveFlazzTopUpForm(e) {
   e.preventDefault();
   let btn = document.getElementById('btn-save-topup');
   let orig = btn.innerHTML;
+  btn.dataset.origHtml = orig;
   btn.disabled = true;
   btn.innerHTML = 'Memproses...';
 
@@ -340,7 +359,9 @@ function saveFlazzTopUpForm(e) {
            document.getElementById('form-flazz-topup').reset();
            loadFlazzDataWrapper(true);
          } else showToast(res.msg, 'error');
-      }).apiSaveFlazzTopUp(payload);
+      })
+      .withFailureHandler(flazzFailHandler('Menyimpan top up', ['btn-save-topup']))
+      .apiSaveFlazzTopUp(payload);
   };
   reader.readAsDataURL(file);
 }
@@ -349,6 +370,7 @@ function saveFlazzReconForm(e) {
   e.preventDefault();
   let btn = document.getElementById('btn-save-recon');
   let orig = btn.innerHTML;
+  btn.dataset.origHtml = orig;
   btn.disabled = true;
   btn.innerHTML = 'Memproses...';
 
@@ -374,7 +396,9 @@ function saveFlazzReconForm(e) {
            document.getElementById('recon-variance-alert').style.display = 'none';
            loadFlazzDataWrapper(true);
          } else showToast(res.msg, 'error');
-      }).apiSaveFlazzRecon(payload);
+      })
+      .withFailureHandler(flazzFailHandler('Menyimpan recon', ['btn-save-recon']))
+      .apiSaveFlazzRecon(payload);
   };
 
   if (file) {
@@ -565,14 +589,14 @@ function saveEditTopUp(e) {
   google.script.run.withSuccessHandler(res => {
     if(res.success){ showToast(res.msg, 'success'); bootstrap.Modal.getInstance(document.getElementById('modal-edit-topup')).hide(); loadFlazzDataWrapper(true); }
     else showToast(res.msg, 'error');
-  }).apiEditFlazzTopUp(payload);
+  }).withFailureHandler(flazzFailHandler('Menyimpan edit top up', [])).apiEditFlazzTopUp(payload);
 }
 function deleteTopUp(id) {
   if(!confirm('Yakin menghapus top up ini? Saldo kartu akan dikurangi nominal tersebut.')) return;
   google.script.run.withSuccessHandler(res => {
     if(res.success){ showToast(res.msg, 'success'); loadFlazzDataWrapper(true); }
     else showToast(res.msg, 'error');
-  }).apiDeleteFlazzTopUp(id);
+  }).withFailureHandler(flazzFailHandler('Menghapus top up', [])).apiDeleteFlazzTopUp(id);
 }
 function editTol(id) {
   let t = (flazzDataCache && flazzDataCache.tols || []).find(x => x.id === id);
@@ -599,21 +623,21 @@ function saveEditTol(e) {
   google.script.run.withSuccessHandler(res => {
     if(res.success){ showToast(res.msg, 'success'); bootstrap.Modal.getInstance(document.getElementById('modal-edit-tol')).hide(); loadFlazzDataWrapper(true); }
     else showToast(res.msg, 'error');
-  }).apiEditFlazzTol(payload);
+  }).withFailureHandler(flazzFailHandler('Menyimpan edit tol', [])).apiEditFlazzTol(payload);
 }
 function deleteTol(id) {
   if(!confirm('Yakin menghapus tol ini? Saldo kartu akan dikembalikan nominal tersebut.')) return;
   google.script.run.withSuccessHandler(res => {
     if(res.success){ showToast(res.msg, 'success'); loadFlazzDataWrapper(true); }
     else showToast(res.msg, 'error');
-  }).apiDeleteFlazzTol(id);
+  }).withFailureHandler(flazzFailHandler('Menghapus tol', [])).apiDeleteFlazzTol(id);
 }
 function deleteBBMFlazz(trxId) {
   if(!confirm('Lepas transaksi BBM ini dari Flazz? Laporan harian tetap tersimpan, saldo kartu dikembalikan.')) return;
   google.script.run.withSuccessHandler(res => {
     if(res.success){ showToast(res.msg, 'success'); loadFlazzDataWrapper(true); }
     else showToast(res.msg, 'error');
-  }).apiDeleteFlazzBBM(trxId, 'detach');
+  }).withFailureHandler(flazzFailHandler('Melepas BBM dari Flazz', [])).apiDeleteFlazzBBM(trxId, 'detach');
 }
 
 function transTimestamp(val) {
@@ -679,6 +703,7 @@ function deleteFlazzCardClient(id) {
        if(res.success) { showToast(res.msg, 'success'); loadFlazzDataWrapper(true); }
        else { showToast(res.msg, 'error'); }
     })
+    .withFailureHandler(flazzFailHandler('Menonaktifkan kartu', []))
     .apiDeleteFlazzCard(id);
 }
 </script>
