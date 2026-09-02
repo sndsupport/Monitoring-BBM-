@@ -152,33 +152,14 @@ function renderFlazzMasterTable(cards) {
 function populateFlazzDropdowns(data) {
   let cards = data.cards || [];
   
-  // Usage form (hanya tersedia)
-  let uCard = document.getElementById('u_card_id');
-  if(uCard) {
-    uCard.innerHTML = '<option value="">Pilih Kartu...</option>';
-    cards.filter(c => c.status === 'TERSEDIA').forEach(c => {
-       let pemegang = c.driver_id ? c.driver_id : 'Belum Ada Pemegang';
-       let info = c.card_number + ' - Pemegang: ' + pemegang;
-       if (c.notes) info += ' - Ket: ' + c.notes;
-       uCard.innerHTML += `<option value="${c.id}">${info}</option>`;
-    });
-  }
-
-  // Topup & Tol form
+  // Topup form
   let tCard = document.getElementById('t_card_id');
-  let tolCard = document.getElementById('tol_card_id');
   if(tCard) tCard.innerHTML = '<option value="">Pilih Kartu...</option>';
-  if(tolCard) tolCard.innerHTML = '<option value="">Pilih Kartu...</option>';
   
   // Top up: semua kartu aktif (bisa top up kapan saja)
   cards.filter(c => c.status !== 'NONAKTIF').forEach(c => {
      let opt = `<option value="${c.id}">${c.card_number} ${c.driver_id ? '['+c.driver_id+']' : ''} - ${formatCurrency(c.last_balance)}</option>`;
      if(tCard) tCard.innerHTML += opt;
-  });
-  // Tol: hanya kartu yang sedang digunakan supir
-  cards.filter(c => c.status === 'SEDANG_DIGUNAKAN').forEach(c => {
-     let opt = `<option value="${c.id}">${c.card_number} [${c.driver_id || '-'}] - ${formatCurrency(c.last_balance)}</option>`;
-     if(tolCard) tolCard.innerHTML += opt;
   });
 
   // Recon form (kartu yang sedang digunakan ATAU punya usage DIBERIKAN yang belum kembali,
@@ -691,38 +672,6 @@ function editFlazzCard(id) {
 }
 </script>
 <script>
-function populateFlazzDriverVehicle() {
-  let drivers = allDrivers || [];
-  let vehicles = allVehicles || [];
-  
-  let uDriver = document.getElementById('u_driver_id');
-  let tolDriver = document.getElementById('tol_driver_id');
-  if(uDriver) uDriver.innerHTML = '<option value="">Pilih Supir...</option>';
-  if(tolDriver) tolDriver.innerHTML = '<option value="">Pilih Supir...</option>';
-  drivers.forEach(d => {
-    if(uDriver) uDriver.innerHTML += '<option value="' + d.nama + '">' + d.nama + '</option>';
-    if(tolDriver) tolDriver.innerHTML += '<option value="' + d.nama + '">' + d.nama + '</option>';
-  });
-  
-  let uVehicle = document.getElementById('u_vehicle_id');
-  let tolVehicle = document.getElementById('tol_vehicle_id');
-  if(uVehicle) uVehicle.innerHTML = '<option value="">Pilih Kendaraan...</option>';
-  if(tolVehicle) tolVehicle.innerHTML = '<option value="">Pilih Kendaraan...</option>';
-  vehicles.forEach(v => {
-    let txt = v.plat_nomor + ' - ' + v.nama;
-    if(uVehicle) uVehicle.innerHTML += '<option value="' + v.vehicle_id + '">' + txt + '</option>';
-    if(tolVehicle) tolVehicle.innerHTML += '<option value="' + v.vehicle_id + '">' + txt + '</option>';
-  });
-}
-
-// Override populateFlazzDropdowns to call this
-let origPopulateFlazzDropdowns = populateFlazzDropdowns;
-populateFlazzDropdowns = function(data) {
-  origPopulateFlazzDropdowns(data);
-  populateFlazzDriverVehicle();
-};
-</script>
-<script>
 function deleteFlazzCardClient(id) {
   if(!confirm('Anda yakin ingin menonaktifkan kartu ini? Pastikan saldo 0 dan tidak sedang digunakan. Kartu tidak akan terhapus permanen.')) return;
   google.script.run
@@ -731,53 +680,6 @@ function deleteFlazzCardClient(id) {
        else { showToast(res.msg, 'error'); }
     })
     .apiDeleteFlazzCard(id);
-}
-</script><script>
-function onTolCardSelect() {
-  let cardId = document.getElementById('tol_card_id').value;
-  if(!cardId || !flazzDataCache) return;
-  let card = flazzDataCache.cards.find(c => c.id === cardId);
-  if(card && card.driver_id) {
-     let driverSelect = document.getElementById('tol_driver_id');
-     driverSelect.value = card.driver_id;
-     let drv = (typeof allDrivers !== 'undefined' ? allDrivers : []).find(d => d.nama === card.driver_id);
-     if(drv && drv.default_vehicle_id) {
-         document.getElementById('tol_vehicle_id').value = drv.default_vehicle_id;
-     }
-  }
-}
-
-function onUsageCardSelect() {
-  let cardId = document.getElementById('u_card_id').value;
-  if(!cardId || !flazzDataCache) return;
-  let card = flazzDataCache.cards.find(c => c.id === cardId);
-  if(card && card.driver_id) {
-     let driverSelect = document.getElementById('u_driver_id');
-     driverSelect.value = card.driver_id;
-     let drv = (typeof allDrivers !== 'undefined' ? allDrivers : []).find(d => d.nama === card.driver_id);
-     if(drv && drv.default_vehicle_id) {
-         document.getElementById('u_vehicle_id').value = drv.default_vehicle_id;
-     }
-  }
-}
-</script>
-<script>
-function onTolDriverChange() {
-  let driverName = document.getElementById('tol_driver_id').value;
-  if(!driverName) return;
-  let drv = (typeof allDrivers !== 'undefined' ? allDrivers : []).find(d => d.nama === driverName);
-  if(drv && drv.default_vehicle_id) {
-      document.getElementById('tol_vehicle_id').value = drv.default_vehicle_id;
-  }
-}
-
-function onUsageDriverChange() {
-  let driverName = document.getElementById('u_driver_id').value;
-  if(!driverName) return;
-  let drv = (typeof allDrivers !== 'undefined' ? allDrivers : []).find(d => d.nama === driverName);
-  if(drv && drv.default_vehicle_id) {
-      document.getElementById('u_vehicle_id').value = drv.default_vehicle_id;
-  }
 }
 </script>
 <script>
