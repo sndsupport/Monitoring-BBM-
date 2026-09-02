@@ -338,6 +338,11 @@ function saveFlazzCardForm(e) {
 
 function saveFlazzTopUpForm(e) {
   e.preventDefault();
+  var kard = (document.getElementById('t_card_id') || {}).selectedOptions;
+  var kardLabel = kard && kard[0] ? kard[0].text : '-';
+  var amount = document.getElementById('t_amount').value;
+  var tglTxt = document.getElementById('t_date').value;
+  if (!confirm('Konfirmasi Top Up:\nKartu: ' + kardLabel + '\nNominal: ' + formatCurrency(amount) + '\nTanggal: ' + tglTxt + '\n\nLanjutkan?')) return;
   let btn = document.getElementById('btn-save-topup');
   let orig = btn.innerHTML;
   btn.dataset.origHtml = orig;
@@ -538,6 +543,10 @@ function renderHistSection(type) {
       </tr>`;
     }
   });
+
+  if (list.length === 0) {
+    tbody.innerHTML = "<tr><td colspan='99' class='text-center text-muted py-4'>Belum ada data.</td></tr>";
+  }
 
   renderHistPagination(type, totalPages);
 }
