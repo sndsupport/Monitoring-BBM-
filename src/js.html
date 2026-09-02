@@ -1326,7 +1326,12 @@
   }
 
   function escapeAttr(str) {
-    return String(str).replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/'/g, '&#39;')
+      .replace(/"/g, '&quot;');
   }
 
   function odoWarningBadgeHtml(warning) {
@@ -1866,7 +1871,7 @@
     var toast = document.createElement('div');
     toast.className = 'app-toast ' + (type || 'success');
     var icon = type === 'error' ? 'bi-exclamation-circle text-danger' : 'bi-check-circle text-success';
-    toast.innerHTML = '<i class="bi ' + icon + ' me-2"></i><span>' + message + '</span>';
+    toast.innerHTML = '<i class="bi ' + icon + ' me-2"></i><span>' + escapeAttr(message) + '</span>';
     container.appendChild(toast);
     setTimeout(function() {
       toast.style.animation = 'slideOut 0.3s ease forwards';
