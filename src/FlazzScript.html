@@ -851,7 +851,8 @@ function renderFlazzListingTable() {
     );
 
     let totalTopup = dayTopups.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
-    let totalTol = dayTols.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
+    let totalTol = dayTols.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0) +
+                   dayBbm.reduce((s, b) => s + (parseFloat(b.toll_amount) || 0), 0);
     let totalBbm = dayBbm.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
     let totalExpense = totalTol + totalBbm;
 
@@ -860,8 +861,10 @@ function renderFlazzListingTable() {
     let dayRecon = (data.recons || []).find(r =>
       r.card_id === cardId && matchesDateKey(r.date, selectedDate)
     );
-    let saldoAwal = dayRecon ? (parseFloat(dayRecon.opening_balance) || 0)
-                             : (lastBal + totalExpense - totalTopup);
+    let reconOpening = dayRecon ? (parseFloat(dayRecon.opening_balance) || 0) : 0;
+    let saldoAwal = reconOpening > 0
+      ? reconOpening
+      : (lastBal + totalExpense - totalTopup);
 
     let tr = document.createElement('tr');
     tr.innerHTML = `
@@ -1038,11 +1041,15 @@ function printFlazzA4() {
     let dayTols = (data.tols || []).filter(t => t.card_id === card.id && matchesDateKey(t.date, selectedDate));
     let dayBbm = (data.bbmFlazz || []).filter(b => b.card_id === card.id && matchesDateKey(b.tanggal || b.timestamp, selectedDate));
     let totalTopup = dayTopups.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
-    let totalTol = dayTols.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
+    let totalTol = dayTols.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0) +
+                   dayBbm.reduce((s, b) => s + (parseFloat(b.toll_amount) || 0), 0);
     let totalBbm = dayBbm.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
     let totalExpense = totalTol + totalBbm;
     let dayRecon = (data.recons || []).find(r => r.card_id === card.id && matchesDateKey(r.date, selectedDate));
-    let saldoAwal = dayRecon ? (parseFloat(dayRecon.opening_balance) || 0) : (lastBal + totalExpense - totalTopup);
+    let reconOpening = dayRecon ? (parseFloat(dayRecon.opening_balance) || 0) : 0;
+    let saldoAwal = reconOpening > 0
+      ? reconOpening
+      : (lastBal + totalExpense - totalTopup);
 
     printHtml += '<div class="summary-box">';
     printHtml += '<div class="summary-row"><span>Saldo Awal (Sebelum Transaksi Hari Ini)</span><span>' + formatCurrency(saldoAwal) + '</span></div>';

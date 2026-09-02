@@ -572,13 +572,21 @@ function saveFlazzRecon(payload) {
       }
     }
 
-    const openingBalance = usageInfo ? usageInfo.opening : 0;
+    const openingBalanceStored = usageInfo ? usageInfo.opening : 0;
     // Batas periode = momen penyerahan kartu (used_at = waktu pencatatan, bukan tanggal input).
     // Transaksi yang tercatat sebelum momen itu sudah termasuk opening_balance, jadi periode
     // ledger hanya menghitung transaksi yang tercatat SETELAH momen penyerahan.
     let sinceDate = usageInfo && usageInfo.usedAt ? new Date(usageInfo.usedAt) : null;
 
     const ledger = computeFlazzLedger(payload.card_id, ss, sinceDate);
+
+    // Opening balance: utamakan nilai tercatat di Flazz_Usage saat kartu diserahkan.
+    // Bila 0/kosong (mis. rekonsiliasi tanggal laporan dikerjakan belakangan sehingga usage
+    // tidak relevan), rekonstruksi dari ledger: saldo kini + pengeluaran periode - topup periode.
+    const currentBalance = parseFloat(getCardBalance(payload.card_id)) || 0;
+    const openingBalance = openingBalanceStored > 0
+      ? openingBalanceStored
+      : +((currentBalance + ledger.total_bbm_flazz + ledger.total_tol) - ledger.total_topup);
     const flazzBalance = +(openingBalance + ledger.total_topup - ledger.total_bbm_flazz - ledger.total_tol);
     const actualBalance = parseFloat(payload.actual_balance);
     const difference = +(flazzBalance - actualBalance);

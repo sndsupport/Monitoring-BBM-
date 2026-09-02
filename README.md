@@ -50,6 +50,9 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - **Performa:** Data dimuat sekali lalu di-cache di sisi client agar perpindahan tab menu Flazz cepat, dan otomatis di-refresh setelah aksi simpan/hapus.
 - **List Flazz (Laporan Per Kartu):** menu **List Flazz** menampilkan ringkasan **Saldo Awal, Total Pengeluaran, dan Saldo Akhir** per kartu dengan filter tanggal. Klik kartu membuka **detail modal** (Top Up, Rincian Pengeluaran Tol+BBM, Rekonsiliasi Harian) dan tombol **Cetak A4** untuk mencetak laporan lengkap (header kartu, summary harian, tabel Top Up/Rincian/Rekonsiliasi) langsung dari browser.
 - **Saldo Awal dari Rekonsiliasi:** pada listing dan laporan cetak, **Saldo Awal** memakai `opening_balance` dari record Rekonsiliasi pada tanggal tersebut (akurat terhadap selisih/saldo fisik), dengan fallback ke rumus `saldo_akhir + pengeluaran − topup` bila belum ada rekonsiliasi.
+- **Pengeluaran termasuk tol dari transaksi BBM:** total pengeluaran harian (kolom *Pengeluaran*, summary A4, dan rumus saldo awal fallback) menjumlahkan **biaya BBM + biaya tol** dari laporan `Penggunaan_BBM` ber-metode `FLAZZ` bersama pengeluaran Tol mandiri (`Flazz_Tol`) — konsisten dengan perhitungan ledger server, sehingga saldo awal tidak kekurangan nominal tol.
+- **Fallback saldo awal bila opening rekonsiliasi 0:** jika record Rekonsiliasi tanggal tersebut punya `opening_balance` **0** (mis. rekonsiliasi tanggal laporan dikerjakan belakangan sehingga usage yang direkam tidak relevan), listing & cetak memakai rumus fallback `saldo_akhir + pengeluaran − topup` alih-alih menampilkan 0 yang menyesatkan.
+- **Rekonsiliasi backend merekonstruksi saldo awal:** saat menyimpan Rekonsiliasi (`saveFlazzRecon`), bila `opening_balance` dari `Flazz_Usage` bernilai 0/kosong, saldo awal direkonstruksi dari ledger (`saldo kini + pengeluaran periode − topup periode`) agar tersimpan nilai yang bermakna, bukan 0.
 - **Pencocokan tanggal aman zona waktu:** seluruh filter tanggal (BBM, Tol, Top Up, Rekonsiliasi) di listing/print membandingkan tanggal dalam zona waktu lokal, sehingga transaksi yang dicatat pada tanggal tertentu tidak hilang karena pergeseran UTC.
 
 ### Smart OCR Odometer
@@ -149,14 +152,14 @@ Setelah menjalankan `seedDummyData()`:
 | `SpreadsheetOps.js` | CRUD ke Google Sheets. |
 | `DriveOps.js` | Penyimpanan foto ke Google Drive. |
 | `OCRService.js` | Ekstraksi teks dari foto odometer (OCR). |
-| `FlazzOps.js` | CRUD kartu & transaksi Flazz (header-safe), soft-delete, dan logika rekonsiliasi penuh ke Google Sheets. |
+| `FlazzOps.js` | CRUD kartu & transaksi Flazz (header-safe), soft-delete, dan logika rekonsiliasi penuh ke Google Sheets (termasuk rekonstruksi saldo awal dari ledger bila opening usage 0). |
 | `JalurOps.js` | CRUD jadwal pengiriman (header-safe) + helper perhitungan sisa hari pajak kendaraan. |
 | `Index.html` | Struktur UI utama (Bootstrap 5 + mobile-first), halaman Dashboard Umum, & navigasi. |
 | `js.html` | Logika interaksi sisi client (JavaScript), termasuk rendering Dashboard Umum & pre-fill formulir laporan. |
 | `css.html` | Gaya desain custom (responsive, mobile-first). |
 | `Settings.html` | Halaman pengaturan aplikasi (logo, nama, perusahaan, footer). |
 | `FlazzPages.html` | Halaman UI modul Flazz (dashboard, kartu, top-up, rekonsiliasi, riwayat). |
-| `FlazzScript.html` | Logika interaksi sisi client untuk modul Flazz (termasuk tab riwayat & rekonsiliasi, edit top-up/tol, List Flazz, dan cetak laporan A4). |
+| `FlazzScript.html` | Logika interaksi sisi client untuk modul Flazz (termasuk tab riwayat & rekonsiliasi, edit top-up/tol, List Flazz, pencocokan tanggal aman zona waktu, dan cetak laporan A4). |
 | `JalurPages.html` | Halaman UI modul Jalur Pengiriman (buat jadwal & summary per tanggal). |
 | `JalurScript.html` | Logika interaksi sisi client untuk modul Jalur Pengiriman (render jadwal, screenshot, share WA). |
 | `Html2canvasLib.html` | Library html2canvas lokal (di-embed client-side) untuk pratinjau screenshot summary agar bisa disalin ke WhatsApp. |
