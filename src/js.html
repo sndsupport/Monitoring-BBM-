@@ -416,6 +416,12 @@
         t.reportValidity();
         return false;
       }
+      if (typeof isSupirNameValid === 'function' && !isSupirNameValid()) {
+        showToast('Nama supir tidak valid, pilih dari daftar', 'error');
+        s.classList.add('is-invalid');
+        return false;
+      }
+      s.classList.remove('is-invalid');
     } else if (step === 2) {
       let ba = document.getElementById('bar_awal');
       let bk = document.getElementById('bar_akhir');

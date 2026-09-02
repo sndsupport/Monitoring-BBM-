@@ -223,7 +223,7 @@
                     <div class='row'>
                       <div class='col-md-6 mb-3'>
                         <label class='form-label fw-bold text-muted small text-uppercase'>Nama Supir</label>
-                        <input id='nama_supir' class='form-control' list='supir-datalist' required autocomplete='off' placeholder='Ketik nama supir...' oninput='onSupirChange()'>
+                        <input id='nama_supir' class='form-control' list='supir-datalist' required autocomplete='off' placeholder='Ketik nama supir...' oninput='onSupirChange()' onchange='this.classList.remove("is-invalid")'>
                         <datalist id='supir-datalist'></datalist>
                       </div>
                       <div class='col-md-6 mb-3'>
