@@ -415,6 +415,8 @@
     
     let activeBtn = document.querySelector('.btn-nav[data-tab="' + tab + '"]');
     if (activeBtn) activeBtn.classList.add('active');
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function previewPhoto(input, previewId) {
