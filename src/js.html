@@ -1936,15 +1936,29 @@
   function showToast(message, type) {
     var container = document.getElementById('toast-container');
     if (!container) return;
+    if (container.children.length >= 5) container.removeChild(container.firstChild);
     var toast = document.createElement('div');
-    toast.className = 'app-toast ' + (type || 'success');
-    var icon = type === 'error' ? 'bi-exclamation-circle text-danger' : 'bi-check-circle text-success';
+    type = type || 'success';
+    toast.className = 'app-toast ' + type;
+    toast.setAttribute('role', 'status');
+    var iconMap = { success: 'bi-check-circle text-success', error: 'bi-exclamation-circle text-danger', warning: 'bi-exclamation-triangle text-warning' };
+    var icon = iconMap[type] || iconMap.success;
+    var closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'btn-close btn-close-sm ms-auto';
+    closeBtn.setAttribute('aria-label', 'Tutup notifikasi');
+    closeBtn.onclick = function() { removeToast(toast); };
     toast.innerHTML = '<i class="bi ' + icon + ' me-2"></i><span>' + escapeAttr(message) + '</span>';
+    toast.appendChild(closeBtn);
     container.appendChild(toast);
-    setTimeout(function() {
-      toast.style.animation = 'slideOut 0.3s ease forwards';
-      setTimeout(function() { toast.remove(); }, 300);
-    }, 3000);
+    var delay = type === 'error' ? 6000 : 3500;
+    setTimeout(function() { if (toast.parentNode) removeToast(toast); }, delay);
+  }
+
+  function removeToast(toast) {
+    if (!toast || !toast.parentNode) return;
+    toast.style.animation = 'slideOut 0.3s ease forwards';
+    setTimeout(function() { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
   }
 
 </script>
