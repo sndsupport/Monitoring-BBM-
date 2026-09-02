@@ -723,6 +723,14 @@
     }
   }
 
+  function closeOCRModal() {
+    if (typeof ocrModal === 'object' && ocrModal && 'hide' in ocrModal) ocrModal.hide();
+    var btn = document.getElementById('btn-process');
+    if (btn) { btn.disabled = false; btn.innerHTML = "<i class='bi bi-cloud-arrow-up me-1'></i> Simpan"; }
+    var btnSave = document.getElementById('btn-save');
+    if (btnSave) btnSave.disabled = false;
+  }
+
   function confirmAndSave() {
      let btn = document.getElementById('btn-save');
      btn.disabled = true;

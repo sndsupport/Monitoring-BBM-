@@ -994,13 +994,14 @@
       </div><!-- /.app-shell -->
 
       <!-- MODAL OCR RESULT -->
-      <div class='modal fade' id='ocrModal' tabindex='-1' data-bs-backdrop='static'>
+      <div class='modal fade' id='ocrModal' tabindex='-1' data-bs-backdrop='true'>
         <div class='modal-dialog modal-dialog-centered'>
           <div class='modal-content' style='border-radius: 16px; overflow: hidden;'>
             <div class='modal-header bg-success text-white py-3'>
               <h5 class='modal-title'>
                 <i class='bi bi-check-circle me-2'></i> Konfirmasi Hasil Bacaan
               </h5>
+              <button type='button' class='btn-close btn-close-white' data-bs-dismiss='modal' aria-label='Tutup' onclick='closeOCRModal()'></button>
             </div>
             <div class='modal-body p-4'>
               <div class='alert alert-info mb-4'>
@@ -1046,9 +1047,12 @@
                 </div>
               </div>
             </div>
-            <div class='modal-footer p-3'>
-              <button type='button' id='btn-save' class='btn btn-success btn-lg btn-full py-3 fw-bold' onclick='confirmAndSave()'>
-                <i class='bi bi-save me-2'></i> Simpan Data Permanen
+            <div class='modal-footer p-3 d-flex gap-2'>
+              <button type='button' class='btn btn-outline-secondary btn-lg fw-bold' style='flex:1 1 0;' onclick='closeOCRModal()'>
+                <i class='bi bi-arrow-left me-2'></i> Kembali
+              </button>
+              <button type='button' id='btn-save' class='btn btn-success btn-lg fw-bold' style='flex:1 1 0;' onclick='confirmAndSave()'>
+                <i class='bi bi-check-circle me-2'></i> Konfirmasi & Simpan
               </button>
             </div>
           </div>
