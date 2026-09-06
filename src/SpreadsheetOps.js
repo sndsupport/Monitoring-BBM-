@@ -1022,3 +1022,16 @@ function setUserStatus(userId, status, userInfo) {
   sheet.getRange(rowIndex, 7).setValue(status);
   return { msg: status === 'Aktif' ? 'Pengguna Berhasil Diaktifkan Kembali' : 'Pengguna Berhasil Dinonaktifkan' };
 }
+
+function ensurePenggunaBBMColumns() {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('Penggunaan_BBM');
+  if (!sheet) return;
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  if (headers.indexOf('km_sumber') === -1) {
+    const newCol = sheet.getLastColumn() + 1;
+    sheet.getRange(1, newCol).setValue('km_sumber');
+    const lastRow = sheet.getLastRow();
+    if (lastRow > 1) sheet.getRange(2, newCol, lastRow - 1, 1).setValue('AKTUAL');
+  }
+}
