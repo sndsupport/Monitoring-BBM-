@@ -597,6 +597,10 @@
 
     document.getElementById('km_awal_val').value = '';
     document.getElementById('km_akhir_val').value = '';
+    var chkAwal = document.getElementById('chk_km_awal');
+    var chkAkhir = document.getElementById('chk_km_akhir');
+    if (chkAwal) { chkAwal.checked = false; toggleOdoBroken('awal'); }
+    if (chkAkhir) { chkAkhir.checked = false; toggleOdoBroken('akhir'); }
     document.getElementById('ocr-summary').style.display = 'none';
 
     if (typeof onVehicleChange === 'function') onVehicleChange();
@@ -673,6 +677,7 @@
 
     let btn = document.getElementById('btn-process');
     let originalText = btn.innerHTML;
+    showToast('Memproses...', 'warning');
     btn.disabled = true;
     btn.innerHTML = "<span class='spinner-border spinner-border-sm'></span> Sedang Upload & Proses OCR...";
 
@@ -800,6 +805,8 @@
 
      formDataPayload.km_awal_confirmed = document.getElementById('km_awal_val').value;
      formDataPayload.km_akhir_confirmed = document.getElementById('km_akhir_val').value;
+     formDataPayload.km_awal_broken = document.getElementById('chk_km_awal') ? document.getElementById('chk_km_awal').checked : false;
+     formDataPayload.km_akhir_broken = document.getElementById('chk_km_akhir') ? document.getElementById('chk_km_akhir').checked : false;
      formDataPayload.userInfo = userInfo;
 
       google.script.run
@@ -917,8 +924,8 @@
     let links = [
       { label: 'Input Laporan', icon: 'bi-pencil-square', tab: 'form' },
       { label: 'History Laporan', icon: 'bi-clock-history', tab: 'history' },
-      { label: 'Buat Jadwal', icon: 'bi-calendar-plus', tab: 'jalur-buat' },
-      { label: 'Daftar Jadwal', icon: 'bi-list-ul', tab: 'jalur-listing' },
+      { label: 'Buat Jalur', icon: 'bi-calendar-plus', tab: 'jalur-buat' },
+      { label: 'Daftar Jalur', icon: 'bi-list-ul', tab: 'jalur-listing' },
       { label: 'Galeri Foto', icon: 'bi-images', tab: 'gallery' },
       { label: 'Top Up Flazz', icon: 'bi-wallet2', tab: 'flazz-topup' },
       { label: 'Rekonsiliasi Flazz', icon: 'bi-check2-all', tab: 'flazz-recon' },
@@ -1065,6 +1072,10 @@
     let start = (window.__dashPage - 1) * DASH_PER;
     let pageData = all.slice(start, start + DASH_PER);
 
+    function kmEstBadge(row) {
+      return (row.km_sumber === 'ESTIMASI') ? " <span class='badge bg-warning text-dark'>ESTIMASI</span>" : '';
+    }
+
     pageData.forEach(row => {
       let tr = document.createElement('tr');
       tr.innerHTML = 
@@ -1072,7 +1083,7 @@
         "<td class='text-nowrap'>" + row.cabang + "</td>" +
         "<td class='text-nowrap'>" + row.supir + "</td>" +
         "<td class='text-nowrap'>" + row.vehicle + odoWarningBadgeHtml(row.warning) + "</td>" +
-        "<td class='text-center text-nowrap'>" + row.km_tempuh + " KM</td>" +
+        "<td class='text-center text-nowrap'>" + row.km_tempuh + " KM" + kmEstBadge(row) + "</td>" +
         "<td class='text-center text-nowrap'>" + (row.isi_bbm > 0 ? row.isi_bbm + " L" : "-") + "</td>" +
         "<td class='text-center'>" + (row.status_efisiensi === 'Data Belum Cukup' ? efisiensiBadge(row.status_efisiensi) : (row.efisiensi ? row.efisiensi + " KM/L" + (row.efisiensi_label ? " <small class='text-muted'>(" + row.efisiensi_label + ")</small>" : "") + efisiensiBadge(row.status_efisiensi) : "-")) + "</td>" +
         "<td class='text-end text-nowrap'>" +
@@ -1100,7 +1111,7 @@
             "<div class='col-6'>" +
               "<div class='stats-box'>" +
                 "<div class='stats-label'>KM Tempuh</div>" +
-                "<div class='stats-value'>" + row.km_tempuh + " KM</div>" +
+                "<div class='stats-value'>" + row.km_tempuh + " KM" + kmEstBadge(row) + "</div>" +
               "</div>" +
             "</div>" +
             "<div class='col-6'>" +
@@ -1473,6 +1484,15 @@
   // Sembunyikan field Bar Bensin Awal/Akhir untuk kendaraan berindikator bukan
   // Digital Bar (mis. jarum/analog, tanpa indikator, digital angka). Bar hanya
   // relevan untuk indikator Digital Bar yang bisa dihitung per segmen.
+  function toggleOdoBroken(side) {
+    var chk = document.getElementById('chk_km_' + side);
+    var inp = document.getElementById('km_' + side + '_val');
+    var group = document.getElementById('odometer-rusak-' + side);
+    if (!chk || !inp) return;
+    inp.required = !chk.checked;
+    if (group) group.classList.toggle('border-warning', chk.checked);
+  }
+
   function onVehicleChange() {
     var vehSel = document.getElementById('vehicle');
     var indikator = 'DIGITAL_BAR';
@@ -1484,6 +1504,19 @@
       if (found && found.jenis_indikator) indikator = found.jenis_indikator;
     }
     var hide = indikator !== 'DIGITAL_BAR';
+    var isJarum = indikator === 'ANALOG_JARUM';
+    ['odometer-rusak-awal', 'odometer-rusak-akhir'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.style.display = isJarum ? '' : 'none';
+    });
+    if (!isJarum) {
+      ['chk_km_awal', 'chk_km_akhir'].forEach(function (id) {
+        var c = document.getElementById(id);
+        if (c) c.checked = false;
+      });
+      toggleOdoBroken('awal');
+      toggleOdoBroken('akhir');
+    }
 
     var gAwal = document.getElementById('bar-awal-group');
     var gAkhir = document.getElementById('bar-akhir-group');
