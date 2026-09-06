@@ -52,6 +52,7 @@ function processInitialData(userInfo) {
   if (!userInfo || !userInfo.username) {
     return { error: 'Not logged in' };
   }
+  ensurePenggunaBBMColumns();
   var payload = {
     vehicles: safeList(function() { return getActiveVehicles(userInfo.role, userInfo.cabang); }),
     drivers: safeList(function() { return getActiveDrivers(userInfo.role, userInfo.cabang); }),
