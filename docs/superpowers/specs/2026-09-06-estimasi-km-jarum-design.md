@@ -48,7 +48,7 @@ estKm = round(literKonsumsi × standar_km_l)
 
 - Di bawah input `km_awal_val` (bagian Keberangkatan): checkbox **`chk_km_awal`** "Odometer tidak terbaca (rusak)".
 - Di bawah input `km_akhir_val` (bagian Kepulangan): checkbox **`chk_km_akhir`**.
-- Keduanya **divisible/di-render hanya saat kendaraan terpilih berjenis ANALOG_JARUM** (`onVehicleChange`):
+- Keduanya **ditampilkan/di-render hanya saat kendaraan terpilih berjenis ANALOG_JARUM** (`onVehicleChange`):
   - Jarum: checkbox tampil; jika dicentang → input terkait `required=false` + hint "km tidak terbaca — dihitung estimasi"; jika tidak dicentang → `required=true`.
   - Bukan jarum: checkbox disembunyikan, input KM tetap `required`.
 
@@ -78,7 +78,7 @@ estKm = round(literKonsumsi × standar_km_l)
 - `SpreadsheetOps.js`: function baru `ensurePenggunaBBMColumns()`:
   - Jika header `km_sumber` belum ada → append kolom + isi default `AKTUAL` untuk baris lama.
   - Idempoten (aman dipanggil berulang).
-- Dipanggil sekali dari `processInitialData` dan `saveDailyReport` (sudah ada sejak lama; aman).
+- Dipanggil dari `processInitialData` dan `saveDailyReport` (idempoten, aman dipanggil berulang).
 - Baris insert `saveDailyReport` disesuaikan (kolom `km_sumber` di index akhir).
 
 ### 5. Baca & Tampilan
