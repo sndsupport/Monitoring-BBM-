@@ -549,6 +549,7 @@ function getRecentTransactions(role, userCabang) {
       flazz_card_id: row[28] || '',
       km_awal: parseFloat(row[10]) || 0,
       km_akhir: parseFloat(row[14]) || 0,
+      km_sumber: row[34] ? String(row[34]) : 'AKTUAL',
       foto_odo_awal: row[8],
       foto_odo_akhir: row[12],
       foto_struk_bbm: row[20],
@@ -637,6 +638,10 @@ function editDailyTransaction(payload) {
     const newKmAwal = payload.km_awal !== undefined ? parseFloat(payload.km_awal) : parseFloat(sheet.getRange(rowIndex, idxKmAwal + 1).getValue());
     const newKmAkhir = payload.km_akhir !== undefined ? parseFloat(payload.km_akhir) : parseFloat(sheet.getRange(rowIndex, idxKmAkhir + 1).getValue());
     sheet.getRange(rowIndex, idxKmTempuh + 1).setValue((newKmAkhir || 0) - (newKmAwal || 0));
+    if (payload.km_awal !== undefined || payload.km_akhir !== undefined) {
+      const idxSumber = headers.indexOf('km_sumber');
+      if (idxSumber > -1) sheet.getRange(rowIndex, idxSumber + 1).setValue('AKTUAL');
+    }
 
     const wasFlazz = oldMetode === 'FLAZZ' && oldCard;
     const isFlazz = newMetode === 'FLAZZ' && newCard;
