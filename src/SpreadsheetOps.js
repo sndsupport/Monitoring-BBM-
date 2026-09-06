@@ -302,6 +302,7 @@ function getPerformaSummary(role, userCabang) {
   const ss = getDB();
   const sheet = ss.getSheetByName('Penggunaan_BBM');
   if (!sheet) return [];
+  if (role !== 'SUPERADMIN' && !userCabang) return [];
   
   const data = sheet.getDataRange().getValues();
 
@@ -393,6 +394,7 @@ function getRecentTransactions(role, userCabang) {
   const ss = getDB();
   const sheet = ss.getSheetByName('Penggunaan_BBM');
   if (!sheet) return [];
+  if (role !== 'SUPERADMIN' && !userCabang) return [];
   
   const data = sheet.getDataRange().getValues();
 
@@ -892,4 +894,131 @@ function deleteBBMById(id) {
     }
   }
   throw new Error('BBM tidak ditemukan');
+}
+
+// ==========================================
+// PENGGUNA (AKUN) CRUD
+// ==========================================
+
+function getAllUsers() {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('Pengguna');
+  if (!sheet) return [];
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const ci = {};
+  headers.forEach((h, i) => { ci[String(h)] = i; });
+  const list = [];
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    list.push({
+      user_id: row[ci['user_id']],
+      username: row[ci['username']],
+      nama: row[ci['nama']],
+      role: row[ci['role']],
+      cabang: (ci['kode_cabang'] !== undefined) ? row[ci['kode_cabang']] : '',
+      status: (ci['status'] !== undefined) ? row[ci['status']] : ''
+    });
+  }
+  return list;
+}
+
+function getUserByUsername(sheet, uname) {
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][1]).toLowerCase() === String(uname).toLowerCase()) {
+      return { rowIndex: i + 1, row: data[i] };
+    }
+  }
+  return null;
+}
+
+function countActiveSuperadmin(sheet) {
+  const data = sheet.getDataRange().getValues();
+  let count = 0;
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][4] === 'SUPERADMIN' && data[i][6] === 'Aktif') count++;
+  }
+  return count;
+}
+
+function insertUser(data) {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('Pengguna');
+  if (!sheet) throw new Error('Sheet Pengguna tidak ditemukan');
+  const uname = String(data.username || '').trim();
+  const nama = String(data.nama || '').trim();
+  const password = String(data.password || '');
+  const role = data.role || '';
+  const cabang = (data.cabang || '').trim();
+  if (!uname) throw new Error('Username wajib diisi');
+  if (!nama) throw new Error('Nama wajib diisi');
+  if (!password) throw new Error('Password wajib diisi');
+  if (role !== 'SUPERADMIN' && role !== 'PIC CABANG') throw new Error('Role tidak valid');
+  if (role === 'PIC CABANG' && !cabang) throw new Error('Warehouse wajib diisi untuk PIC CABANG');
+  if (getUserByUsername(sheet, uname)) throw new Error('Username sudah terpakai');
+  const id = 'U-' + new Date().getTime();
+  sheet.appendRow([id, uname, password, nama, role, cabang, 'Aktif']);
+  return { msg: 'Pengguna Berhasil Ditambahkan' };
+}
+
+function updateUser(data, userInfo) {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('Pengguna');
+  if (!sheet) throw new Error('Sheet Pengguna tidak ditemukan');
+  const userId = String(data.user_id || '');
+  const uname = String(data.username || '').trim();
+  const nama = String(data.nama || '').trim();
+  const role = data.role || '';
+  const cabang = (data.cabang || '').trim();
+
+  const values = sheet.getDataRange().getValues();
+  let rowIndex = -1;
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][0]) === userId) { rowIndex = i + 1; break; }
+  }
+  if (rowIndex === -1) throw new Error('Pengguna tidak ditemukan');
+
+  if (!uname) throw new Error('Username wajib diisi');
+  if (!nama) throw new Error('Nama wajib diisi');
+  if (role !== 'SUPERADMIN' && role !== 'PIC CABANG') throw new Error('Role tidak valid');
+  if (role === 'PIC CABANG' && !cabang) throw new Error('Warehouse wajib diisi untuk PIC CABANG');
+
+  const existing = getUserByUsername(sheet, uname);
+  if (existing && String(existing.row[0]) !== userId) throw new Error('Username sudah terpakai');
+
+  const currentRow = values[rowIndex - 1];
+  if (userInfo && String(userInfo.username) === String(currentRow[1]) &&
+      currentRow[4] === 'SUPERADMIN' && role !== 'SUPERADMIN' &&
+      countActiveSuperadmin(sheet) <= 1) {
+    throw new Error('Tidak bisa menghapus peran SUPERADMIN terakhir');
+  }
+
+  const password = String(data.password || '');
+  const newPassword = password ? password : String(currentRow[2]);
+  sheet.getRange(rowIndex, 2, 1, 5).setValues([[uname, newPassword, nama, role, cabang]]);
+  return { msg: 'Pengguna Berhasil Diupdate' };
+}
+
+function setUserStatus(userId, status, userInfo) {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('Pengguna');
+  if (!sheet) throw new Error('Sheet Pengguna tidak ditemukan');
+  const values = sheet.getDataRange().getValues();
+  let rowIndex = -1;
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][0]) === String(userId)) { rowIndex = i + 1; break; }
+  }
+  if (rowIndex === -1) throw new Error('Pengguna tidak ditemukan');
+  const row = values[rowIndex - 1];
+  if (status === 'Non-Aktif') {
+    if (userInfo && String(userInfo.username) === String(row[1])) {
+      throw new Error('Tidak bisa menonaktifkan akun sendiri');
+    }
+    if (row[4] === 'SUPERADMIN' && countActiveSuperadmin(sheet) <= 1) {
+      throw new Error('Tidak bisa menonaktifkan SUPERADMIN aktif terakhir');
+    }
+  }
+  sheet.getRange(rowIndex, 7).setValue(status);
+  return { msg: status === 'Aktif' ? 'Pengguna Berhasil Diaktifkan Kembali' : 'Pengguna Berhasil Dinonaktifkan' };
 }
