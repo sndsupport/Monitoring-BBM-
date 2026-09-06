@@ -3,7 +3,7 @@
   let userRole = '';
   let ocrModal;
   let userInfo = null;
-  window.masterData = { kendaraan: [], cabang: [], supir: [], bbm: [] };
+  window.masterData = { kendaraan: [], cabang: [], supir: [], bbm: [], pengguna: [] };
   let allVehicles = [];
   let allDrivers = [];
 
@@ -163,6 +163,8 @@
                 if (btnCabang) btnCabang.parentElement.style.display = 'none';
                 let btnBBM = masterTabs.querySelector('button[data-tab="bbm"]');
                 if (btnBBM) btnBBM.parentElement.style.display = 'none';
+                let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
+                if (btnPengguna) btnPengguna.parentElement.style.display = 'none';
              }
           }
         }
@@ -1767,6 +1769,7 @@
            showToast('Gagal memuat data master: respons server tidak valid', 'error');
            return;
         }
+        if (Array.isArray(data.cabangList)) window.masterData.cabang = data.cabangList;
         if (tab === 'kendaraan') {
           renderKendaraanList(data.vehicles || []);
         } else if (tab === 'cabang') {
@@ -1775,6 +1778,8 @@
           renderSupirList(data.drivers || []);
         } else if (tab === 'bbm') {
           renderBBMList(data.bbmList || []);
+        } else if (tab === 'pengguna') {
+          renderPenggunaList(data.penggunaList || []);
         }
       })
       .withFailureHandler(function(err) {
@@ -1959,6 +1964,140 @@
     if (!toast || !toast.parentNode) return;
     toast.style.animation = 'slideOut 0.3s ease forwards';
     setTimeout(function() { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
+  }
+
+  function populateCabangPengguna() {
+    let sel = document.getElementById('m_cabang_pengguna');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- Pilih Warehouse --</option>';
+    (window.masterData.cabang || []).forEach(function(c) {
+      let opt = document.createElement('option');
+      opt.value = c.kode;
+      opt.text = c.nama;
+      sel.appendChild(opt);
+    });
+  }
+
+  function toggleCabangPengguna() {
+    let wrapper = document.getElementById('wrapper-cabang-pengguna');
+    if (!wrapper) return;
+    let role = document.getElementById('m_role_pengguna').value;
+    let label = wrapper.querySelector('label');
+    if (label) label.textContent = role === 'SUPERADMIN' ? 'Warehouse (opsional untuk SUPERADMIN)' : 'Warehouse';
+  }
+
+  function prepareAddPengguna() {
+    document.getElementById('form-pengguna').reset();
+    document.getElementById('m_edit_id_pengguna').value = '';
+    document.getElementById('m_password_hint').textContent = '';
+    document.getElementById('m_password_pengguna').required = true;
+    document.getElementById('m_nama_pengguna').placeholder = 'Budi Santoso';
+    populateCabangPengguna();
+    document.getElementById('m_role_pengguna').value = 'PIC CABANG';
+    toggleCabangPengguna();
+    document.getElementById('btn-save-pengguna').innerHTML = '<i class="bi bi-check-circle me-1"></i> Simpan Pengguna';
+    document.getElementById('modal-pengguna').querySelector('.modal-title').innerHTML = '<i class="bi bi-person-plus-fill me-2"></i>Tambah Pengguna';
+  }
+
+  function prepareEditPengguna(userId) {
+    let u = (window.masterData.pengguna || []).find(x => String(x.user_id) === String(userId));
+    if (!u) return;
+    document.getElementById('form-pengguna').reset();
+    document.getElementById('m_edit_id_pengguna').value = u.user_id;
+    document.getElementById('m_username_pengguna').value = u.username || '';
+    document.getElementById('m_password_pengguna').value = '';
+    document.getElementById('m_password_pengguna').required = false;
+    document.getElementById('m_password_hint').textContent = '(kosongkan jika password tetap sama)';
+    document.getElementById('m_nama_pengguna').value = u.nama || '';
+    document.getElementById('m_role_pengguna').value = u.role || 'PIC CABANG';
+    populateCabangPengguna();
+    document.getElementById('m_cabang_pengguna').value = u.cabang || '';
+    toggleCabangPengguna();
+    document.getElementById('btn-save-pengguna').innerHTML = '<i class="bi bi-check-circle me-1"></i> Simpan Perubahan';
+    document.getElementById('modal-pengguna').querySelector('.modal-title').innerHTML = '<i class="bi bi-pencil-square me-2"></i>Edit Pengguna';
+    new bootstrap.Modal(document.getElementById('modal-pengguna')).show();
+  }
+
+  function saveMasterPenggunaForm() {
+    let editId = document.getElementById('m_edit_id_pengguna').value;
+    let data = {
+      username: document.getElementById('m_username_pengguna').value.trim(),
+      password: document.getElementById('m_password_pengguna').value,
+      nama: document.getElementById('m_nama_pengguna').value.trim(),
+      role: document.getElementById('m_role_pengguna').value,
+      cabang: document.getElementById('m_cabang_pengguna').value
+    };
+    if (editId) data.user_id = editId;
+    let btn = document.getElementById('btn-save-pengguna');
+    btn.disabled = true;
+    google.script.run
+      .withSuccessHandler(function(res) {
+        showToast(res.msg, 'success');
+        btn.disabled = false;
+        loadMasterData('pengguna');
+        closeBootstrapModal('modal-pengguna');
+      })
+      .withFailureHandler(function(err) {
+        showToast('Gagal: ' + err.message, 'error');
+        btn.disabled = false;
+      })[editId ? 'updateMasterPengguna' : 'saveMasterPengguna'](data, userInfo);
+  }
+
+  function setPenggunaStatus(userId, status) {
+    let u = (window.masterData.pengguna || []).find(x => String(x.user_id) === String(userId));
+    let nama = u ? u.nama : 'pengguna ini';
+    let toActivate = status === 'Aktif';
+    if (!confirm(toActivate ? 'Aktifkan kembali ' + nama + '?' : 'Nonaktifkan ' + nama + '? (akun tidak bisa login)')) return;
+    google.script.run
+      .withSuccessHandler(function(res) {
+        showToast(res.msg, 'success');
+        loadMasterData('pengguna');
+      })
+      .withFailureHandler(function(err) {
+        showToast('Gagal: ' + err.message, 'error');
+      })[toActivate ? 'activateMasterPengguna' : 'deleteMasterPengguna'](userId, userInfo);
+  }
+
+  function renderPenggunaList(users) {
+    window.masterData.pengguna = users || [];
+    let container = document.getElementById('list-pengguna');
+    if (!container) return;
+    if (!users || users.length === 0) {
+      container.innerHTML = '<div class="list-group-item text-center text-muted py-4">Belum ada data pengguna</div>';
+      return;
+    }
+    container.innerHTML = users.map(function(u) {
+      let isSelf = userInfo && String(u.username) === String(userInfo.username);
+      let roleBadge = u.role === 'SUPERADMIN'
+        ? '<span class="badge bg-warning text-dark">SUPERADMIN</span>'
+        : '<span class="badge bg-info text-dark">PIC</span>';
+      let statusBadge = u.status === 'Aktif'
+        ? '<span class="badge bg-success">Aktif</span>'
+        : '<span class="badge bg-secondary">Non-Aktif</span>';
+      let inisial = escapeAttr(String(u.nama || '?').charAt(0).toUpperCase());
+      let cabangLabel = u.role === 'SUPERADMIN' ? (u.cabang || 'Semua') : (u.cabang || '-');
+      let btnStatus = u.status === 'Aktif'
+        ? '<button class="btn btn-sm btn-outline-secondary" aria-label="Nonaktifkan pengguna ' + escapeAttr(u.nama) + '" onclick="setPenggunaStatus(\'' + u.user_id + '\',\'Non-Aktif\')"><i class="bi bi-toggle-off"></i></button>'
+        : '<button class="btn btn-sm btn-outline-success" aria-label="Aktifkan pengguna ' + escapeAttr(u.nama) + '" onclick="setPenggunaStatus(\'' + u.user_id + '\',\'Aktif\')"><i class="bi bi-toggle-on"></i></button>';
+      return '<div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3">' +
+        '<div class="d-flex align-items-center">' +
+          '<div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 48px; height: 48px;">' +
+            '<span class="fw-bold fs-6">' + inisial + '</span>' +
+          '</div>' +
+          '<div>' +
+            '<div class="fw-bold mb-1 fs-6">' + escapeAttr(u.nama) + (isSelf ? ' <span class="text-muted small">(Anda)</span>' : '') + '</div>' +
+            '<div class="d-flex align-items-center small text-muted flex-wrap">' +
+              '<span class="me-2">@' + escapeAttr(u.username) + '</span>' + roleBadge + ' ' + statusBadge +
+              '<span class="ms-2"><i class="bi bi-geo-alt me-1"></i>' + escapeAttr(cabangLabel) + '</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div>' +
+          '<button class="btn btn-sm btn-outline-primary me-2" aria-label="Edit pengguna ' + escapeAttr(u.nama) + '" onclick="prepareEditPengguna(\'' + u.user_id + '\')"><i class="bi bi-pencil"></i></button>' +
+          btnStatus +
+        '</div>' +
+      '</div>';
+    }).join('');
   }
 
 </script>
