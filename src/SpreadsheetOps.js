@@ -84,18 +84,20 @@ function saveTransactionEndOfDay(payload) {
   const ss = getDB();
   const sheet = ss.getSheetByName('Penggunaan_BBM');
   if (!sheet) return { success: false, error: 'Sheet tidak ditemukan.' };
+  ensurePenggunaBBMColumns();
 
   const transaction_id = 'TRX-' + new Date().getTime();
   let km_awal = parseFloat(payload.km_awal_confirmed) || 0;
   let km_akhir = parseFloat(payload.km_akhir_confirmed) || 0;
   let km_tempuh = km_akhir - km_awal;
+  let km_sumber = 'AKTUAL';
   let liter = parseFloat(payload.liter_bbm) || 0;
 
   let userName = payload.userInfo.nama || payload.userInfo.username;
 
   let platNomor = 'PLAT-UNKNOWN';
   let trxCabang = payload.userInfo.cabang;
-  let kapasitas = 0, jumlahBar = 0;
+  let kapasitas = 0, jumlahBar = 0, standarKmL = 0;
   const kendaraanSheet = ss.getSheetByName('Kendaraan');
   if (kendaraanSheet) {
     const kendaraanData = kendaraanSheet.getDataRange().getValues();
@@ -105,6 +107,7 @@ function saveTransactionEndOfDay(payload) {
         trxCabang = kendaraanData[i][9] || trxCabang;
         kapasitas = parseFloat(kendaraanData[i][6]) || 0;
         jumlahBar = parseFloat(kendaraanData[i][7]) || 0;
+        standarKmL = parseFloat(kendaraanData[i][8]) || 0;
         break;
       }
     }
@@ -115,10 +118,31 @@ function saveTransactionEndOfDay(payload) {
   let barAkhir = parseFloat(payload.bar_akhir) || 0;
   let literKonsumsi = liter + ((barAwal - barAkhir) * literPerBar);
   if (literKonsumsi <= 0) literKonsumsi = liter;
+
+  const prevTrx = getLastTransactionForVehicle(payload.vehicle_id);
+
+  if (payload.km_awal_broken || payload.km_akhir_broken) {
+    if (literKonsumsi <= 0 || standarKmL <= 0) {
+      throw new Error('KM tidak terbaca tapi estimasi tidak tersedia (liter BBM / standar km/L kosong). Harap input KM asli.');
+    }
+    const estKm = Math.round(literKonsumsi * standarKmL);
+    if (payload.km_awal_broken && payload.km_akhir_broken) {
+      const anchor = (prevTrx && prevTrx.km_akhir !== null && prevTrx.km_akhir > 0) ? prevTrx.km_akhir : 0;
+      km_awal = anchor;
+      km_akhir = anchor + estKm;
+    } else if (payload.km_akhir_broken) {
+      km_akhir = km_awal + estKm;
+    } else {
+      km_awal = km_akhir - estKm;
+      if (km_awal < 0) km_awal = 0;
+    }
+    km_tempuh = estKm;
+    km_sumber = 'ESTIMASI';
+  }
+
   let efisiensi = literKonsumsi > 0 ? (km_tempuh / literKonsumsi).toFixed(2) : '';
 
   let warning = '';
-  const prevTrx = getLastTransactionForVehicle(payload.vehicle_id);
   if (prevTrx && prevTrx.km_akhir !== null && km_awal !== prevTrx.km_akhir) {
     warning = buildOdoWarning(km_awal, prevTrx.km_akhir, prevTrx.tanggal);
   }
@@ -136,7 +160,8 @@ function saveTransactionEndOfDay(payload) {
     (payload.serverData && payload.serverData.files && payload.serverData.files.indikator) || '',
     payload.level_bbm || '', payload.confidence_bbm || '',
     (payload.serverData && payload.serverData.level_status) || (payload.level_bbm ? 'SUCCESS' : ''),
-    payload.keterangan || ''
+    payload.keterangan || '',
+    km_sumber
   ];
   sheet.appendRow(row);
 
