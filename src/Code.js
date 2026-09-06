@@ -61,7 +61,8 @@ function processInitialData(userInfo) {
     username: userInfo.username,
     role: userInfo.role,
     cabang: userInfo.cabang,
-    flazzCards: safeList(function() { return getFlazzCards(userInfo.role, userInfo.cabang); })
+    flazzCards: safeList(function() { return getFlazzCards(userInfo.role, userInfo.cabang); }),
+    penggunaList: (userInfo.role === 'SUPERADMIN') ? safeList(function() { return getAllUsers(); }) : []
   };
   return cleanSerializable(payload);
 }
@@ -111,7 +112,8 @@ function getMasterData(userInfo) {
     drivers: safeList(function() { return getActiveDrivers(userInfo.role, userInfo.cabang); }),
     cabangList: safeList(function() { return getCabangList(); }),
     bbmList: safeList(function() { return getActiveBBM(); }),
-    flazzCards: safeList(function() { return getFlazzCards(userInfo.role, userInfo.cabang); })
+    flazzCards: safeList(function() { return getFlazzCards(userInfo.role, userInfo.cabang); }),
+    penggunaList: (userInfo.role === 'SUPERADMIN') ? safeList(function() { return getAllUsers(); }) : []
   };
   return cleanSerializable(payload);
 }
@@ -205,6 +207,11 @@ function saveMasterBBM(data) { return insertBBM(data); }
 function deleteMasterCabang(kode) { return deleteCabangById(kode); }
 function deleteMasterSupir(id) { return deleteSupirById(id); }
 function deleteMasterBBM(id) { return deleteBBMById(id); }
+
+function saveMasterPengguna(data) { return insertUser(data); }
+function updateMasterPengguna(data, userInfo) { return updateUser(data, userInfo); }
+function deleteMasterPengguna(userId, userInfo) { return setUserStatus(userId, 'Non-Aktif', userInfo); }
+function activateMasterPengguna(userId) { return setUserStatus(userId, 'Aktif'); }
 
 // ==========================================
 // FLAZZ API WRAPPERS
