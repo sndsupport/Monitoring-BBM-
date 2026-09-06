@@ -724,6 +724,11 @@
                   <i class='bi bi-credit-card me-1'></i> Flazz
                 </button>
               </li>
+              <li class='nav-item'>
+                <button class='nav-link' onclick='switchMasterTab("pengguna")' data-tab='pengguna'>
+                  <i class='bi bi-people me-1'></i> Pengguna
+                </button>
+              </li>
             </ul>
             
             <div class='master-tab-content' id='master-kendaraan' >
@@ -988,6 +993,65 @@
                        </thead>
                        <tbody id="flazz-master-table"></tbody>
                      </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class='master-tab-content' id='master-pengguna' style='display:none;'>
+              <div class='card mb-3'>
+                <div class='card-header d-flex justify-content-between align-items-center'>
+                  <div><i class='bi bi-list-ul me-1'></i> Daftar Pengguna</div>
+                  <button class='btn btn-sm btn-primary' data-bs-toggle='modal' data-bs-target='#modal-pengguna' onclick='prepareAddPengguna()'>
+                    <i class='bi bi-plus-circle me-1'></i> Tambah Pengguna
+                  </button>
+                </div>
+                <div class='card-body p-0'>
+                  <div id='list-pengguna' class='list-group list-group-flush'></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Modal Pengguna -->
+            <div class='modal fade' id='modal-pengguna' tabindex='-1'>
+              <div class='modal-dialog modal-dialog-centered'>
+                <div class='modal-content border-primary'>
+                  <div class='modal-header bg-primary text-white'>
+                    <h5 class='modal-title'><i class='bi bi-person-plus-fill me-2'></i>Tambah Pengguna</h5>
+                    <button type='button' class='btn-close btn-close-white' data-bs-dismiss='modal' aria-label='Close'></button>
+                  </div>
+                  <div class='modal-body'>
+                    <form id='form-pengguna' onsubmit='saveMasterPenggunaForm(); return false;'>
+                      <input type='hidden' id='m_edit_id_pengguna'>
+                      <div class='mb-3'>
+                        <label class='form-label'>Username</label>
+                        <input type='text' id='m_username_pengguna' class='form-control' required placeholder='picjkt' autocomplete='off'>
+                      </div>
+                      <div class='mb-3'>
+                        <label class='form-label'>Password <span id='m_password_hint' class='text-muted small fw-normal'></span></label>
+                        <input type='password' id='m_password_pengguna' class='form-control' placeholder='Kosongkan saat edit = password lama' autocomplete='new-password'>
+                      </div>
+                      <div class='mb-3'>
+                        <label class='form-label'>Nama Lengkap</label>
+                        <input type='text' id='m_nama_pengguna' class='form-control' required placeholder='Budi Santoso'>
+                      </div>
+                      <div class='mb-3'>
+                        <label class='form-label'>Role</label>
+                        <select id='m_role_pengguna' class='form-select' onchange='toggleCabangPengguna()'>
+                          <option value='PIC CABANG'>PIC CABANG</option>
+                          <option value='SUPERADMIN'>SUPERADMIN</option>
+                        </select>
+                      </div>
+                      <div class='mb-3' id='wrapper-cabang-pengguna'>
+                        <label class='form-label'>Warehouse</label>
+                        <select id='m_cabang_pengguna' class='form-select'>
+                          <option value=''>-- Pilih Warehouse --</option>
+                        </select>
+                      </div>
+                      <button type='submit' class='btn btn-primary btn-full' id='btn-save-pengguna'>
+                        <i class='bi bi-check-circle me-1'></i> Simpan Pengguna
+                      </button>
+                    </form>
                   </div>
                 </div>
               </div>
