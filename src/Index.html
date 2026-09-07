@@ -76,30 +76,29 @@
 
       <!-- BOTTOM NAVIGATION (Mobile) -->
       <nav class='bottom-nav fixed-bottom bg-white border-top d-md-none' id='bottom-nav' style='display:none;'>
+        <div class='bottom-nav-drawer-wrap' id='bottom-nav-drawer-wrap' style='display:none;'>
+          <div class='bottom-nav-drawer' id='bottom-nav-drawer'></div>
+        </div>
         <div class='d-flex justify-content-around align-items-center h-100'>
           <button class='btn-nav active' onclick='switchTab("dashboard")' data-tab='dashboard'>
             <i class='bi bi-grid-1x2'></i>
             <span>Dashboard</span>
           </button>
-          <button class='btn-nav' onclick='switchTab("jalur-buat")' data-tab='jalur-buat'>
+          <button class='btn-nav' onclick='toggleBottomDrawer("jalur")' data-drawer='jalur'>
             <i class='bi bi-truck'></i>
             <span>Jalur</span>
           </button>
-          <button class='btn-nav' onclick='switchTab("form")' data-tab='form'>
+          <button class='btn-nav' onclick='toggleBottomDrawer("operasional")' data-drawer='operasional'>
             <i class='bi bi-pencil-square'></i>
             <span>Input</span>
           </button>
-          <button class='btn-nav' onclick='switchTab("history")' data-tab='history'>
+          <button class='btn-nav' onclick='toggleBottomDrawer("history")' data-drawer='history'>
             <i class='bi bi-clock-history'></i>
             <span>History</span>
           </button>
-          <button class='btn-nav' onclick='switchTab("gallery")' data-tab='gallery'>
-            <i class='bi bi-images'></i>
-            <span>Galeri</span>
-          </button>
-          <button class='btn-nav' onclick='switchTab("performa")' data-tab='performa'>
-            <i class='bi bi-speedometer2'></i>
-            <span>Performa</span>
+          <button class='btn-nav' onclick='toggleBottomDrawer("flazz")' data-drawer='flazz'>
+            <i class='bi bi-credit-card'></i>
+            <span>Flazz</span>
           </button>
           <button class='btn-nav' onclick='switchTab("master")' data-tab='master' id='btn-nav-master' style='display:none;'>
             <i class='bi bi-gear'></i>

@@ -414,7 +414,59 @@
     if (!wasOpen) target.classList.add('open');
   }
 
+  // Sub-menu mobile (drawer di atas bottom-nav). Memakai data-tab yang sama dengan switchTab.
+  var BOTTOM_NAV_DRAWERS = {
+    jalur: [
+      { tab: 'jalur-buat', label: 'Buat Jalur', icon: 'bi-calendar-plus' },
+      { tab: 'jalur-listing', label: 'Daftar Jalur', icon: 'bi-list-ul' },
+      { tab: 'jalur-summary', label: 'Summary Pengiriman', icon: 'bi-clipboard-data' }
+    ],
+    operasional: [
+      { tab: 'form', label: 'Input Laporan', icon: 'bi-pencil-square' },
+      { tab: 'performa', label: 'Performa Kendaraan', icon: 'bi-speedometer2' }
+    ],
+    history: [
+      { tab: 'history', label: 'History Laporan', icon: 'bi-clock-history' },
+      { tab: 'gallery', label: 'Galeri Foto', icon: 'bi-images' }
+    ],
+    flazz: [
+      { tab: 'flazz-topup', label: 'Top Up Flazz', icon: 'bi-wallet2' },
+      { tab: 'flazz-recon', label: 'Rekonsiliasi Flazz', icon: 'bi-check2-all' },
+      { tab: 'flazz-listing', label: 'List Flazz & Saldo', icon: 'bi-credit-card' },
+      { tab: 'flazz-history', label: 'Riwayat Transaksi', icon: 'bi-journal-text' }
+    ]
+  };
+
+  function drawBottomNav(key) {
+    var drawer = document.getElementById('bottom-nav-drawer');
+    if (!drawer) return;
+    var items = BOTTOM_NAV_DRAWERS[key] || [];
+    drawer.innerHTML = items.map(function(it) {
+      return "<button class='btn-nav bnd-item' data-tab='" + it.tab + "' onclick='switchTab(\"" + it.tab + "\")'>" +
+        "<i class='bi " + it.icon + "'></i><span>" + it.label + '</span></button>';
+    }).join('');
+  }
+
+  function toggleBottomDrawer(key) {
+    var wrap = document.getElementById('bottom-nav-drawer-wrap');
+    if (!wrap) return;
+    var isOpen = wrap.style.display === 'block' && (wrap.dataset.key || '') === key;
+    closeBottomDrawer();
+    if (isOpen) return;
+    drawBottomNav(key);
+    wrap.style.display = 'block';
+    wrap.dataset.key = key;
+  }
+
+  function closeBottomDrawer() {
+    var wrap = document.getElementById('bottom-nav-drawer-wrap');
+    if (!wrap) return;
+    wrap.style.display = 'none';
+    wrap.dataset.key = '';
+  }
+
   function switchTab(tab) {
+    closeBottomDrawer();
     document.getElementById('page-form').style.display = 'none';
     document.getElementById('page-dashboard').style.display = 'none';
     document.getElementById('page-dashboard-history').style.display = 'none';

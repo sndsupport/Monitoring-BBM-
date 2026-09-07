@@ -575,6 +575,41 @@
 
   .btn-nav:hover { color: var(--color-primary); }
 
+  /* ============ BOTTOM NAV DRAWER (mobile accordion) ============ */
+  .bottom-nav { overflow: visible; }
+
+  .bottom-nav-drawer-wrap {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    max-height: 60vh;
+    overflow-y: auto;
+    background: #fff;
+    border-top: 1px solid var(--color-border);
+    box-shadow: 0 -4px 12px rgba(20, 40, 28, 0.08);
+    padding: 8px;
+    z-index: 1001;
+  }
+
+  .bottom-nav-drawer { display: flex; flex-direction: column; gap: 4px; }
+
+  .btn-nav.bnd-item {
+    flex: none;
+    width: 100%;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    text-align: left;
+  }
+
+  .btn-nav.bnd-item.active {
+    background: var(--color-primary-light);
+  }
+
   /* ============ APP SHELL (sidebar on desktop, stacked on mobile) ============ */
   .app-shell { display: block; }
 
