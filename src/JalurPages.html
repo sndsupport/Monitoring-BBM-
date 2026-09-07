@@ -32,11 +32,21 @@
   <div class='card shadow-sm border-0 rounded-4 mb-3'>
     <div class='card-body'>
       <div class='row g-2 align-items-end'>
-        <div class='col-12 col-md-4'>
-          <label class='form-label fw-bold text-muted small text-uppercase'>Filter Tanggal</label>
+        <div class='col-12 col-md-3' id='jalur-listing-cabang-wrap' style='display:none;'>
+          <label class='form-label fw-bold text-muted small text-uppercase'>Pilih Warehouse</label>
+          <select id='jalur-listing-filter-cabang' class='form-select' onchange='jalurShowListing()'>
+            <option value=''>Semua Warehouse</option>
+          </select>
+        </div>
+        <div class='col-6 col-md-3'>
+          <label class='form-label fw-bold text-muted small text-uppercase'>Dari Tanggal</label>
           <input type='date' id='jalur-listing-filter-tanggal' class='form-control'>
         </div>
-        <div class='col-12 col-md-8'>
+        <div class='col-6 col-md-3'>
+          <label class='form-label fw-bold text-muted small text-uppercase'>Sampai Tanggal</label>
+          <input type='date' id='jalur-listing-filter-tanggal-akhir' class='form-control'>
+        </div>
+        <div class='col-12 col-md-3'>
           <button class='btn btn-primary rounded-4 fw-bold' onclick='jalurShowListing()'><i class='bi bi-search me-1'></i>Tampilkan</button>
         </div>
       </div>

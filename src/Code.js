@@ -231,7 +231,7 @@ function apiDeleteDailyTransaction(transactionId, userInfo) { return deleteDaily
 function apiSaveJalur(payload, userInfo) { return saveJalur(payload, userInfo); }
 function apiUpdateJalur(data, userInfo) { return updateJalur(data, userInfo); }
 function apiDeleteJalur(id, userInfo) { return deleteJalur(id, userInfo); }
-function apiGetJalurByTanggal(tanggal, userInfo) { return getJalurByTanggal(tanggal, userInfo); }
+function apiGetJalurByTanggal(tanggal, userInfo, opts) { return getJalurByTanggal(tanggal, userInfo, opts || {}); }
 
 // ==========================================
 // GEMINI FUEL GAUGE (indikator BBM) DETECTION

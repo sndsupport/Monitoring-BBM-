@@ -171,15 +171,33 @@ function jalurBatal() {
   jalurInitForm();
 }
 
+function jalurPopulateListingFilter() {
+  var wrap = document.getElementById('jalur-listing-cabang-wrap');
+  if (!wrap) return;
+  if (typeof userRole !== 'undefined' && userRole === 'SUPERADMIN') {
+    wrap.style.display = '';
+    if (typeof fillCabangSelect === 'function') fillCabangSelect(document.getElementById('jalur-listing-filter-cabang'));
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
 function jalurShowListing() {
+  jalurPopulateListingFilter();
   document.getElementById('jalur-listing-loaded').style.display = 'none';
   const loading = document.getElementById('jalur-listing-loading');
   if (loading) loading.style.display = 'block';
   var flt = document.getElementById('jalur-listing-filter-tanggal');
   var tanggal = flt ? flt.value : '';
+  var flEnd = document.getElementById('jalur-listing-filter-tanggal-akhir');
+  var tanggalAkhir = flEnd ? flEnd.value : '';
+  var cabEl = document.getElementById('jalur-listing-filter-cabang');
+  var cabang = cabEl ? cabEl.value : '';
+  var rid = ++__jalurRequestId;
 
   google.script.run
     .withSuccessHandler(function(res) {
+      if (rid !== __jalurRequestId) return;
       if (loading) loading.style.display = 'none';
       const loaded = document.getElementById('jalur-listing-loaded');
       if (!loaded) return;
@@ -220,12 +238,13 @@ function jalurShowListing() {
       if (loading) loading.style.display = 'none';
       showToast('Gagal memuat: ' + err.message, 'error'); 
     })
-    .apiGetJalurByTanggal(tanggal, userInfo);
+    .apiGetJalurByTanggal(tanggal, userInfo, { tanggalAkhir: tanggalAkhir, cabang: cabang });
 }
 
 function jalurShowSummary() {
   const tanggal = document.getElementById('jalur-filter-tanggal').value;
   if (!tanggal) { showToast('Pilih tanggal untuk menampilkan', 'error'); return; }
+  var rid = ++__jalurRequestId;
 
   document.getElementById('jalur-summary-loaded').style.display = 'none';
   const loading = document.getElementById('jalur-summary-loading');
@@ -233,6 +252,7 @@ function jalurShowSummary() {
 
   google.script.run
     .withSuccessHandler(function(res) {
+      if (rid !== __jalurRequestId) return;
       if (loading) loading.style.display = 'none';
       const loaded = document.getElementById('jalur-summary-loaded');
       if (!loaded) return;
@@ -355,9 +375,16 @@ function jalurPajakBadge(status, days, label) {
 }
 
 function jalurEdit(id) {
-  const tanggal = document.getElementById('jalur-filter-tanggal').value;
+  const tanggalInput = document.getElementById('jalur-listing-filter-tanggal');
+  const tanggal = tanggalInput ? tanggalInput.value : '';
+  const flEnd = document.getElementById('jalur-listing-filter-tanggal-akhir');
+  const tanggalAkhir = flEnd ? flEnd.value : '';
+  const cabEl = document.getElementById('jalur-listing-filter-cabang');
+  const cabang = cabEl ? cabEl.value : '';
+  var rid = ++__jalurRequestId;
   google.script.run
     .withSuccessHandler(function(res) {
+      if (rid !== __jalurRequestId) return;
       if (!res.success || !res.list) return;
       const it = res.list.find(function(x) { return String(x.id) === String(id); });
       if (!it) return;
@@ -382,7 +409,7 @@ function jalurEdit(id) {
       new bootstrap.Modal(document.getElementById('modal-jalur-edit')).show();
     })
     .withFailureHandler(function(err) { showToast('Gagal memuat data edit: ' + err.message, 'error'); })
-    .apiGetJalurByTanggal(tanggal, userInfo);
+    .apiGetJalurByTanggal(tanggal, userInfo, { tanggalAkhir: tanggalAkhir, cabang: cabang });
 }
 
 function jalurSaveEdit() {

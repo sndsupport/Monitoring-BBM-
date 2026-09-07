@@ -244,8 +244,9 @@ function deleteJalur(id, userInfo) {
   }
 }
 
-function getJalurByTanggal(tanggal, userInfo) {
+function getJalurByTanggal(tanggal, userInfo, opts) {
   try {
+    opts = opts || {};
     const sheet = jalurSheet();
     if (!sheet) return { success: false, msg: 'Sheet Jalur_Pengiriman tidak ditemukan.' };
     const data = sheet.getDataRange().getValues();
@@ -253,8 +254,13 @@ function getJalurByTanggal(tanggal, userInfo) {
     const iTanggal = idx['tanggal'];
     const iDeleted = idx['is_deleted'];
     const iCabang = idx['kode_cabang'];
-    const filteredCabang = getJalurCabangFor(userInfo);
+    let filteredCabang = getJalurCabangFor(userInfo);
+    // SUPERADMIN bisa memfilter per cabang via opts.cabang ('' = semua).
+    if (userInfo && userInfo.role === 'SUPERADMIN') {
+      filteredCabang = opts.cabang || null;
+    }
     const nonSuper = userInfo && userInfo.role !== 'SUPERADMIN';
+    const tanggalAkhir = opts.tanggalAkhir || '';
     // Non-SUPERADMIN wajib punya cabang; tanpa cabang tidak boleh lihat jadwal apa pun.
     if (nonSuper && !filteredCabang) return { success: true, list: [], created_by: '' };
     const list = [];
@@ -269,7 +275,9 @@ function getJalurByTanggal(tanggal, userInfo) {
         } else {
           rowTgl = String(rowTgl).substring(0, 10);
         }
-        if (tanggal && rowTgl !== String(tanggal)) return;
+        const startKey = tanggal ? String(tanggal) : '';
+        const endKey = tanggalAkhir || startKey;
+        if (startKey && (rowTgl < startKey || rowTgl > endKey)) return;
         finalTgl = rowTgl;
       }
       if (iDeleted !== undefined && String(row[iDeleted]) === '1') return;
