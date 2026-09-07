@@ -426,6 +426,11 @@ function saveFlazzTopUpForm(e) {
 
 function saveFlazzReconForm(e) {
   e.preventDefault();
+  let cardId = document.getElementById('r_card_id').value;
+  if (!cardId) {
+    showToast('Pilih kartu terlebih dahulu.', 'error');
+    return;
+  }
   let btn = document.getElementById('btn-save-recon');
   let orig = btn.innerHTML;
   btn.dataset.origHtml = orig;
@@ -433,9 +438,9 @@ function saveFlazzReconForm(e) {
   btn.innerHTML = 'Memproses...';
 
   let file = document.getElementById('r_foto_bukti').files[0];
-  
+
   let payload = {
-    card_id: document.getElementById('r_card_id').value,
+    card_id: cardId,
     system_balance: document.getElementById('r_system_balance').value,
     actual_balance: document.getElementById('r_actual_balance').value,
     action: document.getElementById('r_action').value,
@@ -452,6 +457,8 @@ function saveFlazzReconForm(e) {
            showToast(res.msg, 'success');
            document.getElementById('form-flazz-recon').reset();
            document.getElementById('recon-variance-alert').style.display = 'none';
+           let statusBox = document.getElementById('recon-gate-status');
+           if (statusBox) statusBox.className = 'alert d-none py-2';
            loadFlazzDataWrapper(true);
          } else showToast(res.msg, 'error');
       })
@@ -459,17 +466,37 @@ function saveFlazzReconForm(e) {
       .apiSaveFlazzRecon(payload);
   };
 
-  if (file) {
-    let reader = new FileReader();
-    reader.onload = function(event) {
-       payload.foto_bukti = event.target.result;
-       payload.foto_bukti_name = file.name;
-       submitRecon();
-    };
-    reader.readAsDataURL(file);
-  } else {
-    submitRecon();
-  }
+  let proceed = function() {
+    if (file) {
+      let reader = new FileReader();
+      reader.onload = function(event) {
+         payload.foto_bukti = event.target.result;
+         payload.foto_bukti_name = file.name;
+         submitRecon();
+      };
+      reader.readAsDataURL(file);
+    } else {
+      submitRecon();
+    }
+  };
+
+  // Lapisan kedua: verifikasi gate di server sebelum menyimpan
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && !res.eligible) {
+        btn.disabled = false;
+        btn.innerHTML = orig;
+        showToast('Rekonsiliasi diblokir: ' + ((res && res.reason) || 'belum ada laporan valid dengan foto KM.'), 'error');
+        return;
+      }
+      proceed();
+    })
+    .withFailureHandler(function(err) {
+      btn.disabled = false;
+      btn.innerHTML = orig;
+      showToast('Gagal memverifikasi gate: ' + err, 'error');
+    })
+    .apiCheckReconGate(cardId);
 }
 
 function showHistoryTab(type, e) {
