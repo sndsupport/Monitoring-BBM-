@@ -1466,7 +1466,7 @@
          if (typeof loadFlazzDataWrapper === 'function') loadFlazzDataWrapper(true);
       }
       else showToast(res.msg, 'error');
-    }).apiEditDailyTransaction(payload);
+    }).apiEditDailyTransaction(payload, userInfo);
   }
   function deleteDaily(id){
     if(!confirm('Yakin menghapus transaksi BBM ini? Jika ber-Flazz, saldo kartu akan dikembalikan.')) return;
@@ -1478,7 +1478,7 @@
          if (typeof loadFlazzDataWrapper === 'function') loadFlazzDataWrapper(true);
       }
       else showToast(res.msg, 'error');
-    }).apiDeleteDailyTransaction(id);
+    }).apiDeleteDailyTransaction(id, userInfo);
   }
 
   function formatCurrency(value) {
@@ -1816,7 +1816,7 @@
     }).withFailureHandler(err => {
       showToast('Gagal: ' + err.message, 'error');
       btn.disabled = false;
-    })[editId ? 'updateMasterCabang' : 'saveMasterCabang'](data);
+    })[editId ? 'updateMasterCabang' : 'saveMasterCabang'](data, userInfo);
   }
 
   function addMasterKendaraan() {
@@ -1848,7 +1848,7 @@
     }).withFailureHandler(err => {
       showToast('Gagal: ' + err.message, 'error');
       btn.disabled = false;
-    })[editId ? 'updateMasterKendaraan' : 'saveMasterKendaraan'](data);
+    })[editId ? 'updateMasterKendaraan' : 'saveMasterKendaraan'](data, userInfo);
   }
   function addMasterSupir() {
     let btn = document.getElementById('btn-add-supir');
@@ -1869,7 +1869,7 @@
     }).withFailureHandler(err => {
       showToast('Gagal: ' + err.message, 'error');
       btn.disabled = false;
-    })[editId ? 'updateMasterSupir' : 'saveMasterSupir'](data);
+    })[editId ? 'updateMasterSupir' : 'saveMasterSupir'](data, userInfo);
   }
 
   function calcLiter() {
@@ -1919,7 +1919,7 @@
     }).withFailureHandler(err => {
       showToast('Gagal: ' + err.message, 'error');
       btn.disabled = false;
-    })[editId ? 'updateMasterBBM' : 'saveMasterBBM'](data);
+    })[editId ? 'updateMasterBBM' : 'saveMasterBBM'](data, userInfo);
   }
 
   function switchMasterTab(tab) {
@@ -2084,7 +2084,7 @@
       loadMasterData('kendaraan');
     }).withFailureHandler(function(err) {
       showToast('Gagal menghapus: ' + err.message, 'error');
-    }).deleteMasterKendaraan(vehicleId);
+    }).deleteMasterKendaraan(vehicleId, userInfo);
   }
 
 
@@ -2095,7 +2095,7 @@
       loadMasterData('cabang');
     }).withFailureHandler(function(err) {
       showToast('Gagal menghapus: ' + err.message, 'error');
-    }).deleteMasterCabang(kode);
+    }).deleteMasterCabang(kode, userInfo);
   }
 
   function deleteSupir(id) {
@@ -2105,7 +2105,7 @@
       loadMasterData('supir');
     }).withFailureHandler(function(err) {
       showToast('Gagal menghapus: ' + err.message, 'error');
-    }).deleteMasterSupir(id);
+    }).deleteMasterSupir(id, userInfo);
   }
 
   function deleteBBM(id) {
@@ -2115,7 +2115,7 @@
       loadMasterData('bbm');
     }).withFailureHandler(function(err) {
       showToast('Gagal menghapus: ' + err.message, 'error');
-    }).deleteMasterBBM(id);
+    }).deleteMasterBBM(id, userInfo);
   }
 
   function showToast(message, type) {

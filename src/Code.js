@@ -171,38 +171,38 @@ function getPerformaData(userInfo) {
   return getPerformaSummary(userInfo.role, userInfo.cabang);
 }
 
-function saveMasterCabang(data) {
-  return insertCabang(data);
+function saveMasterCabang(data, userInfo) {
+  return insertCabang(data, userInfo);
 }
 
-function saveMasterKendaraan(data) {
-  return insertKendaraan(data);
+function saveMasterKendaraan(data, userInfo) {
+  return insertKendaraan(data, userInfo);
 }
 
-function saveMasterSupir(data) {
-  return insertSupir(data);
+function saveMasterSupir(data, userInfo) {
+  return insertSupir(data, userInfo);
 }
 
-function deleteMasterKendaraan(vehicleId) {
-  return deleteKendaraanById(vehicleId);
+function deleteMasterKendaraan(vehicleId, userInfo) {
+  return deleteKendaraanById(vehicleId, userInfo);
 }
 
 
-function updateMasterCabang(data) { return updateCabang(data); }
-function updateMasterKendaraan(data) { return updateKendaraan(data); }
-function updateMasterSupir(data) { return updateSupir(data); }
-function updateMasterBBM(data) { return updateBBM(data); }
+function updateMasterCabang(data, userInfo) { return updateCabang(data, userInfo); }
+function updateMasterKendaraan(data, userInfo) { return updateKendaraan(data, userInfo); }
+function updateMasterSupir(data, userInfo) { return updateSupir(data, userInfo); }
+function updateMasterBBM(data, userInfo) { return updateBBM(data, userInfo); }
 
-function saveMasterBBM(data) { return insertBBM(data); }
+function saveMasterBBM(data, userInfo) { return insertBBM(data, userInfo); }
 
-function deleteMasterCabang(kode) { return deleteCabangById(kode); }
-function deleteMasterSupir(id) { return deleteSupirById(id); }
-function deleteMasterBBM(id) { return deleteBBMById(id); }
+function deleteMasterCabang(kode, userInfo) { return deleteCabangById(kode, userInfo); }
+function deleteMasterSupir(id, userInfo) { return deleteSupirById(id, userInfo); }
+function deleteMasterBBM(id, userInfo) { return deleteBBMById(id, userInfo); }
 
-function saveMasterPengguna(data) { return insertUser(data); }
+function saveMasterPengguna(data, userInfo) { return insertUser(data, userInfo); }
 function updateMasterPengguna(data, userInfo) { return updateUser(data, userInfo); }
 function deleteMasterPengguna(userId, userInfo) { return setUserStatus(userId, 'Non-Aktif', userInfo); }
-function activateMasterPengguna(userId) { return setUserStatus(userId, 'Aktif'); }
+function activateMasterPengguna(userId, userInfo) { return setUserStatus(userId, 'Aktif', userInfo); }
 
 // ==========================================
 // FLAZZ API WRAPPERS
@@ -215,22 +215,22 @@ function apiCheckReconGate(cardId) { return checkReconGate(cardId); }
 function apiSaveFlazzUsage(payload) { return saveFlazzUsage(payload); }
 
 function apiGetFlazzDashboardData(userInfo) { return getFlazzDashboardData(userInfo.role, userInfo.cabang); }
-function apiDeleteFlazzCard(cardId) { return deleteFlazzCard(cardId); }
-function apiActivateFlazzCard(cardId) { return activateFlazzCard(cardId); }
-function apiEditFlazzTopUp(payload) { return editFlazzTopUp(payload); }
-function apiDeleteFlazzTopUp(id) { return deleteFlazzTopUp(id); }
-function apiEditFlazzTol(payload) { return editFlazzTol(payload); }
-function apiDeleteFlazzTol(id) { return deleteFlazzTol(id); }
-function apiDeleteFlazzBBM(transactionId, mode) { return deleteFlazzBBM(transactionId, mode); }
-function apiEditDailyTransaction(payload) { return editDailyTransaction(payload); }
-function apiDeleteDailyTransaction(transactionId) { return deleteDailyTransaction(transactionId); }
+function apiDeleteFlazzCard(cardId, userInfo) { return deleteFlazzCard(cardId, userInfo); }
+function apiActivateFlazzCard(cardId, userInfo) { return activateFlazzCard(cardId, userInfo); }
+function apiEditFlazzTopUp(payload, userInfo) { return editFlazzTopUp(payload, userInfo); }
+function apiDeleteFlazzTopUp(id, userInfo) { return deleteFlazzTopUp(id, userInfo); }
+function apiEditFlazzTol(payload, userInfo) { return editFlazzTol(payload, userInfo); }
+function apiDeleteFlazzTol(id, userInfo) { return deleteFlazzTol(id, userInfo); }
+function apiDeleteFlazzBBM(transactionId, mode, userInfo) { return deleteFlazzBBM(transactionId, mode, userInfo); }
+function apiEditDailyTransaction(payload, userInfo) { return editDailyTransaction(payload, userInfo); }
+function apiDeleteDailyTransaction(transactionId, userInfo) { return deleteDailyTransaction(transactionId, userInfo); }
 
 // ==========================================
 // JALUR PENGIRIMAN API WRAPPERS
 // ==========================================
 function apiSaveJalur(payload, userInfo) { return saveJalur(payload, userInfo); }
 function apiUpdateJalur(data, userInfo) { return updateJalur(data, userInfo); }
-function apiDeleteJalur(id) { return deleteJalur(id); }
+function apiDeleteJalur(id, userInfo) { return deleteJalur(id, userInfo); }
 function apiGetJalurByTanggal(tanggal, userInfo) { return getJalurByTanggal(tanggal, userInfo); }
 
 // ==========================================

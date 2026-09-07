@@ -110,6 +110,10 @@ function saveJalur(payload, userInfo) {
   try {
     const sheet = jalurSheet();
     if (!sheet) throw new Error('Sheet Jalur_Pengiriman tidak ditemukan. Jalankan setupDatabase.');
+    const role = assertMasterAccess(userInfo, 'menyimpan jadwal pengiriman');
+    if (role !== 'SUPERADMIN' && !userInfo.cabang) {
+      throw new Error('Akses ditolak: akun PIC CABANG tanpa warehouse tidak dapat menyimpan jadwal.');
+    }
     const tanggal = payload.tanggal;
     const rows = payload.rows || [];
     if (!tanggal || rows.length === 0) throw new Error('Tanggal dan minimal satu baris wajib diisi.');
@@ -173,6 +177,11 @@ function updateJalur(data, userInfo) {
     const found = findJalurRow(sheet, data.id);
     if (!found) throw new Error('Jadwal tidak ditemukan.');
     const idx = found.idx;
+    const role = assertMasterAccess(userInfo, 'memperbarui jadwal pengiriman');
+    if (role !== 'SUPERADMIN') {
+      const rowCabang = (idx['kode_cabang'] !== undefined) ? String(found.row[idx['kode_cabang']] || '') : '';
+      assertOwnWarehouse(userInfo, rowCabang);
+    }
     const oldCard = (idx['flazz_card_id'] !== undefined) ? String(found.row[idx['flazz_card_id']] || '') : '';
     const newCard = data.etoll_card_id !== undefined ? String(data.etoll_card_id || '') : oldCard;
     if (data.tanggal !== undefined) sheet.getRange(found.rowIndex, idx['tanggal'] + 1).setValue(data.tanggal);
@@ -212,13 +221,18 @@ function updateJalur(data, userInfo) {
   }
 }
 
-function deleteJalur(id) {
+function deleteJalur(id, userInfo) {
   try {
     const sheet = jalurSheet();
     if (!sheet) throw new Error('Sheet Jalur_Pengiriman tidak ditemukan.');
     const found = findJalurRow(sheet, id);
     if (!found) throw new Error('Jadwal tidak ditemukan.');
     const idx = found.idx;
+    const role = assertMasterAccess(userInfo, 'menghapus jadwal pengiriman');
+    if (role !== 'SUPERADMIN') {
+      const rowCabang = (idx['kode_cabang'] !== undefined) ? String(found.row[idx['kode_cabang']] || '') : '';
+      assertOwnWarehouse(userInfo, rowCabang);
+    }
     const cardId = (idx['flazz_card_id'] !== undefined) ? String(found.row[idx['flazz_card_id']] || '') : '';
     // Kembalikan kartu etoll yang diserahkan agar tidak menggantung
     if (cardId) returnFlazzUsage(cardId);

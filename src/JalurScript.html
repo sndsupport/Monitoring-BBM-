@@ -422,7 +422,7 @@ function jalurDelete(id) {
       if (res.success) jalurRefreshActive();
     })
     .withFailureHandler(function(err) { showToast('Gagal menghapus: ' + err.message, 'error'); })
-    .apiDeleteJalur(id);
+    .apiDeleteJalur(id, userInfo);
 }
 
 function jalurSummaryText() {

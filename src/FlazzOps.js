@@ -79,6 +79,26 @@ function setCardBalance(cardId, newBalance) {
   sheet.getRange(found.rowIndex, found.colIdx.UPDATED + 1).setValue(new Date());
 }
 
+// Validasi akses server-side untuk operasi Flazz.
+// SUPERADMIN penuh; PIC CABANG hanya pada kartu warehouse miliknya.
+function assertFlazzAccess(userInfo, branchId) {
+  const role = assertMasterAccess(userInfo, 'mengelola data Flazz');
+  if (role === 'SUPERADMIN') return;
+  if (String(branchId || '') !== String(userInfo.cabang || '')) {
+    throw new Error('Akses ditolak: Anda hanya dapat mengelola kartu warehouse ' + userInfo.cabang + '.');
+  }
+}
+
+// Ambil branch dari sebuah kartu ('' bila kartu tidak ditemukan / kolom kosong)
+function flazzCardBranch(cardId) {
+  const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+  const sheet = ss.getSheetByName('Flazz_Card');
+  if (!sheet) return '';
+  const found = findFlazzCardRow(sheet, cardId);
+  if (!found || found.colIdx.BRANCH === undefined) return '';
+  return String(found.row[found.colIdx.BRANCH] || '');
+}
+
 // Helper: Mendapatkan semua kartu Flazz
 function getFlazzCards(userRole, cabangId) {
   const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
@@ -113,6 +133,7 @@ function getFlazzCards(userRole, cabangId) {
 // Tambah/Update Kartu Master
 function saveFlazzCard(cardData, userInfo) {
   try {
+    assertFlazzAccess(userInfo, cardData.branch_id);
     const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
     const sheet = ss.getSheetByName('Flazz_Card');
     if (!sheet) throw new Error('Sheet Flazz_Card tidak ditemukan.');
@@ -140,6 +161,7 @@ function saveFlazzCard(cardData, userInfo) {
       // Update existing
       const found = findFlazzCardRow(sheet, cardData.id);
       if (!found) throw new Error('Kartu tidak ditemukan.');
+      assertFlazzAccess(userInfo, found.row[found.colIdx.BRANCH]);
       const r = found.rowIndex, c = colIdx;
       sheet.getRange(r, c.CARD_NUMBER + 1).setValue(cardNumber);
       if (c.CARD_NAME !== undefined) sheet.getRange(r, c.CARD_NAME + 1).setValue(cardData.card_name || '');
@@ -201,6 +223,8 @@ function saveFlazzTopUp(payload) {
     const cardSheet = ss.getSheetByName('Flazz_Card');
     if (!sheet || !cardSheet) throw new Error('Sheet Flazz tidak lengkap.');
 
+    assertFlazzAccess(payload.userInfo, flazzCardBranch(payload.card_id));
+
     const now = new Date();
     const id = 'TOPUP-' + now.getTime();
 
@@ -237,7 +261,7 @@ function saveFlazzTopUp(payload) {
 }
 
 // Edit Top Up Flazz (sesuaikan saldo dengan selisih nominal)
-function editFlazzTopUp(payload) {
+function editFlazzTopUp(payload, userInfo) {
   try {
     const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
     const sheet = ss.getSheetByName('Flazz_TopUp');
@@ -261,6 +285,8 @@ function editFlazzTopUp(payload) {
       }
     }
     if (rowIndex === -1) throw new Error('Top up tidak ditemukan.');
+
+    assertFlazzAccess(userInfo, flazzCardBranch(oldCard));
 
     const newCard = payload.card_id || oldCard;
     const newAmount = parseFloat(payload.amount) || 0;
@@ -286,7 +312,7 @@ function editFlazzTopUp(payload) {
 }
 
 // Hapus (soft) Top Up Flazz — tandai is_deleted dan kembalikan saldo
-function deleteFlazzTopUp(id) {
+function deleteFlazzTopUp(id, userInfo) {
   try {
     const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
     const sheet = ss.getSheetByName('Flazz_TopUp');
@@ -310,6 +336,8 @@ function deleteFlazzTopUp(id) {
     }
     if (rowIndex === -1) throw new Error('Top up tidak ditemukan.');
 
+    assertFlazzAccess(userInfo, flazzCardBranch(oldCard));
+
     if (idxDel > -1) {
       sheet.getRange(rowIndex, idxDel + 1).setValue('1'); // soft-delete
     } else {
@@ -330,6 +358,8 @@ function saveFlazzTol(payload) {
     const sheet = ss.getSheetByName('Flazz_Tol');
     const cardSheet = ss.getSheetByName('Flazz_Card');
     if (!sheet || !cardSheet) throw new Error('Sheet Flazz tidak lengkap.');
+
+    assertFlazzAccess(payload.userInfo, flazzCardBranch(payload.card_id));
 
     const now = new Date();
     const id = 'TOL-' + now.getTime();
@@ -373,7 +403,7 @@ function saveFlazzTol(payload) {
 }
 
 // Edit Tol Flazz (sesuaikan saldo dengan selisih nominal, tanda terbalik karena mengurangi saldo)
-function editFlazzTol(payload) {
+function editFlazzTol(payload, userInfo) {
   try {
     const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
     const sheet = ss.getSheetByName('Flazz_Tol');
@@ -398,6 +428,8 @@ function editFlazzTol(payload) {
     }
     if (rowIndex === -1) throw new Error('Tol tidak ditemukan.');
 
+    assertFlazzAccess(userInfo, flazzCardBranch(oldCard));
+
     const newCard = payload.card_id || oldCard;
     const newAmount = parseFloat(payload.amount) || 0;
     const diff = oldAmount - newAmount; // tambah saldo jika nominal berkurang
@@ -421,7 +453,7 @@ function editFlazzTol(payload) {
 }
 
 // Hapus (soft) Tol Flazz — tandai is_deleted dan kembalikan saldo
-function deleteFlazzTol(id) {
+function deleteFlazzTol(id, userInfo) {
   try {
     const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
     const sheet = ss.getSheetByName('Flazz_Tol');
@@ -444,6 +476,8 @@ function deleteFlazzTol(id) {
       }
     }
     if (rowIndex === -1) throw new Error('Tol tidak ditemukan.');
+
+    assertFlazzAccess(userInfo, flazzCardBranch(oldCard));
 
     if (idxDel > -1) {
       sheet.getRange(rowIndex, idxDel + 1).setValue('1'); // soft-delete
@@ -635,6 +669,8 @@ function saveFlazzRecon(payload) {
     const cardSheet = ss.getSheetByName('Flazz_Card');
     if (!sheet || !cardSheet) throw new Error('Sheet Flazz tidak lengkap.');
 
+    assertFlazzAccess(payload.userInfo, flazzCardBranch(payload.card_id));
+
     const now = new Date();
     const id = 'RECON-' + now.getTime();
 
@@ -749,6 +785,8 @@ function saveFlazzUsage(payload) {
     const sheet = ss.getSheetByName('Flazz_Usage');
     const cardSheet = ss.getSheetByName('Flazz_Card');
     if (!sheet || !cardSheet) throw new Error('Sheet Flazz tidak lengkap.');
+
+    assertFlazzAccess(payload.userInfo, flazzCardBranch(payload.card_id));
 
     const now = new Date();
     const id = 'USE-' + now.getTime();
@@ -952,7 +990,7 @@ function getFlazzDashboardData(userRole, cabangId) {
   };
 }
 // Nonaktifkan Kartu Flazz (soft-delete, tidak menghapus baris)
-function deleteFlazzCard(cardId) {
+function deleteFlazzCard(cardId, userInfo) {
   try {
     const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
     const sheet = ss.getSheetByName('Flazz_Card');
@@ -960,6 +998,7 @@ function deleteFlazzCard(cardId) {
 
     const found = findFlazzCardRow(sheet, cardId);
     if (!found) throw new Error('Kartu tidak ditemukan.');
+    assertFlazzAccess(userInfo, found.row[found.colIdx.BRANCH]);
 
     // Jangan nonaktifkan jika saldo belum 0 atau masih digunakan
     const status = String(found.row[found.colIdx.STATUS] || '');
@@ -978,7 +1017,7 @@ function deleteFlazzCard(cardId) {
   }
 }
 
-function activateFlazzCard(id) {
+function activateFlazzCard(id, userInfo) {
   try {
     const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
     const sheet = ss.getSheetByName('Flazz_Card');
@@ -986,6 +1025,7 @@ function activateFlazzCard(id) {
 
     const found = findFlazzCardRow(sheet, id);
     if (!found) throw new Error('Kartu tidak ditemukan.');
+    assertFlazzAccess(userInfo, found.row[found.colIdx.BRANCH]);
 
     const status = String(found.row[found.colIdx.STATUS] || '');
     if (status !== 'NONAKTIF') throw new Error('Kartu ini belum dinonaktifkan.');
@@ -1001,7 +1041,7 @@ function activateFlazzCard(id) {
 // Hapus/lepas transaksi BBM Flazz dari Penggunaan_BBM
 // mode 'full'   : hapus baris total + kembalikan saldo
 // mode 'detach' : kosongkan metode_pembayaran & flazz_card_id, baris tetap, kembalikan saldo
-function deleteFlazzBBM(transactionId, mode) {
+function deleteFlazzBBM(transactionId, mode, userInfo) {
   try {
     const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
     const sheet = ss.getSheetByName('Penggunaan_BBM');
@@ -1025,6 +1065,12 @@ function deleteFlazzBBM(transactionId, mode) {
       }
     }
     if (rowIndex === -1) throw new Error('Transaksi BBM tidak ditemukan.');
+
+    if (isFlazz && cardId) {
+      assertFlazzAccess(userInfo, flazzCardBranch(cardId));
+    } else {
+      assertMasterAccess(userInfo, 'menghapus transaksi BBM');
+    }
 
     if (mode === 'detach') {
       sheet.getRange(rowIndex, idxMetode + 1).setValue('');
