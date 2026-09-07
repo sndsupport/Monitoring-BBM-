@@ -1218,14 +1218,13 @@ function printFlazzA4() {
 
   // Summary periode
   let periodTopups = (data.topups || []).filter(t => t.card_id === card.id && inRange(t.date, start, end));
-  let periodTols = (data.tols || []).filter(t => t.card_id === card.id && inRange(t.date, start, end));
+  let periodTols = (data.tolHistory || []).filter(t => t.card_id === card.id && inRange(t.date, start, end));
   let periodBbm = (data.bbmFlazz || []).filter(b => b.card_id === card.id && inRange(b.tanggal || b.timestamp, start, end));
   let periodRecons = (data.recons || []).filter(r => r.card_id === card.id && inRange(r.date, start, end));
   periodRecons.sort(function(a, b) { return localDateKey(a.date) < localDateKey(b.date) ? -1 : 1; });
 
   let totalTopup = periodTopups.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
-  let totalTol = periodTols.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0) +
-                 periodBbm.reduce((s, b) => s + (parseFloat(b.toll_amount) || 0), 0);
+  let totalTol = periodTols.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
   let totalBbm = periodBbm.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
   let totalExpense = totalTol + totalBbm;
 
