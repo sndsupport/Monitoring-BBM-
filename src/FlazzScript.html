@@ -925,6 +925,7 @@ function renderFlazzListingTable() {
       : (lastBal + totalExpense - totalTopup);
 
     let tr = document.createElement('tr');
+    let statusBadgeCls = c.status === 'SEDANG_DIGUNAKAN' ? 'bg-warning' : (c.status === 'TERSEDIA' ? 'bg-success' : 'bg-secondary');
     tr.innerHTML = `
       <td class='text-center text-muted'>${idx + 1}</td>
       <td>
@@ -934,6 +935,7 @@ function renderFlazzListingTable() {
       </td>
       <td>${c.card_name || '-'}</td>
       <td>${c.driver_id || '-'}</td>
+      <td><span class="badge ${statusBadgeCls}">${c.status || 'NONAKTIF'}</span></td>
       <td class='text-end'>${formatCurrency(saldoAwal)}</td>
       <td class='text-end text-danger fw-bold'>${totalExpense > 0 ? '-' + formatCurrency(totalExpense) : '-'}</td>
       <td class='text-end fw-bold'>${formatCurrency(lastBal)}</td>
