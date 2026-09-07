@@ -118,12 +118,11 @@ function seedDummyData() {
     sheetKendaraan.appendRow(['V-002', 'B 5678 EF', 'Innova Operasional', 'Mobil', 'Toyota', 'Innova', 55, 8, 10, 'CBG-BDG', 'Aktif', 'DIGITAL_BAR', '2026-11-01']);
   }
   
-  // Seed Pengguna
+  // Seed Pengguna: PIC per cabang (SUPERADMIN dibuat manual via createSuperadmin())
   let sheetPengguna = ss.getSheetByName('Pengguna');
   if (sheetPengguna && sheetPengguna.getLastRow() === 1) {
-    sheetPengguna.appendRow(['U-001', 'admin', 'admin123', 'Admin Utama', 'SUPERADMIN', 'CBG-JKT', 'Aktif']);
-    sheetPengguna.appendRow(['U-002', 'picjkt', 'pic123', 'PIC Jakarta', 'PIC CABANG', 'CBG-JKT', 'Aktif']);
-    sheetPengguna.appendRow(['U-003', 'picbdg', 'pic123', 'PIC Bandung', 'PIC CABANG', 'CBG-BDG', 'Aktif']);
+    sheetPengguna.appendRow(['U-002', 'picjkt', hashPassword('pic123'), 'PIC Jakarta', 'PIC CABANG', 'CBG-JKT', 'Aktif']);
+    sheetPengguna.appendRow(['U-003', 'picbdg', hashPassword('pic123'), 'PIC Bandung', 'PIC CABANG', 'CBG-BDG', 'Aktif']);
   }
   
   Logger.log('Data dummy (Cabang, Kendaraan, Pengguna) berhasil dimasukkan.');
@@ -216,5 +215,26 @@ function uploadLogo(base64Data, fileName) {
   } catch (e) {
     return { success: false, msg: 'Gagal upload logo: ' + e.toString() };
   }
+}
+
+function createSuperadmin() {
+  const ui = SpreadsheetApp.getUi();
+  const resp = ui.prompt('Buat Superadmin', 'Username SUPERADMIN (mis. snd):', ui.ButtonSet.OK_CANCEL);
+  if (resp.getSelectedButton() !== ui.Button.OK) return { success: false, msg: 'Dibatalkan' };
+  const username = String(resp.getResponseText() || '').trim();
+  const pwResp = ui.prompt('Buat Superadmin', 'Password untuk "' + username + '" (min 8 karakter):', ui.ButtonSet.OK_CANCEL);
+  if (pwResp.getSelectedButton() !== ui.Button.OK) return { success: false, msg: 'Dibatalkan' };
+  const password = String(pwResp.getResponseText() || '');
+  if (!username || password.length < 8) {
+    Logger.log('Username kosong atau password < 8 karakter. Ulangi createSuperadmin().');
+    return { success: false, msg: 'Username kosong atau password < 8 karakter' };
+  }
+  const ss = getDB();
+  const sheet = ss.getSheetByName('Pengguna');
+  if (!sheet) throw new Error('Sheet Pengguna tidak ditemukan');
+  const id = 'U-' + new Date().getTime();
+  sheet.appendRow([id, username, hashPassword(password), 'Superadmin', 'SUPERADMIN', '', 'Aktif']);
+  Logger.log('SUPERADMIN "' + username + '" berhasil dibuat.');
+  return { success: true, msg: 'SUPERADMIN dibuat' };
 }
 

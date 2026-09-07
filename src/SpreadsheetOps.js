@@ -8,18 +8,37 @@ function authenticateUser(username, password) {
   if (!ss) return { success: false, msg: 'DB Error' };
   const sheet = ss.getSheetByName('Pengguna');
   if (!sheet) return { success: false, msg: 'Sheet Pengguna Error' };
-  
+
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
-    if (data[i][1] === username && data[i][2] === password && data[i][6] === 'Aktif') { 
-      return {
-        success: true,
-        user_id: data[i][0],
-        username: data[i][1],
-        nama: data[i][3],
-        role: data[i][4], 
-        cabang: data[i][5] 
-      };
+    if (String(data[i][1]).toLowerCase() === String(username).toLowerCase() && data[i][6] === 'Aktif') {
+      const stored = String(data[i][2] || '');
+      if (hashLooksLegacy(stored)) {
+        if (stored === String(password)) {
+          // Legacy plaintext: hash & simpan ulang, lalu beri tahu user untuk ganti password
+          sheet.getRange(i + 1, 3).setValue(hashPassword(password));
+          return {
+            success: true,
+            must_change: true,
+            user_id: data[i][0],
+            username: data[i][1],
+            nama: data[i][3],
+            role: data[i][4],
+            cabang: data[i][5]
+          };
+        }
+        continue;
+      }
+      if (verifyPassword(password, stored)) {
+        return {
+          success: true,
+          user_id: data[i][0],
+          username: data[i][1],
+          nama: data[i][3],
+          role: data[i][4],
+          cabang: data[i][5]
+        };
+      }
     }
   }
   return { success: false, msg: 'Username atau Password salah!' };
@@ -1134,11 +1153,12 @@ function insertUser(data, userInfo) {
   if (role === 'PIC CABANG' && !cabang) throw new Error('Warehouse wajib diisi untuk PIC CABANG');
   if (getUserByUsername(sheet, uname)) throw new Error('Username sudah terpakai');
   const id = 'U-' + new Date().getTime();
-  sheet.appendRow([id, uname, password, nama, role, cabang, 'Aktif']);
+  sheet.appendRow([id, uname, hashPassword(password), nama, role, cabang, 'Aktif']);
   return { msg: 'Pengguna Berhasil Ditambahkan' };
 }
 
 function updateUser(data, userInfo) {
+  assertSuperadminOnly(userInfo, 'mengelola akun pengguna');
   const ss = getDB();
   const sheet = ss.getSheetByName('Pengguna');
   if (!sheet) throw new Error('Sheet Pengguna tidak ditemukan');
@@ -1164,14 +1184,14 @@ function updateUser(data, userInfo) {
   if (existing && String(existing.row[0]) !== userId) throw new Error('Username sudah terpakai');
 
   const currentRow = values[rowIndex - 1];
-  if (userInfo && String(userInfo.username) === String(currentRow[1]) &&
+  if (String(userInfo.username) === String(currentRow[1]) &&
       currentRow[4] === 'SUPERADMIN' && role !== 'SUPERADMIN' &&
       countActiveSuperadmin(sheet) <= 1) {
     throw new Error('Tidak bisa menghapus peran SUPERADMIN terakhir');
   }
 
   const password = String(data.password || '');
-  const newPassword = password ? password : String(currentRow[2]);
+  const newPassword = password ? hashPassword(password) : String(currentRow[2]);
   sheet.getRange(rowIndex, 2, 1, 5).setValues([[uname, newPassword, nama, role, cabang]]);
   return { msg: 'Pengguna Berhasil Diupdate' };
 }
@@ -1211,4 +1231,22 @@ function ensurePenggunaBBMColumns() {
     const lastRow = sheet.getLastRow();
     if (lastRow > 1) sheet.getRange(2, newCol, lastRow - 1, 1).setValue('AKTUAL');
   }
+}
+
+function migrateLegacyPasswords() {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('Pengguna');
+  if (!sheet) throw new Error('Sheet Pengguna tidak ditemukan');
+  const data = sheet.getDataRange().getValues();
+  let converted = 0;
+  for (let i = 1; i < data.length; i++) {
+    const stored = String(data[i][2] || '');
+    if (hashLooksLegacy(stored) && stored !== '') {
+      sheet.getRange(i + 1, 3).setValue(hashPassword(stored));
+      converted++;
+      Logger.log('Migrasi baris ' + (i + 1) + ' (' + data[i][1] + ')');
+    }
+  }
+  Logger.log('Passwords legacy ter-migrasi: ' + converted);
+  return { converted: converted };
 }
