@@ -538,11 +538,15 @@
     } else if (step === 2) {
       let ba = document.getElementById('bar_awal');
       let bk = document.getElementById('bar_akhir');
+      let kmA = document.getElementById('km_awal_val');
+      let kmK = document.getElementById('km_akhir_val');
       let fo = document.getElementById('foto_odo_awal');
       let fa = document.getElementById('foto_odo_akhir');
-      if (!ba.checkValidity() || !bk.checkValidity() || !fo.checkValidity() || !fa.checkValidity()) {
+      if (!ba.checkValidity() || !bk.checkValidity() || !kmA.checkValidity() || !kmK.checkValidity() || !fo.checkValidity() || !fa.checkValidity()) {
         ba.reportValidity();
         bk.reportValidity();
+        kmA.reportValidity();
+        kmK.reportValidity();
         fo.reportValidity();
         fa.reportValidity();
         return false;
@@ -1609,9 +1613,15 @@
 
     if (bAwal) bAwal.required = !hide;
     if (bAkhir) bAkhir.required = !hide;
+    var kmA = document.getElementById('km_awal_val');
+    var kmK = document.getElementById('km_akhir_val');
+    if (kmA) kmA.required = !hide;
+    if (kmK) kmK.required = !hide;
     if (hide) {
       if (bAwal) bAwal.value = '';
       if (bAkhir) bAkhir.value = '';
+      if (kmA) kmA.value = '';
+      if (kmK) kmK.value = '';
     }
 
     // Untuk indikator jarum: field angka disembunyikan, diganti slider level 0-100%.
