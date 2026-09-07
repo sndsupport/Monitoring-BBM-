@@ -89,6 +89,28 @@ function assertFlazzAccess(userInfo, branchId) {
   }
 }
 
+// Backfill nama kartu ke semua jalur pengiriman yang memakai kartu etoll ini.
+function backfillFlazzCardName(cardId, cardName) {
+  try {
+    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const sheet = ss.getSheetByName('Jalur_Pengiriman');
+    if (!sheet) return;
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return;
+    const headers = data[0];
+    const idIdx = headers.indexOf('flazz_card_id');
+    const nameIdx = headers.indexOf('flazz_card_name');
+    if (idIdx < 0 || nameIdx < 0) return;
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][idIdx] || '') === String(cardId || '')) {
+        sheet.getRange(i + 1, nameIdx + 1).setValue(cardName || '');
+      }
+    }
+  } catch (e) {
+    // Backfill bersifat best-effort; jangan gagalkan simpan kartu utama.
+  }
+}
+
 // Ambil branch dari sebuah kartu ('' bila kartu tidak ditemukan / kolom kosong)
 function flazzCardBranch(cardId) {
   const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
@@ -172,6 +194,9 @@ function saveFlazzCard(cardData, userInfo) {
       if (c.DEFAULT_DRIVER !== undefined) sheet.getRange(r, c.DEFAULT_DRIVER + 1).setValue(cardData.driver_id || '');
       sheet.getRange(r, c.NOTES + 1).setValue(cardData.notes || '');
       sheet.getRange(r, c.UPDATED + 1).setValue(now);
+
+      // Backfill nama kartu ke jalur pengiriman yang memakai kartu ini agar tetap konsisten
+      backfillFlazzCardName(cardData.id, cardData.card_name || '');
 
       return { success: true, msg: 'Kartu berhasil diperbarui.' };
     } else {

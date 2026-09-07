@@ -422,7 +422,7 @@ function saveFlazzCardForm(e) {
     notes: document.getElementById('f_notes').value
   };
 
-  let uInfo = { username: document.getElementById('login_username') ? document.getElementById('login_username').value : 'admin' };
+  let uInfo = flazzUserInfo();
 
   google.script.run
     .withSuccessHandler(function(res) {
