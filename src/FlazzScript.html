@@ -269,12 +269,45 @@ function computeClientSystemBalance(cardId) {
 
 function onReconCardSelect() {
   let select = document.getElementById('r_card_id');
+  let cardId = select.value || '';
   let balance = 0;
-  if(select.selectedIndex > 0) {
+  if (select.selectedIndex > 0) {
      balance = computeClientSystemBalance(select.value);
   }
   document.getElementById('r_system_balance').value = balance;
   calculateReconVariance();
+  updateReconGateStatus(cardId);
+}
+
+function updateReconGateStatus(cardId) {
+  let box = document.getElementById('recon-gate-status');
+  let btn = document.getElementById('btn-save-recon');
+  if (!box) return;
+  if (!cardId) {
+    box.className = 'alert d-none py-2';
+    if (btn) btn.disabled = false;
+    return;
+  }
+  box.className = 'alert d-none py-2';
+  if (btn) btn.disabled = false;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      box.className = 'alert py-2';
+      if (res && res.eligible) {
+        box.className = 'alert alert-success py-2';
+        box.innerHTML = '<i class="bi bi-check-circle me-1"></i> Laporan valid dengan foto KM awal & akhir terdeteksi.';
+        if (btn) btn.disabled = false;
+      } else {
+        box.className = 'alert alert-danger py-2';
+        box.innerHTML = '<i class="bi bi-slash-circle me-1"></i> ' + ((res && res.reason) || 'Belum ada laporan valid. Rekonsiliasi diblokir.');
+        if (btn) btn.disabled = true;
+      }
+    })
+    .withFailureHandler(function() {
+      box.className = 'alert d-none py-2';
+      if (btn) btn.disabled = false;
+    })
+    .apiCheckReconGate(cardId);
 }
 
 function calculateReconVariance() {
