@@ -673,6 +673,10 @@ function saveFlazzRecon(payload) {
     // ledger hanya menghitung transaksi yang tercatat SETELAH momen penyerahan.
     let sinceDate = usageInfo && usageInfo.usedAt ? new Date(usageInfo.usedAt) : null;
 
+    if (!hasCompliantFlazzLaporan(payload.card_id, sinceDate, ss)) {
+      throw new Error('Rekonsiliasi diblokir: belum ada laporan valid dengan foto KM awal & akhir pada periode kartu. Harap input laporan dahulu.');
+    }
+
     const ledger = computeFlazzLedger(payload.card_id, ss, sinceDate);
 
     // Opening balance: utamakan nilai tercatat di Flazz_Usage saat kartu diserahkan.
