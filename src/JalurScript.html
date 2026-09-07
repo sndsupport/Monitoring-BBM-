@@ -261,9 +261,9 @@ function jalurShowSummary() {
             '<td>' + (it.nama_driver2 || '-') + '</td>' +
             '<td>' + it.rute_tujuan + '</td>' +
             '<td>' + (it.flazz_card_name || '-') + '</td>' +
-            '<td>' + jalurPajakBadge(it.status_pajak, it.sisa_hari_pajak) + '</td>' +
-            '<td>' + jalurPajakBadge(it.status_pajak_5, it.sisa_hari_pajak_5) + '</td>' +
-            '<td>' + (it.jenis_kendaraan === 'Mobil' ? jalurPajakBadge(it.status_kir, it.sisa_hari_kir) : '<span class="badge bg-light text-muted fw-normal border">N/A</span>') + '</td>' +
+            '<td>' + jalurPajakBadge(it.status_pajak, it.sisa_hari_pajak, 'Pajak') + '</td>' +
+            '<td>' + jalurPajakBadge(it.status_pajak_5, it.sisa_hari_pajak_5, 'Pajak 5 Tahun') + '</td>' +
+            '<td>' + (it.jenis_kendaraan === 'Mobil' ? jalurPajakBadge(it.status_kir, it.sisa_hari_kir, 'KIR') : '<span class="badge bg-light text-muted fw-normal border">N/A</span>') + '</td>' +
             '</tr>';
         }).join('');
         tbody.innerHTML = rows;
@@ -345,12 +345,13 @@ function jalurSave() {
     .apiSaveJalur({ tanggal: tanggal, rows: rows }, userInfo);
 }
 
-function jalurPajakBadge(status, days) {
-  if (status === 'TIDAK_ADA') return '<span class="badge bg-secondary">Pajak -</span>';
-  if (status === 'LEWAT') return '<span class="badge bg-dark">Pajak lewat ' + Math.abs(days) + ' hari</span>';
-  if (status === 'KRITIS') return '<span class="badge bg-danger">Pajak habis dalam ' + days + ' hari</span>';
-  if (status === 'WASPADA') return '<span class="badge bg-warning text-dark">Pajak habis dalam ' + days + ' hari</span>';
-  return '<span class="badge bg-success">Pajak habis dalam ' + days + ' hari</span>';
+function jalurPajakBadge(status, days, label) {
+  label = label || 'Pajak';
+  if (status === 'TIDAK_ADA') return '<span class="badge bg-secondary">' + label + ' -</span>';
+  if (status === 'LEWAT') return '<span class="badge bg-dark">' + label + ' lewat ' + Math.abs(days) + ' hari</span>';
+  if (status === 'KRITIS') return '<span class="badge bg-danger">' + label + ' habis dalam ' + days + ' hari</span>';
+  if (status === 'WASPADA') return '<span class="badge bg-warning text-dark">' + label + ' habis dalam ' + days + ' hari</span>';
+  return '<span class="badge bg-success">' + label + ' habis dalam ' + days + ' hari</span>';
 }
 
 function jalurEdit(id) {
