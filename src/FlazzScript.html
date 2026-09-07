@@ -4,6 +4,9 @@
 // ==========================================
 
 let flazzDataCache = null;
+let __flazzFilterCabang = '';
+let __flazzHistStart = '';
+let __flazzHistEnd = '';
 
 function flazzUserInfo() {
   var u = (typeof userInfo !== 'undefined' && userInfo) ? userInfo : {};
@@ -50,6 +53,7 @@ function loadFlazzDashboard() {
 
 // Override loadFlazzDashboard call in switchTab if needed. We can just patch switchTab to call this.
 function loadFlazzDataWrapper(force) {
+   populateFlazzWidgets();
    if (!force && flazzDataCache) {
       document.getElementById('flazz-dashboard-loading').style.display = 'none';
       document.getElementById('flazz-dashboard-content').style.display = 'block';
@@ -59,11 +63,12 @@ function loadFlazzDataWrapper(force) {
       renderFlazzHistory(flazzDataCache);
       return;
    }
+   var rid = ++__flazzRequestId;
    let uInfo = {
        username: document.getElementById('login_username') ? document.getElementById('login_username').value : '',
        role: userRole,
        cabang: userRole === 'SUPERADMIN'
-         ? (document.getElementById('input-cabang-filter') ? document.getElementById('input-cabang-filter').value : '')
+         ? (__flazzFilterCabang || '')
          : flazzUserInfo().cabang
    };
    document.getElementById('flazz-dashboard-loading').style.display = 'block';
@@ -71,6 +76,7 @@ function loadFlazzDataWrapper(force) {
 
    google.script.run
     .withSuccessHandler(function(res) {
+       if (rid !== __flazzRequestId) return; // respons lama diabaikan
        flazzDataCache = res;
        document.getElementById('flazz-dashboard-loading').style.display = 'none';
        document.getElementById('flazz-dashboard-content').style.display = 'block';
@@ -81,11 +87,57 @@ function loadFlazzDataWrapper(force) {
        renderFlazzHistory(res);
     })
     .withFailureHandler(function(err) {
+      if (rid !== __flazzRequestId) return;
       document.getElementById('flazz-dashboard-loading').style.display = 'none';
       document.getElementById('flazz-dashboard-content').style.display = 'block';
       showToast('Gagal memuat data Flazz: ' + (err && err.message || err), 'error');
     })
     .apiGetFlazzDashboardData(uInfo);
+}
+
+function populateFlazzWidgets() {
+  var isSuper = typeof userRole !== 'undefined' && userRole === 'SUPERADMIN';
+  var listingWrap = document.getElementById('flazz-listing-cabang-wrap');
+  var histWrap = document.getElementById('flazz-history-filter-wrap');
+  if (isSuper) {
+    if (listingWrap && listingWrap.style.display === 'none') listingWrap.style.display = '';
+    if (histWrap && histWrap.style.display === 'none') histWrap.style.display = '';
+    if (typeof fillCabangSelect === 'function') {
+      fillCabangSelect(document.getElementById('flazz-listing-filter-cabang'));
+      fillCabangSelect(document.getElementById('flazz-history-filter-cabang'));
+    }
+    var lSel = document.getElementById('flazz-listing-filter-cabang');
+    if (lSel) lSel.value = __flazzFilterCabang;
+    var hSel = document.getElementById('flazz-history-filter-cabang');
+    if (hSel) hSel.value = __flazzFilterCabang;
+  } else {
+    if (listingWrap) listingWrap.style.display = 'none';
+    if (histWrap) histWrap.style.display = 'none';
+  }
+}
+
+function onFlazzListingCabangChange() {
+  var sel = document.getElementById('flazz-listing-filter-cabang');
+  __flazzFilterCabang = sel ? sel.value : '';
+  var hSel = document.getElementById('flazz-history-filter-cabang');
+  if (hSel) hSel.value = __flazzFilterCabang;
+  flazzDataCache = null;
+  loadFlazzDataWrapper(true);
+}
+
+function onFlazzHistoryFilterChange() {
+  var sel = document.getElementById('flazz-history-filter-cabang');
+  if (sel) {
+    __flazzFilterCabang = sel.value;
+    var lSel = document.getElementById('flazz-listing-filter-cabang');
+    if (lSel) lSel.value = __flazzFilterCabang;
+  }
+  var s = document.getElementById('flazz-history-filter-start');
+  __flazzHistStart = s ? s.value : '';
+  var e = document.getElementById('flazz-history-filter-end');
+  __flazzHistEnd = e ? e.value : '';
+  flazzDataCache = null;
+  loadFlazzDataWrapper(true);
 }
 
 function renderFlazzDashboardCards(data) {
@@ -536,6 +588,22 @@ function renderHistSection(type) {
   else if (type === 'bbm') list = data.bbmFlazz || [];
   else if (type === 'usage') list = data.usages || [];
   else if (type === 'recon') list = data.recons || [];
+
+  let cardsById = {};
+  (data.cards || []).forEach(function(c) { cardsById[String(c.id)] = c; });
+  list = list.filter(function(t) {
+    if (__flazzFilterCabang) {
+      var c = cardsById[String(t.card_id)] || {};
+      if (c.branch_id && String(c.branch_id) !== String(__flazzFilterCabang)) return false;
+    }
+    if (!__flazzHistStart && !__flazzHistEnd) return true;
+    var dv = t.date || t.tanggal || t.timestamp;
+    if (dv == null || dv === '') return true;
+    var key = localDateKey(new Date(dv)).toString();
+    if (__flazzHistStart && key < __flazzHistStart) return false;
+    if (__flazzHistEnd && key > __flazzHistEnd) return false;
+    return true;
+  });
 
   let tbody = document.getElementById('tb-hist-' + type);
   if (!tbody) return;
