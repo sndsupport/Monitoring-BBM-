@@ -32,6 +32,7 @@
     let storedUser = loadSessionUser();
     if (storedUser) {
        userInfo = storedUser;
+       attachIdleListeners();
        loadInitialData(userInfo);
     } else {
        document.getElementById('page-login').style.display = 'block';
@@ -84,8 +85,68 @@
     }).doLogin(un, pw);
   }
 
+  var IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+  var IDLE_COUNTDOWN_MS = 60 * 1000;
+  var idleTimeoutId = null;
+  var idleCountdownId = null;
+  var idleCountdownLeft = 0;
+  var idleLastReset = 0;
+  var idleListenersAttached = false;
+
+  function attachIdleListeners() {
+    if (idleListenersAttached) return;
+    idleListenersAttached = true;
+    var events = ['click', 'keydown', 'keyup', 'touchstart', 'scroll', 'focus'];
+    events.forEach(function(ev) { document.addEventListener(ev, resetIdleTimer, true); });
+    window.addEventListener('focus', resetIdleTimer);
+  }
+
+  function cancelIdleTimers() {
+    if (idleTimeoutId) { clearTimeout(idleTimeoutId); idleTimeoutId = null; }
+    if (idleCountdownId) { clearInterval(idleCountdownId); idleCountdownId = null; }
+    idleCountdownLeft = 0;
+    var modalEl = document.getElementById('modal-idle-warning');
+    if (modalEl) {
+      var modal = bootstrap.Modal.getInstance(modalEl);
+      if (modal) modal.hide();
+    }
+  }
+
+  function resetIdleTimer() {
+    if (!userInfo) return;
+    // Debounce: abaikan event beruntun (misal mousemove) dalam 1 detik
+    var now = Date.now();
+    if (now - idleLastReset < 1000) return;
+    idleLastReset = now;
+    cancelIdleTimers();
+    idleTimeoutId = setTimeout(showIdleWarning, IDLE_TIMEOUT_MS);
+  }
+
+  function showIdleWarning() {
+    if (idleCountdownId) return;
+    var modalEl = document.getElementById('modal-idle-warning');
+    if (!modalEl) return;
+    idleCountdownLeft = Math.round(IDLE_COUNTDOWN_MS / 1000);
+    var txt = document.getElementById('idle-countdown-text');
+    if (txt) txt.textContent = idleCountdownLeft;
+    new bootstrap.Modal(modalEl, { backdrop: 'static' }).show();
+    idleCountdownId = setInterval(function() {
+      idleCountdownLeft = idleCountdownLeft - 1;
+      if (txt) txt.textContent = idleCountdownLeft;
+      if (idleCountdownLeft <= 0) {
+        cancelIdleTimers();
+        logout();
+      }
+    }, 1000);
+  }
+
+  function idleExtendSession() {
+    resetIdleTimer();
+  }
+
   function logout() {
     localStorage.removeItem('bbm_user');
+    cancelIdleTimers();
     document.getElementById('user-info').innerHTML = '';
     var sidebarUserInfo = document.getElementById('sidebar-user-info');
     if (sidebarUserInfo) sidebarUserInfo.innerHTML = '';
@@ -304,6 +365,7 @@
         loadAppSettings();
         switchTab('dashboard');
         prefillFormFromLast(uInfo);
+        resetIdleTimer();
       })
       .processInitialData(uInfo);
   }
