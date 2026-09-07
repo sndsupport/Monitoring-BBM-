@@ -222,11 +222,8 @@ function deleteJalur(id) {
     const cardId = (idx['flazz_card_id'] !== undefined) ? String(found.row[idx['flazz_card_id']] || '') : '';
     // Kembalikan kartu etoll yang diserahkan agar tidak menggantung
     if (cardId) returnFlazzUsage(cardId);
-    if (idx['is_deleted'] !== undefined) {
-      sheet.getRange(found.rowIndex, idx['is_deleted'] + 1).setValue('1');
-    } else {
-      sheet.deleteRow(found.rowIndex);
-    }
+    // Hard delete: hapus baris secara fisik dari sheet
+    sheet.deleteRow(found.rowIndex);
     return { success: true, msg: 'Jadwal berhasil dihapus.' };
   } catch (e) {
     return { success: false, msg: e.message };
