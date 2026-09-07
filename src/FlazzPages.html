@@ -329,9 +329,13 @@
             <option value=''>Semua Warehouse</option>
           </select>
         </div>
-        <div class="col-12 col-md-3">
-          <label class='form-label fw-bold text-muted small text-uppercase'>Filter Tanggal</label>
-          <input type='date' id='flazz-listing-date' class='form-control' onchange='renderFlazzListingTable()'>
+        <div class="col-6 col-md-3">
+          <label class='form-label fw-bold text-muted small text-uppercase'>Dari Tanggal</label>
+          <input type='date' id='flazz-listing-date-start' class='form-control' onchange='renderFlazzListingTable()'>
+        </div>
+        <div class="col-6 col-md-3">
+          <label class='form-label fw-bold text-muted small text-uppercase'>Sampai Tanggal</label>
+          <input type='date' id='flazz-listing-date-end' class='form-control' onchange='renderFlazzListingTable()'>
         </div>
         <div class="col-12 col-md-3">
           <button class='btn btn-primary rounded-4 fw-bold' onclick='renderFlazzListingTable()'>
