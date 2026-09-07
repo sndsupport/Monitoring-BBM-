@@ -893,6 +893,7 @@ function getFlazzDashboardData(userRole, cabangId) {
        const bbmIdx = headers.indexOf('biaya_bbm');
        const tollIdx = headers.indexOf('biaya_toll');
        const evidenceIdx = headers.indexOf('foto_struk_bbm');
+       const tollEvidenceIdx = headers.indexOf('foto_struk_toll');
        const driverIdx = headers.indexOf('nama_supir');
        const vehicleIdx = headers.indexOf('plat_nomor');
 
@@ -907,6 +908,7 @@ function getFlazzDashboardData(userRole, cabangId) {
                amount: parseFloat(row[bbmIdx]) || 0,
                toll_amount: tollIdx > -1 ? (parseFloat(row[tollIdx]) || 0) : 0,
                evidence: row[evidenceIdx],
+               toll_evidence: tollEvidenceIdx > -1 ? row[tollEvidenceIdx] : '',
                driver: row[driverIdx],
                vehicle: row[vehicleIdx]
             });
@@ -915,10 +917,35 @@ function getFlazzDashboardData(userRole, cabangId) {
     }
   }
 
+  // Gabungkan tol manual (Flazz_Tol) + tol dari laporan harian ber-Flazz untuk tab Tol.
+  // Catatan: `tols` tidak digabung di sini karena dipakai hitung saldo di klien.
+  let tolHistory = tols.slice().reverse();
+  (bbmFlazz || []).forEach(function(b) {
+    if ((parseFloat(b.toll_amount) || 0) > 0) {
+      tolHistory.push({
+        id: b.transaction_id || ('TOL-DAILY-' + b.tanggal),
+        date: b.tanggal,
+        card_id: b.card_id,
+        driver_id: b.driver || '',
+        vehicle_id: b.vehicle || '',
+        amount: parseFloat(b.toll_amount) || 0,
+        evidence_url: b.toll_evidence || '',
+        notes: 'Dari laporan harian',
+        created_at: b.timestamp || '',
+        source: 'DAILY',
+        transaction_id: b.transaction_id || ''
+      });
+    }
+  });
+  tolHistory.sort(function(a, b) {
+    return (new Date(b.date || b.created_at || 0) - new Date(a.date || a.created_at || 0));
+  });
+
   return {
     cards: cards,
     topups: topups.reverse(),
     tols: tols.reverse(),
+    tolHistory: tolHistory,
     usages: usages.reverse(),
     recons: recons.reverse(),
     bbmFlazz: bbmFlazz.reverse()
