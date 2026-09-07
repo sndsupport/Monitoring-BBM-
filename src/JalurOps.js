@@ -243,6 +243,9 @@ function getJalurByTanggal(tanggal, userInfo) {
     const iDeleted = idx['is_deleted'];
     const iCabang = idx['kode_cabang'];
     const filteredCabang = getJalurCabangFor(userInfo);
+    const nonSuper = userInfo && userInfo.role !== 'SUPERADMIN';
+    // Non-SUPERADMIN wajib punya cabang; tanpa cabang tidak boleh lihat jadwal apa pun.
+    if (nonSuper && !filteredCabang) return { success: true, list: [], created_by: '' };
     const list = [];
     data.forEach((row, i) => {
       if (i === 0) return;
@@ -260,6 +263,7 @@ function getJalurByTanggal(tanggal, userInfo) {
       }
       if (iDeleted !== undefined && String(row[iDeleted]) === '1') return;
       if (filteredCabang && row[iCabang] !== filteredCabang) return;
+      if (nonSuper && row[iCabang] !== filteredCabang) return;
       const veh = jalurVehicleById(row[idx['vehicle_id']]) || {};
       const pajakTahunan = jalurComputePajak(veh.tanggal_pajak);
       const pajak5 = jalurComputePajak(veh.tanggal_pajak_5);

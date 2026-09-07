@@ -98,6 +98,7 @@ function saveTransactionEndOfDay(payload) {
   let platNomor = 'PLAT-UNKNOWN';
   let trxCabang = payload.userInfo.cabang;
   let kapasitas = 0, jumlahBar = 0, standarKmL = 0;
+  let isJarum = false;
   const kendaraanSheet = ss.getSheetByName('Kendaraan');
   if (kendaraanSheet) {
     const kendaraanData = kendaraanSheet.getDataRange().getValues();
@@ -108,10 +109,14 @@ function saveTransactionEndOfDay(payload) {
         kapasitas = parseFloat(kendaraanData[i][6]) || 0;
         jumlahBar = parseFloat(kendaraanData[i][7]) || 0;
         standarKmL = parseFloat(kendaraanData[i][8]) || 0;
+        isJarum = String(kendaraanData[i][11]) === 'ANALOG_JARUM';
         break;
       }
     }
   }
+
+  // Indikator jarum: level tangki dicatat sebagai persen (0-100), bukan jumlah bar.
+  if (isJarum) jumlahBar = 100;
 
   let literPerBar = (kapasitas > 0 && jumlahBar > 0) ? (kapasitas / jumlahBar) : 0;
   let barAwal = parseFloat(payload.bar_awal) || 0;
@@ -122,22 +127,34 @@ function saveTransactionEndOfDay(payload) {
   const prevTrx = getLastTransactionForVehicle(payload.vehicle_id);
 
   if (payload.km_awal_broken || payload.km_akhir_broken) {
-    if (literKonsumsi <= 0 || standarKmL <= 0) {
-      throw new Error('KM tidak terbaca tapi estimasi tidak tersedia (liter BBM / standar km/L kosong). Harap input KM asli.');
-    }
-    const estKm = Math.round(literKonsumsi * standarKmL);
-    if (payload.km_awal_broken && payload.km_akhir_broken) {
+    const estAvailable = standarKmL > 0 && literKonsumsi > 0;
+    if (estAvailable) {
+      const estKm = Math.round(literKonsumsi * standarKmL);
+      if (payload.km_awal_broken && payload.km_akhir_broken) {
+        const anchor = (prevTrx && prevTrx.km_akhir !== null && prevTrx.km_akhir > 0) ? prevTrx.km_akhir : 0;
+        km_awal = anchor;
+        km_akhir = anchor + estKm;
+      } else if (payload.km_akhir_broken) {
+        km_akhir = km_awal + estKm;
+      } else {
+        km_awal = km_akhir - estKm;
+        if (km_awal < 0) km_awal = 0;
+      }
+      km_tempuh = estKm;
+      km_sumber = 'ESTIMASI';
+    } else if (payload.km_tanpa_estimasi) {
       const anchor = (prevTrx && prevTrx.km_akhir !== null && prevTrx.km_akhir > 0) ? prevTrx.km_akhir : 0;
-      km_awal = anchor;
-      km_akhir = anchor + estKm;
-    } else if (payload.km_akhir_broken) {
-      km_akhir = km_awal + estKm;
+      if (km_awal <= 0) km_awal = anchor;
+      if (km_akhir <= 0) km_akhir = anchor;
+      km_tempuh = Math.max(0, km_akhir - km_awal);
+      km_sumber = 'ESTIMASI';
+      payload.keterangan = ((payload.keterangan || '') + ' | KM tidak tercatat (odometer rusak, tanpa data BBM)').trim();
     } else {
-      km_awal = km_akhir - estKm;
-      if (km_awal < 0) km_awal = 0;
+      if (standarKmL <= 0) {
+        throw new Error('KM tidak terbaca tapi estimasi tidak tersedia: Standar KM/L kendaraan belum diisi di Master Kendaraan. Harap isi dulu atau input KM asli.');
+      }
+      throw new Error('KM tidak terbaca tapi estimasi tidak tersedia: liter BBM kosong. Pastikan "Ada struk BBM?" = Ya, total biaya terisi, dan Master BBM punya harga per liter. Harap input KM asli jika ingin lanjut.');
     }
-    km_tempuh = estKm;
-    km_sumber = 'ESTIMASI';
   }
 
   let efisiensi = literKonsumsi > 0 ? (km_tempuh / literKonsumsi).toFixed(2) : '';

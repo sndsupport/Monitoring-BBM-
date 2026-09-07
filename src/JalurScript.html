@@ -175,6 +175,8 @@ function jalurShowListing() {
   document.getElementById('jalur-listing-loaded').style.display = 'none';
   const loading = document.getElementById('jalur-listing-loading');
   if (loading) loading.style.display = 'block';
+  var flt = document.getElementById('jalur-listing-filter-tanggal');
+  var tanggal = flt ? flt.value : '';
 
   google.script.run
     .withSuccessHandler(function(res) {
@@ -188,7 +190,7 @@ function jalurShowListing() {
       if (!res.list || !res.list.length) {
         loaded.style.display = 'block';
         document.getElementById('jalur-listing-none').style.display = 'block';
-        document.getElementById('jalur-listing-none').textContent = 'Belum ada jadwal pengiriman pada ' + tanggal + '.';
+        document.getElementById('jalur-listing-none').textContent = 'Belum ada jadwal pengiriman pada ' + (tanggal || 'tanggal terpilih') + '.';
         document.querySelector('#jalur-listing-loaded .card').style.display = 'none';
         return;
       }
@@ -205,8 +207,8 @@ function jalurShowListing() {
             '<td>' + it.rute_tujuan + '</td>' +
             '<td>' + (it.flazz_card_name || '-') + '</td>' +
             '<td>' + jalurPajakBadge(it.status_pajak, it.sisa_hari_pajak) + '</td>' +
-            '<td class="text-end"><button class="btn btn-sm btn-outline-primary me-1" onclick="jalurEdit(\'' + it.id + '\')"><i class="bi bi-pencil"></i></button>' +
-            '<button class="btn btn-sm btn-outline-danger" onclick="jalurDelete(\'' + it.id + '\')"><i class="bi bi-trash"></i></button></td>' +
+            '<td class="text-end"><button class="btn btn-sm btn-outline-primary me-1" title="Edit Jadwal" aria-label="Edit jadwal" onclick="jalurEdit(\'' + it.id + '\')"><i class="bi bi-pencil"></i></button>' +
+            '<button class="btn btn-sm btn-outline-danger" title="Hapus Jadwal" aria-label="Hapus jadwal" onclick="jalurDelete(\'' + it.id + '\')"><i class="bi bi-trash"></i></button></td>' +
           '</tr>';
         }).join('');
         tbody.innerHTML = rows;
@@ -218,7 +220,7 @@ function jalurShowListing() {
       if (loading) loading.style.display = 'none';
       showToast('Gagal memuat: ' + err.message, 'error'); 
     })
-    .apiGetJalurByTanggal('', userInfo);
+    .apiGetJalurByTanggal(tanggal, userInfo);
 }
 
 function jalurShowSummary() {
@@ -313,8 +315,17 @@ function jalurSave() {
   });
   if (!valid) { showToast('Ada nama driver yang tidak dikenal, pilih dari daftar', 'error'); return; }
   if (!rows.length) { showToast('Isi minimal satu baris lengkap', 'error'); return; }
+
+  const btnJalur = document.getElementById('btn-jalur-save');
+  const originalJalurHTML = btnJalur ? btnJalur.innerHTML : '';
+  if (btnJalur) {
+    btnJalur.disabled = true;
+    btnJalur.innerHTML = "<span class='spinner-border spinner-border-sm'></span> Memproses...";
+  }
+
   google.script.run
     .withSuccessHandler(function(res) {
+      if (btnJalur) { btnJalur.disabled = false; btnJalur.innerHTML = originalJalurHTML; }
       showToast(res.msg, res.success ? 'success' : 'error');
       if (res.success) {
         if (res.warnings && res.warnings.length) {
@@ -323,9 +334,14 @@ function jalurSave() {
           }, 400);
         }
         jalurInitForm();
+        const tJalur = document.getElementById('jalur-tanggal');
+        if (tJalur) tJalur.value = new Date().toISOString().slice(0, 10);
       }
     })
-    .withFailureHandler(function(err) { showToast('Gagal menyimpan: ' + err.message, 'error'); })
+    .withFailureHandler(function(err) {
+      if (btnJalur) { btnJalur.disabled = false; btnJalur.innerHTML = originalJalurHTML; }
+      showToast('Gagal menyimpan: ' + err.message, 'error');
+    })
     .apiSaveJalur({ tanggal: tanggal, rows: rows }, userInfo);
 }
 

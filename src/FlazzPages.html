@@ -4,7 +4,7 @@
     <div class='modal-content border-0 rounded-4 shadow'>
       <div class='modal-header bg-primary text-white border-0'>
         <h5 class='modal-title fw-bold'><i class='bi bi-credit-card me-2'></i>Form Kartu Flazz</h5>
-        <button type='button' class='btn-close btn-close-white' data-bs-dismiss='modal'></button>
+        <button type='button' class='btn-close btn-close-white' data-bs-dismiss='modal' aria-label='Tutup'></button>
       </div>
       <div class='modal-body p-4'>
         <form id='form-flazz-card' onsubmit='saveFlazzCardForm(event)'>
@@ -82,10 +82,6 @@
               <label class='form-label text-muted small fw-bold'>Tanggal Top Up</label>
               <input type='date' id='t_date' class='form-control'>
               <small class="text-muted" style="font-size:0.75rem">Kosongkan jika sama dengan hari ini.</small>
-            </div>
-            <div class='mb-3'>
-              <label class='form-label text-muted small fw-bold'>Bukti Top Up (Screenshot M-Banking dsb)</label>
-              <input type='file' id='t_foto_bukti' class='form-control' required accept='image/*'>
             </div>
             <div class='mb-4'>
               <label class='form-label text-muted small fw-bold'>Catatan</label>
@@ -245,8 +241,8 @@
   <div class="modal fade" id="modal-edit-topup" tabindex="-1">
     <div class="modal-dialog">
       <div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title">Edit Top Up</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-header bg-primary text-white"><h5 class="modal-title">Edit Top Up</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label='Tutup'></button></div>
         <form onsubmit="saveEditTopUp(event)">
           <div class="modal-body">
             <input type="hidden" id="et_id">
@@ -261,7 +257,7 @@
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-            <button type="submit" class="btn btn-primary">Simpan</button>
+            <button type="submit" class="btn btn-primary" id="btn-save-et">Simpan</button>
           </div>
         </form>
       </div>
@@ -272,8 +268,8 @@
   <div class="modal fade" id="modal-edit-tol" tabindex="-1">
     <div class="modal-dialog">
       <div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title">Edit Tol</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-header bg-primary text-white"><h5 class="modal-title">Edit Tol</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label='Tutup'></button></div>
         <form onsubmit="saveEditTol(event)">
           <div class="modal-body">
             <input type="hidden" id="etol_id">
@@ -288,7 +284,7 @@
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-            <button type="submit" class="btn btn-primary">Simpan</button>
+            <button type="submit" class="btn btn-primary" id="btn-save-etol">Simpan</button>
           </div>
         </form>
       </div>

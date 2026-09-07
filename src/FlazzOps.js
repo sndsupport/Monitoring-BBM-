@@ -85,6 +85,9 @@ function getFlazzCards(userRole, cabangId) {
   const sheet = ss.getSheetByName('Flazz_Card');
   if (!sheet) return [];
 
+  // Non-SUPERADMIN wajib punya cabang; tanpa cabang tidak boleh lihat kartu apa pun.
+  if (userRole !== 'SUPERADMIN' && !cabangId) return [];
+
   const data = sheet.getDataRange().getValues();
   if (data.length <= 1) return [];
 
@@ -209,7 +212,6 @@ function saveFlazzTopUp(payload) {
       let uploadRes = uploadImageToDrive(payload.foto_bukti, payload.foto_bukti_name, 'Flazz_TopUp');
       if (uploadRes.success) evidenceUrl = uploadRes.fileUrl;
     }
-    if (!evidenceUrl) throw new Error('Bukti top up wajib dilampirkan.');
 
     appendFlazzRow(sheet, {
       id: id,
@@ -763,9 +765,10 @@ function getFlazzDashboardData(userRole, cabangId) {
   }
 
   let cards = getSheetData('Flazz_Card');
-  // Filter berdasarkan role
-  if (userRole !== 'SUPERADMIN' && cabangId) {
-    cards = cards.filter(c => c.branch_id === cabangId);
+  // Filter berdasarkan role; non-SUPERADMIN tanpa cabang tidak boleh melihat kartu apa pun.
+  if (userRole !== 'SUPERADMIN') {
+    if (!cabangId) cards = [];
+    else cards = cards.filter(c => c.branch_id === cabangId);
   }
 
   let cardIds = cards.map(c => c.id);
@@ -846,6 +849,26 @@ function deleteFlazzCard(cardId) {
     if (found.colIdx.DRIVER !== undefined) sheet.getRange(found.rowIndex, found.colIdx.DRIVER + 1).setValue('');
     sheet.getRange(found.rowIndex, found.colIdx.UPDATED + 1).setValue(new Date());
     return { success: true, msg: 'Kartu berhasil dinonaktifkan.' };
+  } catch (err) {
+    return { success: false, msg: err.message };
+  }
+}
+
+function activateFlazzCard(id) {
+  try {
+    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const sheet = ss.getSheetByName('Flazz_Card');
+    if (!sheet) throw new Error('Sheet Flazz_Card tidak ditemukan.');
+
+    const found = findFlazzCardRow(sheet, id);
+    if (!found) throw new Error('Kartu tidak ditemukan.');
+
+    const status = String(found.row[found.colIdx.STATUS] || '');
+    if (status !== 'NONAKTIF') throw new Error('Kartu ini belum dinonaktifkan.');
+
+    sheet.getRange(found.rowIndex, found.colIdx.STATUS + 1).setValue('TERSEDIA');
+    sheet.getRange(found.rowIndex, found.colIdx.UPDATED + 1).setValue(new Date());
+    return { success: true, msg: 'Kartu berhasil diaktifkan kembali menjadi TERSEDIA.' };
   } catch (err) {
     return { success: false, msg: err.message };
   }

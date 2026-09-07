@@ -19,7 +19,7 @@
         <button type='button' class='btn btn-outline-secondary flex-fill rounded-4 fw-bold' onclick='jalurBatal()'>
           <i class='bi bi-x-circle me-1'></i> Batal
         </button>
-        <button type='button' class='btn btn-primary flex-fill rounded-4 shadow-sm fw-bold' onclick='jalurSave()'>
+        <button type='button' id='btn-jalur-save' class='btn btn-primary flex-fill rounded-4 shadow-sm fw-bold' onclick='jalurSave()'>
           <i class='bi bi-check-circle me-1'></i> Simpan Jadwal
         </button>
       </div>
@@ -29,6 +29,19 @@
 
 <div id='page-jalur-listing' style='display:none;' class='fade-in'>
   <h4 class='mb-3 text-primary fw-bold'><i class='bi bi-list-ul me-2'></i>Daftar Jalur Pengiriman</h4>
+  <div class='card shadow-sm border-0 rounded-4 mb-3'>
+    <div class='card-body'>
+      <div class='row g-2 align-items-end'>
+        <div class='col-12 col-md-4'>
+          <label class='form-label fw-bold text-muted small text-uppercase'>Filter Tanggal</label>
+          <input type='date' id='jalur-listing-filter-tanggal' class='form-control'>
+        </div>
+        <div class='col-12 col-md-8'>
+          <button class='btn btn-primary rounded-4 fw-bold' onclick='jalurShowListing()'><i class='bi bi-search me-1'></i>Tampilkan</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div id='jalur-listing-loading' class='text-center py-4' style='display:none;'>
     <div class='spinner-border text-primary' role='status'>
       <span class='visually-hidden'>Loading...</span>
@@ -123,7 +136,7 @@
     <div class='modal-content border-0 rounded-4 shadow'>
       <div class='modal-header bg-primary text-white border-0'>
         <h5 class='modal-title fw-bold'><i class='bi bi-pencil me-2'></i>Edit Jadwal Pengiriman</h5>
-        <button type='button' class='btn-close btn-close-white' data-bs-dismiss='modal'></button>
+        <button type='button' class='btn-close btn-close-white' data-bs-dismiss='modal' aria-label='Tutup'></button>
       </div>
       <div class='modal-body p-4'>
         <input type='hidden' id='jalur-edit-id'>
@@ -164,10 +177,10 @@
     <div class='modal-content border-0 rounded-4 shadow'>
       <div class='modal-header'>
         <h5 class='modal-title fw-bold'><i class='bi bi-camera me-2'></i>Preview Screenshot</h5>
-        <button type='button' class='btn-close' data-bs-dismiss='modal'></button>
+        <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Tutup'></button>
       </div>
       <div class='modal-body p-3 text-center'>
-        <p class='text-muted small' style='font-size:0.75rem'>Klik kanan pada gambar &raquo; Salin gambar, lalu Ctrl+V di WhatsApp. (Tidak otomatis diunduh).</p>
+        <p class='text-muted small' style='font-size:0.75rem'>Gambar tidak diunduh otomatis. Di desktop: klik kanan &#187; Salin gambar, lalu Ctrl+V. Di HP: ambil tangkapan layar (screenshot).</p>
         <div id='jalur-shot-canvas' class='border rounded-3 p-2 d-inline-block' style='max-width:100%'></div>
       </div>
     </div>

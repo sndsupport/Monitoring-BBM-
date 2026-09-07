@@ -124,41 +124,31 @@ function processDailyImages(data) {
     let result = { success: true, files: {} };
     let odoAwalFile = uploadImageToDrive(data.foto_odo_awal, data.foto_odo_awal_name, 'KM_Awal');
     if (!odoAwalFile.success) return { success: false, error: 'Upload foto KM awal gagal: ' + odoAwalFile.error };
-    let odoAwalOcr = processOdometerImageOCR(odoAwalFile.fileId);
-    if (!odoAwalOcr.success) return { success: false, error: 'OCR foto KM awal gagal: ' + odoAwalOcr.error };
-    result.km_awal = odoAwalOcr.extractedNumbers;
     result.files.odo_awal = odoAwalFile.fileUrl;
 
     let odoAkhirFile = uploadImageToDrive(data.foto_odo_akhir, data.foto_odo_akhir_name, 'KM_Akhir');
     if (!odoAkhirFile.success) return { success: false, error: 'Upload foto KM akhir gagal: ' + odoAkhirFile.error };
-    let odoAkhirOcr = processOdometerImageOCR(odoAkhirFile.fileId);
-    if (!odoAkhirOcr.success) return { success: false, error: 'OCR foto KM akhir gagal: ' + odoAkhirOcr.error };
-    result.km_akhir = odoAkhirOcr.extractedNumbers;
     result.files.odo_akhir = odoAkhirFile.fileUrl;
     
-    if (data.foto_struk_bbm) {
-      let bbmFile = uploadImageToDrive(data.foto_struk_bbm, data.foto_struk_bbm_name, 'Struk_BBM');
-      result.files.struk_bbm = bbmFile.fileUrl;
-    }
-    
-    if (data.foto_struk_toll) {
-      let tollFile = uploadImageToDrive(data.foto_struk_toll, data.foto_struk_toll_name, 'Evidence');
-      result.files.struk_toll = tollFile.fileUrl;
-    }
+    // Pass back the manual KM inputs
+    result.km_awal = data.km_awal_val;
+    result.km_akhir = data.km_akhir_val;
 
+    // Deteksi level indikator BBM via Gemini (dilewati untuk kendaraan jarum: indikator analog tak terbaca otomatis)
     if (data.foto_indikator) {
       let indFile = uploadImageToDrive(data.foto_indikator, data.foto_indikator_name, 'Indikator_BBM');
       result.files.indikator = indFile.success ? indFile.fileUrl : '';
 
-      // Deteksi level indikator BBM via Gemini jika tersedia
-      try {
-        var deteksi = detectFuelLevel(data.foto_indikator);
-        result.level_bbm = deteksi.level;
-        result.confidence_bbm = deteksi.confidence_pct;
-        result.level_status = deteksi.status;
-        result.level_message = deteksi.message;
-      } catch (e) {
-        Logger.log('Deteksi indikator gagal: ' + e.toString());
+      if (!data.skip_ai_deteksi) {
+        try {
+          var deteksi = detectFuelLevel(data.foto_indikator);
+          result.level_bbm = deteksi.level;
+          result.confidence_bbm = deteksi.confidence_pct;
+          result.level_status = deteksi.status;
+          result.level_message = deteksi.message;
+        } catch (e) {
+          Logger.log('Deteksi indikator gagal: ' + e.toString());
+        }
       }
     }
     return result;
@@ -225,6 +215,7 @@ function apiSaveFlazzUsage(payload) { return saveFlazzUsage(payload); }
 
 function apiGetFlazzDashboardData(userInfo) { return getFlazzDashboardData(userInfo.role, userInfo.cabang); }
 function apiDeleteFlazzCard(cardId) { return deleteFlazzCard(cardId); }
+function apiActivateFlazzCard(cardId) { return activateFlazzCard(cardId); }
 function apiEditFlazzTopUp(payload) { return editFlazzTopUp(payload); }
 function apiDeleteFlazzTopUp(id) { return deleteFlazzTopUp(id); }
 function apiEditFlazzTol(payload) { return editFlazzTol(payload); }
@@ -348,4 +339,84 @@ function detectFuelLevel(base64DataUrl) {
 
 function apiDetectFuelLevel(base64DataUrl) {
   return detectFuelLevel(base64DataUrl);
+}
+
+// ==========================================
+// DIagnostik & Pembersihan Foto Orphan
+// Jalankan dari editor: diagnoseOrphanPhotos() atau cleanupOrphanPhotos()
+// ==========================================
+
+function diagnoseOrphanPhotos() {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('Penggunaan_BBM');
+  if (!sheet) return { error: 'Sheet tidak ditemukan' };
+
+  const data = sheet.getDataRange().getValues();
+  const fotoCols = [8, 12, 20, 22, 29]; // odo_awal, odo_akhir, struk_bbm, struk_toll, indikator
+  const fotoNames = ['foto_odo_awal', 'foto_odo_akhir', 'foto_struk_bbm', 'foto_struk_toll', 'foto_indikator'];
+  const results = [];
+  let totalWithPhoto = 0;
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    let hasAny = false;
+    const rowInfo = { row: i + 1, tanggal: row[2], user: row[4], cabang: row[5], photos: {} };
+
+    for (let j = 0; j < fotoCols.length; j++) {
+      const url = row[fotoCols[j]];
+      if (url) {
+        hasAny = true;
+        const fileId = extractDriveFileId(url);
+        let exists = false;
+        if (fileId) {
+          try { DriveApp.getFileById(fileId); exists = true; } catch (e) { exists = false; }
+        }
+        rowInfo.photos[fotoNames[j]] = { url: String(url).substring(0, 80), fileId: fileId, exists: exists };
+      }
+    }
+
+    if (hasAny) {
+      totalWithPhoto++;
+      results.push(rowInfo);
+    }
+  }
+
+  Logger.log('=== DIAGNOSTIK FOTO ===');
+  Logger.log('Total baris dengan foto: ' + totalWithPhoto);
+  const orphan = results.filter(r => Object.values(r.photos).some(p => !p.exists));
+  Logger.log('Baris dengan foto ORPHAN (tidak ada di Drive): ' + orphan.length);
+  orphan.forEach(r => Logger.log(JSON.stringify(r)));
+  return { total: totalWithPhoto, orphanCount: orphan.length, orphans: orphan };
+}
+
+function cleanupOrphanPhotos() {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('Penggunaan_BBM');
+  if (!sheet) return { error: 'Sheet tidak ditemukan' };
+
+  const data = sheet.getDataRange().getValues();
+  const fotoCols = [8, 12, 20, 22, 29];
+  let cleaned = 0;
+  let skipped = 0;
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    for (let j = 0; j < fotoCols.length; j++) {
+      const url = row[fotoCols[j]];
+      if (url) {
+        const fileId = extractDriveFileId(url);
+        let exists = false;
+        if (fileId) {
+          try { DriveApp.getFileById(fileId); exists = true; } catch (e) { exists = false; }
+        }
+        if (!exists) {
+          sheet.getRange(i + 1, fotoCols[j] + 1).setValue('');
+          cleaned++;
+          Logger.log('Row ' + (i + 1) + ': cleared ' + fotoCols[j] + ' (file not found)');
+        }
+      }
+    }
+  }
+
+  return { cleaned: cleaned, message: cleaned + ' kolom foto orphan dibersihkan dari sheet' };
 }

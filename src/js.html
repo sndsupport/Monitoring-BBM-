@@ -1,7 +1,6 @@
-<script>
+﻿<script>
   let formDataPayload = {};
   let userRole = '';
-  let ocrModal;
   let userInfo = null;
   window.masterData = { kendaraan: [], cabang: [], supir: [], bbm: [], pengguna: [] };
   let allVehicles = [];
@@ -26,15 +25,9 @@
   }
 
   document.addEventListener('DOMContentLoaded', function() {
-    ocrModal = new bootstrap.Modal(document.getElementById('ocrModal'));
     document.getElementById('tanggal').valueAsDate = new Date();
     
     loadAppSettings();
-    
-    var kmAwalInput = document.getElementById('km_awal_val');
-    var kmAkhirInput = document.getElementById('km_akhir_val');
-    if (kmAwalInput) kmAwalInput.addEventListener('input', updateOCRSummary);
-    if (kmAkhirInput) kmAkhirInput.addEventListener('input', updateOCRSummary);
     
     let storedUser = loadSessionUser();
     if (storedUser) {
@@ -84,6 +77,10 @@
           btn.disabled = false;
           btn.innerText = 'Masuk';
        }
+    }).withFailureHandler(function(err) {
+       btn.disabled = false;
+       btn.innerText = 'Masuk';
+       showLoginError('Gagal menghubungi server: ' + (err && err.message ? err.message : 'terjadi kesalahan'));
     }).doLogin(un, pw);
   }
 
@@ -338,6 +335,9 @@
           }
         }
       })
+      .withFailureHandler(function(err) {
+        showToast('Gagal memuat pengaturan aplikasi: ' + (err && err.message ? err.message : 'terjadi kesalahan'), 'error');
+      })
       .getAppSettings();
   }
 
@@ -570,12 +570,30 @@
     var tolSec = document.getElementById('tol-section');
     if (tolSec) tolSec.style.display = 'none';
 
+    var bAwalReset = document.getElementById('bar_awal');
+    var bAkhirReset = document.getElementById('bar_akhir');
+    if (bAwalReset) bAwalReset.value = '';
+    if (bAkhirReset) bAkhirReset.value = '';
+    var sAwR = document.getElementById('bar_awal_slider');
+    var sAkR = document.getElementById('bar_akhir_slider');
+    if (sAwR) sAwR.value = '0';
+    if (sAkR) sAkR.value = '0';
+    var vAwR = document.getElementById('bar_awal_slider_val');
+    var vAkR = document.getElementById('bar_akhir_slider_val');
+    if (vAwR) vAwR.textContent = '0%';
+    if (vAkR) vAkR.textContent = '0%';
+    var tglReset = document.getElementById('tanggal');
+    if (tglReset) tglReset.value = '';
+    var supirReset = document.getElementById('nama_supir');
+    if (supirReset) supirReset.value = '';
+
     document.querySelectorAll('#daily-form .toggle-group').forEach(group => {
       group.querySelectorAll('.toggle-btn').forEach((b, idx) => b.classList.toggle('active', idx === 0));
     });
 
-    ['preview-awal', 'preview-akhir', 'preview-indikator', 'preview-bbm', 'preview-toll'].forEach(id => {
+    ['preview-awal', 'preview-akhir', 'preview-indikator'].forEach(id => {
       const p = document.getElementById(id);
+      if (!p) return;
       p.style.display = 'none';
       const img = p.querySelector('img');
       if (img) img.src = '';
@@ -601,7 +619,6 @@
     var chkAkhir = document.getElementById('chk_km_akhir');
     if (chkAwal) { chkAwal.checked = false; toggleOdoBroken('awal'); }
     if (chkAkhir) { chkAkhir.checked = false; toggleOdoBroken('akhir'); }
-    document.getElementById('ocr-summary').style.display = 'none';
 
     if (typeof onVehicleChange === 'function') onVehicleChange();
 
@@ -658,8 +675,6 @@
   async function processDailyReport() {
     let odoAwal = document.getElementById('foto_odo_awal').files[0];
     let odoAkhir = document.getElementById('foto_odo_akhir').files[0];
-    let strukBBM = document.getElementById('foto_struk_bbm').files[0];
-    let strukToll = document.getElementById('foto_struk_toll') ? document.getElementById('foto_struk_toll').files[0] : null;
     let fotoIndikator = document.getElementById('foto_indikator') ? document.getElementById('foto_indikator').files[0] : null;
 
     if (!document.getElementById('daily-form').checkValidity()) {
@@ -674,19 +689,73 @@
        showToast('Harap pilih Kartu Flazz jika metode pembayaran menggunakan Flazz.', 'error');
        return;
     }
+    if (!isSupirNameValid()) { showToast('Nama supir tidak valid, pilih dari daftar', 'error'); return; }
 
     let btn = document.getElementById('btn-process');
     let originalText = btn.innerHTML;
     showToast('Memproses...', 'warning');
     btn.disabled = true;
-    btn.innerHTML = "<span class='spinner-border spinner-border-sm'></span> Sedang Upload & Proses OCR...";
+    btn.innerHTML = "<span class='spinner-border spinner-border-sm'></span> Sedang Upload & Menyimpan...";
+
+    var saveTokens = { done: false };
+    var wdTimer1 = setTimeout(function () {
+      if (!saveTokens.done) showToast('Masih memproses... upload & simpan butuh waktu, harap tunggu.', 'warning');
+    }, 45000);
+    var wdTimer2 = setTimeout(function () {
+      if (saveTokens.done) return;
+      saveTokens.done = true;
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      showToast('Proses melebihi 2 menit. Muat ulang halaman atau cek spreadsheet agar data tidak ganda.', 'error');
+    }, 120000);
+    function finalizeSaving() {
+      saveTokens.done = true;
+      clearTimeout(wdTimer1);
+      clearTimeout(wdTimer2);
+    }
 
     try {
-      if (!isSupirNameValid()) { showToast('Nama supir tidak valid, pilih dari daftar', 'error'); return; }
       let bbmSelect = document.getElementById('jenis_bbm');
       let bbmNama = '';
       if(bbmSelect && bbmSelect.selectedIndex > 0) {
         bbmNama = bbmSelect.options[bbmSelect.selectedIndex].dataset.jenis;
+      }
+
+      var vehSelSubmit = document.getElementById('vehicle');
+      var indikatorSubmit = 'DIGITAL_BAR';
+      if (vehSelSubmit && vehSelSubmit.selectedOptions && vehSelSubmit.selectedOptions[0]) {
+        indikatorSubmit = vehSelSubmit.selectedOptions[0].getAttribute('data-indikator') || indikatorSubmit;
+      }
+      if (vehSelSubmit && vehSelSubmit.value && indikatorSubmit === 'DIGITAL_BAR') {
+        var foundVeh = (allVehicles || []).find(function (v) { return v.vehicle_id === vehSelSubmit.value; }) || null;
+        if (foundVeh && foundVeh.jenis_indikator) indikatorSubmit = foundVeh.jenis_indikator;
+      }
+      var isJarumSubmit = indikatorSubmit === 'ANALOG_JARUM';
+      var kmTanpaEstimasi = false;
+      var chkAwalBroken = document.getElementById('chk_km_awal') ? document.getElementById('chk_km_awal').checked : false;
+      var chkAkhirBroken = document.getElementById('chk_km_akhir') ? document.getElementById('chk_km_akhir').checked : false;
+      if (isJarumSubmit && (chkAwalBroken || chkAkhirBroken)) {
+        var litInputSubmit = document.getElementById('liter_bbm');
+        var litSubmit = parseFloat(litInputSubmit ? litInputSubmit.value : '') || 0;
+        var vehObjSubmit = (allVehicles || []).find(function (v) { return v.vehicle_id === document.getElementById('vehicle').value; }) || null;
+        var standarSubmit = vehObjSubmit ? (parseFloat(vehObjSubmit.standar_km_l) || 0) : 0;
+        var kapSubmit = vehObjSubmit ? (parseFloat(vehObjSubmit.kapasitas_tangki) || 0) : 0;
+        var jbSubmit = vehObjSubmit ? (parseFloat(vehObjSubmit.jumlah_bar) || 0) : 0;
+        // Skala level: jarum = persen (0-100), digital = jumlah_bar
+        var skalaLevelSubmit = isJarumSubmit ? 100 : jbSubmit;
+        var litPerBarSubmit = (kapSubmit > 0 && skalaLevelSubmit > 0) ? (kapSubmit / skalaLevelSubmit) : 0;
+        var bAwalSubmit = parseFloat(document.getElementById('bar_awal').value) || 0;
+        var bAkhirSubmit = parseFloat(document.getElementById('bar_akhir').value) || 0;
+        var litKonsumsiSubmit = litSubmit + ((bAwalSubmit - bAkhirSubmit) * litPerBarSubmit);
+        if (litKonsumsiSubmit <= 0) litKonsumsiSubmit = litSubmit;
+        if (standarSubmit <= 0 || litKonsumsiSubmit <= 0) {
+          if (!confirm('KM tidak terbaca dan estimasi tidak tersedia (Standar KM/L belum diisi, atau tidak ada penurunan level BBM / liter). Simpan laporan tanpa KM?')) {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+            return;
+          }
+          kmTanpaEstimasi = true;
+        }
       }
 
       formDataPayload = {
@@ -695,6 +764,8 @@
         tanggal: document.getElementById('tanggal').value,
         bar_awal: document.getElementById('bar_awal').value,
         bar_akhir: document.getElementById('bar_akhir').value,
+        km_awal_val: document.getElementById('km_awal_val').value,
+        km_akhir_val: document.getElementById('km_akhir_val').value,
         liter_bbm: document.getElementById('liter_bbm') ? document.getElementById('liter_bbm').value || 0 : 0,
         biaya_bbm: document.getElementById('biaya_bbm') ? document.getElementById('biaya_bbm').value || 0 : 0,
         biaya_toll: document.getElementById('biaya_toll') ? document.getElementById('biaya_toll').value || 0 : 0,
@@ -705,58 +776,71 @@
         foto_odo_awal_name: odoAwal.name,
         foto_odo_akhir: await getBase64(odoAkhir),
         foto_odo_akhir_name: odoAkhir.name,
-        foto_struk_bbm: strukBBM ? await getBase64(strukBBM) : null,
-        foto_struk_bbm_name: strukBBM ? strukBBM.name : null,
-        foto_struk_toll: strukToll ? await getBase64(strukToll) : null,
-        foto_struk_toll_name: strukToll ? strukToll.name : null,
         foto_indikator: fotoIndikator ? await getBase64(fotoIndikator) : null,
         foto_indikator_name: fotoIndikator ? fotoIndikator.name : null,
         level_bbm: document.getElementById('level_bbm') ? document.getElementById('level_bbm').value : '',
         confidence_bbm: document.getElementById('confidence_bbm') ? document.getElementById('confidence_bbm').value : '',
-        keterangan: document.getElementById('keterangan') ? document.getElementById('keterangan').value : ''
+        keterangan: document.getElementById('keterangan') ? document.getElementById('keterangan').value : '',
+        skip_ai_deteksi: isJarumSubmit,
+        km_tanpa_estimasi: kmTanpaEstimasi
       };
 
       google.script.run
         .withSuccessHandler(function(res) {
-           btn.disabled = false;
-           btn.innerHTML = originalText;
            if(res.success) {
-             document.getElementById('km_awal_val').value = res.km_awal || '';
-              document.getElementById('km_akhir_val').value = res.km_akhir || '';
                formDataPayload.serverData = res;
                delete formDataPayload.foto_odo_awal;
                delete formDataPayload.foto_odo_akhir;
-               delete formDataPayload.foto_struk_bbm;
-               delete formDataPayload.foto_struk_toll;
-               delete formDataPayload.foto_struk_toll_name;
                delete formDataPayload.foto_indikator;
                delete formDataPayload.foto_indikator_name;
-
                if (res.level_bbm !== undefined && res.level_bbm !== null && res.level_bbm !== '') {
-                 var lvlEl = document.getElementById('level_bbm');
-                 var confEl = document.getElementById('confidence_bbm');
-                 if (lvlEl) lvlEl.value = res.level_bbm;
-                 if (confEl && res.confidence_bbm !== undefined && res.confidence_bbm !== null && res.confidence_bbm !== '') {
-                   confEl.value = res.confidence_bbm;
-                 }
-                 var st = res.level_status || 'NOT_DETECTED';
-                 if (st === 'SUCCESS' || st === 'LOW_CONFIDENCE') {
-                   showToast(st === 'SUCCESS' ? ('Level BBM terdeteksi: ' + res.level_bbm + '%') : ('Level BBM terdeteksi (confidence rendah): ' + res.level_bbm + '%'), 'success');
-                 } else {
-                   showToast('Level indikator tidak terdeteksi otomatis. Isi manual jika diketahui.', 'warning');
-                 }
+                   formDataPayload.level_bbm = res.level_bbm;
+                   formDataPayload.confidence_bbm = res.confidence_bbm;
                }
+               
+               formDataPayload.km_awal_confirmed = formDataPayload.km_awal_val;
+               formDataPayload.km_akhir_confirmed = formDataPayload.km_akhir_val;
+               formDataPayload.km_awal_broken = document.getElementById('chk_km_awal') ? document.getElementById('chk_km_awal').checked : false;
+               formDataPayload.km_akhir_broken = document.getElementById('chk_km_akhir') ? document.getElementById('chk_km_akhir').checked : false;
+               formDataPayload.userInfo = userInfo;
 
-               updateOCRSummary();
-               ocrModal.show();
-           } else {
-              showToast('Terjadi kesalahan memproses foto: ' + res.error, 'error');
+               google.script.run
+                 .withSuccessHandler(function(saveRes) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                    finalizeSaving();
+                    if (saveRes.success) {
+                      showToast('Data Harian berhasil disimpan!', 'success');
+                      if (saveRes.newOdo) {
+                        updateMasterOdometer(formDataPayload.plat_nomor, saveRes.newOdo);
+                      }
+                      if (typeof flazzDataCache !== 'undefined') flazzDataCache = null;
+                      resetDailyForm();
+                      document.getElementById('page-form').style.display = 'block';
+                      document.getElementById('page-dashboard').style.display = 'none';
+                    } else {
+                      showToast('Gagal menyimpan: ' + saveRes.error, 'error');
+                    }
+                 })
+                 .withFailureHandler(function(err) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                    finalizeSaving();
+                    showToast('Gagal menyimpan: ' + err.message, 'error');
+                 })
+                 .saveDailyTransaction(formDataPayload);
+} else {
+               btn.disabled = false;
+               btn.innerHTML = originalText;
+               finalizeSaving();
+               showToast('Terjadi kesalahan memproses foto: ' + res.error, 'error');
            }
         })
         .withFailureHandler(function(err){
-           showToast('Gagal menghubungi server: ' + err.message, 'error');
            btn.disabled = false;
            btn.innerHTML = originalText;
+           finalizeSaving();
+           showToast('Gagal menghubungi server: ' + err.message, 'error');
         })
         .processDailyImages(formDataPayload);
 
@@ -764,79 +848,10 @@
       showToast('Error membaca file: ' + e.toString(), 'error');
       btn.disabled = false;
       btn.innerHTML = originalText;
+      finalizeSaving();
     }
   }
   
-  function updateOCRSummary() {
-    var kmAwal = parseFloat(document.getElementById('km_awal_val').value) || 0;
-    var kmAkhir = parseFloat(document.getElementById('km_akhir_val').value) || 0;
-    var kmTempuh = kmAkhir - kmAwal;
-    
-    if (kmTempuh > 0) {
-      document.getElementById('summary-km').textContent = kmTempuh + ' KM';
-      document.getElementById('ocr-summary').style.display = 'block';
-      
-      var literBBM = parseFloat(document.getElementById('liter_bbm') ? document.getElementById('liter_bbm').value : 0) || 0;
-      var biayaBBM = parseFloat(document.getElementById('biaya_bbm') ? document.getElementById('biaya_bbm').value : 0) || 0;
-      var biayaToll = parseFloat(document.getElementById('biaya_toll') ? document.getElementById('biaya_toll').value : 0) || 0;
-
-      var totalBiaya = biayaBBM + biayaToll;
-      
-      document.getElementById('summary-bbm').textContent = literBBM ? literBBM + ' L' : '-';
-      document.getElementById('summary-bbm-cost').textContent = biayaBBM ? formatCurrency(biayaBBM) : '-';
-      document.getElementById('summary-total').textContent = formatCurrency(totalBiaya);
-    } else {
-      document.getElementById('ocr-summary').style.display = 'none';
-    }
-  }
-
-  function closeOCRModal() {
-    if (typeof ocrModal === 'object' && ocrModal && 'hide' in ocrModal) ocrModal.hide();
-    var btn = document.getElementById('btn-process');
-    if (btn) { btn.disabled = false; btn.innerHTML = "<i class='bi bi-cloud-arrow-up me-1'></i> Simpan"; }
-    var btnSave = document.getElementById('btn-save');
-    if (btnSave) btnSave.disabled = false;
-  }
-
-  function confirmAndSave() {
-     let btn = document.getElementById('btn-save');
-     btn.disabled = true;
-     btn.innerHTML = "<span class='spinner-border spinner-border-sm'></span> Menyimpan...";
-
-     formDataPayload.km_awal_confirmed = document.getElementById('km_awal_val').value;
-     formDataPayload.km_akhir_confirmed = document.getElementById('km_akhir_val').value;
-     formDataPayload.km_awal_broken = document.getElementById('chk_km_awal') ? document.getElementById('chk_km_awal').checked : false;
-     formDataPayload.km_akhir_broken = document.getElementById('chk_km_akhir') ? document.getElementById('chk_km_akhir').checked : false;
-     formDataPayload.userInfo = userInfo;
-
-      google.script.run
-         .withSuccessHandler(function(res) {
-            if (res.success) {
-              btn.disabled = false;
-              btn.innerText = 'Simpan Data Permanen';
-              ocrModal.hide();
-              showToast('Data Harian berhasil disimpan!', 'success');
-              if (res.newOdo) {
-                updateMasterOdometer(formDataPayload.plat_nomor, res.newOdo);
-              }
-              if (typeof flazzDataCache !== 'undefined') flazzDataCache = null;
-              resetDailyForm();
-              document.getElementById('page-form').style.display = 'block';
-              document.getElementById('page-dashboard').style.display = 'none';
-            } else {
-              showToast('Gagal menyimpan: ' + res.error, 'error');
-             btn.disabled = false;
-             btn.innerText = 'Simpan Data Permanen';
-           }
-        })
-        .withFailureHandler(function(err) {
-           showToast('Gagal menyimpan: ' + err.message, 'error');
-           btn.disabled = false;
-           btn.innerText = 'Simpan Data Permanen';
-        })
-        .saveDailyTransaction(formDataPayload);
-  }
-
   let __performaData = [];
   function loadPerforma() {
     let tbody = document.getElementById('performa-tbody');
@@ -1087,8 +1102,8 @@
         "<td class='text-center text-nowrap'>" + (row.isi_bbm > 0 ? row.isi_bbm + " L" : "-") + "</td>" +
         "<td class='text-center'>" + (row.status_efisiensi === 'Data Belum Cukup' ? efisiensiBadge(row.status_efisiensi) : (row.efisiensi ? row.efisiensi + " KM/L" + (row.efisiensi_label ? " <small class='text-muted'>(" + row.efisiensi_label + ")</small>" : "") + efisiensiBadge(row.status_efisiensi) : "-")) + "</td>" +
         "<td class='text-end text-nowrap'>" +
-          "<button class='btn btn-sm btn-outline-primary' onclick='editDaily(" + JSON.stringify(row.transaction_id) + ")'><i class='bi bi-pencil'></i></button> " +
-          "<button class='btn btn-sm btn-outline-danger' onclick='deleteDaily(" + JSON.stringify(row.transaction_id) + ")'><i class='bi bi-trash'></i></button>" +
+          "<button class='btn btn-sm btn-outline-primary' title='Edit Laporan' aria-label='Edit laporan' onclick='editDaily(" + JSON.stringify(row.transaction_id) + ")'><i class='bi bi-pencil'></i></button> " +
+          "<button class='btn btn-sm btn-outline-danger' title='Hapus Laporan' aria-label='Hapus laporan' onclick='deleteDaily(" + JSON.stringify(row.transaction_id) + ")'><i class='bi bi-trash'></i></button>" +
         "</td>";
       tbody.appendChild(tr);
     });
@@ -1496,14 +1511,15 @@
   function onVehicleChange() {
     var vehSel = document.getElementById('vehicle');
     var indikator = 'DIGITAL_BAR';
+    var found = null;
     if (vehSel && vehSel.selectedOptions && vehSel.selectedOptions[0]) {
       indikator = vehSel.selectedOptions[0].getAttribute('data-indikator') || indikator;
     }
     if (vehSel && vehSel.value && indikator === 'DIGITAL_BAR') {
-      var found = (allVehicles || []).find(function (v) { return v.vehicle_id === vehSel.value; });
+      found = (allVehicles || []).find(function (v) { return v.vehicle_id === vehSel.value; }) || null;
       if (found && found.jenis_indikator) indikator = found.jenis_indikator;
     }
-    var hide = indikator !== 'DIGITAL_BAR';
+    var hide = indikator !== 'DIGITAL_BAR' && indikator !== 'ANALOG_JARUM';
     var isJarum = indikator === 'ANALOG_JARUM';
     ['odometer-rusak-awal', 'odometer-rusak-akhir'].forEach(function (id) {
       var el = document.getElementById(id);
@@ -1518,19 +1534,70 @@
       toggleOdoBroken('akhir');
     }
 
+    var bAwal = document.getElementById('bar_awal');
+    var bAkhir = document.getElementById('bar_akhir');
+    var jumlahBar = (found && found.jumlah_bar) ? parseInt(found.jumlah_bar, 10) : 0;
+    if (bAwal) bAwal.max = jumlahBar > 0 ? jumlahBar : '';
+    if (bAkhir) bAkhir.max = jumlahBar > 0 ? jumlahBar : '';
+
     var gAwal = document.getElementById('bar-awal-group');
     var gAkhir = document.getElementById('bar-akhir-group');
     if (gAwal) gAwal.style.display = hide ? 'none' : '';
     if (gAkhir) gAkhir.style.display = hide ? 'none' : '';
 
-    var bAwal = document.getElementById('bar_awal');
-    var bAkhir = document.getElementById('bar_akhir');
     if (bAwal) bAwal.required = !hide;
     if (bAkhir) bAkhir.required = !hide;
     if (hide) {
       if (bAwal) bAwal.value = '';
       if (bAkhir) bAkhir.value = '';
     }
+
+    // Untuk indikator jarum: field angka disembunyikan, diganti slider level 0-100%.
+    ['awal', 'akhir'].forEach(function (side) {
+      var barField = document.getElementById('bar_' + side);
+      var sliderWrap = document.getElementById('level-slider-jarum-' + side);
+      var slider = document.getElementById('bar_' + side + '_slider');
+      var lab = document.getElementById('label-bar-' + side);
+      var hint = document.getElementById('hint-bar-' + side);
+      if (!isJarum) {
+        if (sliderWrap) sliderWrap.style.display = 'none';
+        if (slider) slider.value = '0';
+        var valElSide = document.getElementById('bar_' + side + '_slider_val');
+        if (valElSide) valElSide.textContent = '0%';
+        if (barField) {
+          barField.style.display = '';
+          if (barField && barField.parentNode) barField.parentNode.style.display = '';
+        }
+        if (lab) lab.textContent = side === 'awal' ? 'Bar Bensin Awal' : 'Bar Bensin Akhir';
+        if (hint) hint.textContent = '*Hitung bar/jarak indikator bahan bakar digital. Tidak berlaku untuk indikator jarum.';
+        return;
+      }
+      // isJarum
+      if (sliderWrap) sliderWrap.style.display = '';
+      if (barField && barField.parentNode) barField.parentNode.style.display = 'none';
+      if (barField) {
+        var cur = parseFloat(barField.value);
+        if (!isNaN(cur) && slider && slider.value === '0') {
+          slider.value = cur > 100 ? 100 : cur;
+        }
+        levelSlider(side, slider ? slider.value : '0');
+      } else if (slider) {
+        levelSlider(side, slider.value);
+      }
+      if (lab) lab.textContent = side === 'awal' ? 'Level Bensin (Berangkat)' : 'Level Bensin (Pulang)';
+      if (hint) hint.textContent = '*Geser sesuai posisi jarum: 0 = E/kosong, 100 = F/penuh (berlaku utk indikator jarum).';
+    });
+  }
+
+  // Sinkronisasi slider level BBM jarum ke field bar_* (0-100) & tampilan persen.
+  function levelSlider(side, val) {
+    var v = Math.max(0, Math.min(100, parseInt(val, 10) || 0));
+    var slider = document.getElementById('bar_' + side + '_slider');
+    var valEl = document.getElementById('bar_' + side + '_slider_val');
+    var barField = document.getElementById('bar_' + side);
+    if (slider) slider.value = v;
+    if (valEl) valEl.textContent = v + '%';
+    if (barField) barField.value = v;
   }
 
   function isSupirNameValid() {
@@ -1836,7 +1903,7 @@
       let s = parseFloat(v.standar_km_l) || 0;
       if (k > 0 && s > 0) estimasi = Math.round(k * s);
       let info = v.jenis + ' - ' + v.cabang;
-      if (estimasi > 0) info += ' · Est. jarak satu tangki: ±' + estimasi + ' KM';
+      if (estimasi > 0) info += ' Â· Est. jarak satu tangki: Â±' + estimasi + ' KM';
       return '<div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3">' +
         '<div class="d-flex align-items-center">' +
           '<div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 48px; height: 48px;">' +
@@ -1899,7 +1966,7 @@
       '<div class="list-group-item d-flex justify-content-between align-items-center">' +
         '<div>' +
           '<div class="fw-bold">' + d.nama + '</div>' +
-          '<small class="text-muted">' + d.id + ' • ' + d.cabang + '</small>' +
+          '<small class="text-muted">' + d.id + ' â€¢ ' + d.cabang + '</small>' +
         '</div>' +
         '<div>' +
           '<button class="btn btn-sm btn-outline-primary me-2" aria-label="Edit supir ' + d.nama + '" onclick="editSupir(\'' + d.id + '\')"><i class="bi bi-pencil"></i></button>' +
