@@ -486,6 +486,31 @@
     if (cur) sel.value = cur;
   }
 
+  function populateMasterFilter() {
+    var wrap = document.getElementById('master-filter-cabang-wrap');
+    if (!wrap) return;
+    if (userRole === 'SUPERADMIN') {
+      wrap.style.display = '';
+      fillCabangSelect(document.getElementById('master-filter-cabang'));
+    } else {
+      wrap.style.display = 'none';
+    }
+  }
+
+  function onMasterFilterChange() {
+    var tab = __activeMasterTab || 'kendaraan';
+    if (tab === 'flazz') {
+      var sel = document.getElementById('master-filter-cabang');
+      __flazzFilterCabang = sel ? sel.value : '';
+      if (typeof flazzDataCache !== 'undefined') flazzDataCache = null;
+      if (typeof loadFlazzDataWrapper === 'function') loadFlazzDataWrapper(true);
+      return;
+    }
+    loadMasterData(tab);
+  }
+
+  var __activeMasterTab = 'kendaraan';
+
   function switchTab(tab) {
     closeBottomDrawer();
     document.getElementById('page-form').style.display = 'none';
@@ -2008,6 +2033,7 @@
   }
 
   function switchMasterTab(tab) {
+    __activeMasterTab = tab;
     document.querySelectorAll('.master-tab-content').forEach(el => {
       el.style.display = 'none';
     });
@@ -2020,15 +2046,21 @@
   }
 
   function loadMasterData(tab) {
-    tab = tab || 'kendaraan';
-    
+    tab = tab || __activeMasterTab || 'kendaraan';
+    __activeMasterTab = tab;
+    populateMasterFilter();
+
     if (tab === 'flazz') {
        if (typeof loadFlazzDataWrapper === 'function') loadFlazzDataWrapper();
        return;
     }
-    
+
+    var rid = ++__masterRequestId;
+    var masterCabang = document.getElementById('master-filter-cabang') ? document.getElementById('master-filter-cabang').value : '';
+
     google.script.run
       .withSuccessHandler(function(data) {
+        if (rid !== __masterRequestId) return;
         if (!data || typeof data !== 'object') {
            console.error('getMasterData returned invalid data:', data);
            showToast('Gagal memuat data master: respons server tidak valid', 'error');
@@ -2036,18 +2068,25 @@
         }
         if (Array.isArray(data.cabangList)) window.masterData.cabang = data.cabangList;
         if (tab === 'kendaraan') {
-          renderKendaraanList(data.vehicles || []);
+          var veh = data.vehicles || [];
+          if (masterCabang) veh = veh.filter(function(v) { return String(v.cabang) === String(masterCabang); });
+          renderKendaraanList(veh);
         } else if (tab === 'cabang') {
           renderCabangList(data.cabangList || []);
         } else if (tab === 'supir') {
-          renderSupirList(data.drivers || []);
+          var drv = data.drivers || [];
+          if (masterCabang) drv = drv.filter(function(d) { return String(d.cabang) === String(masterCabang); });
+          renderSupirList(drv);
         } else if (tab === 'bbm') {
           renderBBMList(data.bbmList || []);
         } else if (tab === 'pengguna') {
-          renderPenggunaList(data.penggunaList || []);
+          var usr = data.penggunaList || [];
+          if (masterCabang) usr = usr.filter(function(u) { return String(u.cabang) === String(masterCabang); });
+          renderPenggunaList(usr);
         }
       })
       .withFailureHandler(function(err) {
+        if (rid !== __masterRequestId) return;
         showToast('Gagal memuat data: ' + err.message, 'error');
       })
       .getMasterData(userInfo);
