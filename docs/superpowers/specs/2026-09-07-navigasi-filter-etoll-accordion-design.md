@@ -72,12 +72,14 @@ ADMIN (superadmin only)
 | Data Master: Tiap tab (kendaraan/supir/flazz/pengguna; cabang menampilkan semua) | Ya (filter per cabang) | Tidak |
 | Buat Jalur (dropdown etoll) — fitur 3 | Ya (dipakai filter dropdown) | Tidak |
 
-**Random akses non-superadmin:** filter tidak ditampilkan; data terfilter otomatis `userInfo.cabang` di backend (sudah ada: `getActiveVehicles`, `getFlazzCards`, dll).
+**Akses non-superadmin:** filter tidak ditampilkan; data terfilter otomatis `userInfo.cabang` di backend (sudah ada: `getActiveVehicles`, `getFlazzCards`, dll).
+
+**Penting — cakupan `input-cabang`:** `input-cabang-filter`/`input-cabang` (Index.html:217-220) berada di dalam `#step-1` form harian (`page-form`) sehingga **tidak terlihat** di halaman Jalur, Flazz, atau Data Master. Karena itu tiap halaman yang butuh filter diberi **widget warehouse sendiri** (select), di-populate dari `masterData.cabangList`, ditampilkan hanya saat `userRole === 'SUPERADMIN'`. Nilai terpilih berlaku untuk area tersebut; tidak bergantung pada `input-cabang` form.
 
 **Implementasi:**
 
 1. **Riwayat Transaksi (FlazzScript.html):** di atas konten tab history, tambah bar filter (warehouse + dari-sampai) yang tampil hanya saat `userRole === 'SUPERADMIN'` dan tab `history` aktif. `renderHistSection(type)` memfilter `data.topups/tolHistory/bbmFlazz/usages/recons` berdasarkan `branch_id` + rentang tanggal sebelum paginasi. Perlu pastikan tiap item punya `branch_id` (atau `card_id` → lookup ke `data.cards[].branch_id`) dan field tanggal (`date`/`tanggal`/`timestamp`).
-2. **List Flazz & Saldo (FlazzScript.html):** tambah filter warehouse. `loadFlazzDataWrapper` harus meneruskan cabang terpilih ke `apiGetFlazzDashboardData` (sudah didukung: `userRole === 'SUPERADMIN'` → pakai `input-cabang-filter`). Saat filter berubah → muat ulang data (cache di-reset bila cabang berubah).
+2. **List Flazz & Saldo (FlazzScript.html):** tambah widget warehouse sendiri (mis. `flazz-filter-cabang`). `loadFlazzDataWrapper` harus meneruskan cabang terpilih dari widget itu ke `apiGetFlazzDashboardData` (backend `getFlazzDashboardData` sudah menerima `cabang` dan memfilter `branch_id`). Saat filter berubah → muat ulang data (cache di-reset bila cabang berubah).
 3. **Daftar Jalur (JalurScript.html `jalurShowListing`):** tambah filter warehouse + tanggal dari-sampai. Filter client-side pada data yang sudah dimuat, atau kirim cabang+tanggal ke backend `getJalurByTanggal`/`loadJalurListings` bila diperlukan. Perlu verifikasi bentuk data (cabang dari `kode_cabang`).
 4. **Data Master (js.html `loadMasterData`/render):** filter warehouse pada tab kendaraan/supir/flazz/pengguna (render filter per cabang). Tab cabang & BBM menampilkan semua. Karena `getMasterData` sudah meneruskan `userInfo.cabang` (Code.js:57-66), untuk superadmin perlu reload master data dengan cabang terpilih → kirim `cabang` (bukan `userInfo.cabang`) ke endpoint saat superadmin mengganti filter.
 
@@ -89,9 +91,9 @@ ADMIN (superadmin only)
 ### 3.4 Dropdown Kartu Etoll per Cabang (Fitur 3)
 
 - Ubah field readonly text (`jalur-row-etoll-name`, JalurScript.html:148-150) menjadi `<select class='jalur-row-etoll'>`.
-- Isi dropdown = **semua kartu aktif** (`masterData.flazzCards`, filter status `!== 'NONAKTIF'`), **difilter per cabang**:
+- Isi dropdown = **semua kartu aktif** (`masterData.flazzCards`, filter status `!== 'NONAKTIF'`), **difilter per cabang** (mengikuti widget warehouse Jalur, mis. `jalur-filter-cabang`):
   - Non-superadmin → kartu dengan `branch_id === cabang user`.
-  - Superadmin + cabang spesifik di `input-cabang` → kartu `branch_id === cabang`.
+  - Superadmin + cabang spesifik di widget warehouse Jalur → kartu `branch_id === cabang`.
   - Superadmin + "Semua Warehouse" → semua kartu.
 - **Default** = kartu default supir (`default_driver_id` match) — via `jalurSetEtollDisplay` yang sudah ada (set `select.value`).
 - Label opsi kartu: `card_name (card_number)` + badge `card_role` (UTAMA/CADANGAN) bila perlu.
@@ -121,9 +123,9 @@ apply bila id === __flazzRequestId (respons lama diabaikan)
 
 - `toggleNavMenu` (baru di js.html) dipakai sidebar & bottom-nav (Index.html), menjaga auto-hide antar menu.
 - Filter Flazz memakai `masterData.cabangList` + `loadFlazzDataWrapper` (FlazzScript.html) + `getFlazzDashboardData` (FlazzOps.js, sudah menerima `cabang`).
-- Filter Data Master memakai `getMasterData` (Code.js) yang diperluas menerima cabang terpilih utk superadmin.
-- Dropdown etoll per cabang memakai `masterData.flazzCards` + `input-cabang` (JalurScript.html).
-- `renderFlazzListingTable` (FlazzScript.html) diubah utk kolom status.
+- Filter Data Master memakai `getMasterData` (Code.js) yang diperluas menerima cabang terpilih untuk superadmin.
+- Dropdown etoll per cabang memakai `masterData.flazzCards` + widget warehouse Jalur (`jalur-filter-cabang`, JalurScript.html).
+- `renderFlazzListingTable` (FlazzScript.html) diubah untuk kolom status.
 
 ## 6. Batasan & Catatan
 
