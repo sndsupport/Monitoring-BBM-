@@ -80,8 +80,7 @@ function jalurAutofillFromDriver(driverInput) {
 function jalurSetEtollDisplay(etollSel, etollId, driverName) {
   var defCard = jalurResolveDefaultCard((driverName || '').trim());
   var selId = defCard ? defCard.id : '';
-  jalurPopulateEtollOptions(etollSel, etollId ? etollId.value : selId);
-  if (etollId && !etollId.value) etollId.value = selId;
+  jalurPopulateEtollOptions(etollSel, selId);
   if (etollSel) jalurSyncEtollRow(etollSel);
 }
 
@@ -97,9 +96,11 @@ function jalurAutofillEditEtoll(driverInput) {
 
 function jalurResolveDefaultCard(driverName) {
   if (!driverName) return null;
+  var driver = jalurFindDriverByName(driverName);
+  if (!driver) return null;
   var cards = (window.masterData && window.masterData.flazzCards) || [];
   return cards.find(function(x) {
-    return String(x.default_driver_id || '') === driverName && String(x.status || '').toUpperCase() !== 'NONAKTIF';
+    return String(x.default_driver_id || '') === String(driver.id) && String(x.status || '').toUpperCase() !== 'NONAKTIF';
   }) || null;
 }
 
@@ -177,7 +178,7 @@ function jalurAddRow() {
     '<div class="col-12 col-md-3"><label class="form-label text-muted small text-uppercase fw-bold">Kartu Etoll</label>' +
     '<select class="form-select jalur-row-etoll" onchange="jalurSyncEtollRow(this)"></select>' +
     '<input type="hidden" class="jalur-row-etoll-id">' +
-    '<input type="hidden" class="jalur-row-etoll-name">' +
+    '<input type="hidden" class="jalur-row-etoll-name"></div>' +
     '<div class="col-12"><label class="form-label text-muted small text-uppercase fw-bold">Rute Tujuan</label>' +
     '<div class="input-group"><input type="text" class="form-control jalur-row-rute" placeholder="ex: Gudang A - Toko B">' +
     '<button type="button" class="btn btn-outline-danger" onclick="this.closest(\'.jalur-row\').remove()"><i class="bi bi-x"></i></button></div></div>';
@@ -209,6 +210,17 @@ function jalurPopulateListingFilter() {
   if (typeof userRole !== 'undefined' && userRole === 'SUPERADMIN') {
     wrap.style.display = '';
     if (typeof fillCabangSelect === 'function') fillCabangSelect(document.getElementById('jalur-listing-filter-cabang'));
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+function jalurPopulateSummaryFilter() {
+  var wrap = document.getElementById('jalur-summary-cabang-wrap');
+  if (!wrap) return;
+  if (typeof userRole !== 'undefined' && userRole === 'SUPERADMIN') {
+    wrap.style.display = '';
+    if (typeof fillCabangSelect === 'function') fillCabangSelect(document.getElementById('jalur-summary-filter-cabang'));
   } else {
     wrap.style.display = 'none';
   }
@@ -296,8 +308,11 @@ function jalurShowListing() {
 }
 
 function jalurShowSummary() {
+  jalurPopulateSummaryFilter();
   const tanggal = document.getElementById('jalur-filter-tanggal').value;
   if (!tanggal) { showToast('Pilih tanggal untuk menampilkan', 'error'); return; }
+  var cabEl = document.getElementById('jalur-summary-filter-cabang');
+  var cabang = cabEl ? cabEl.value : '';
   var rid = ++__jalurRequestId;
 
   document.getElementById('jalur-summary-loaded').style.display = 'none';
@@ -349,7 +364,7 @@ function jalurShowSummary() {
         if (loading) loading.style.display = 'none';
         showToast('Gagal memuat: ' + err.message, 'error'); 
       })
-      .apiGetJalurByTanggal(tanggal, userInfo);
+      .apiGetJalurByTanggal(tanggal, userInfo, { cabang: cabang });
 }
 
 function jalurRefreshActive() {

@@ -900,10 +900,13 @@ function getFlazzDashboardData(userRole, cabangId) {
   }
 
   let cards = getSheetData('Flazz_Card');
-  // Filter berdasarkan role; non-SUPERADMIN tanpa cabang tidak boleh melihat kartu apa pun.
+  // Filter berdasarkan role. SUPERADMIN dengan cabang terpilih juga difilter
+  // agar filter warehouse di List Flazz & Saldo berfungsi.
   if (userRole !== 'SUPERADMIN') {
     if (!cabangId) cards = [];
-    else cards = cards.filter(c => c.branch_id === cabangId);
+    else cards = cards.filter(c => String(c.branch_id) === String(cabangId));
+  } else if (cabangId) {
+    cards = cards.filter(c => String(c.branch_id) === String(cabangId));
   }
 
   let cardIds = cards.map(c => c.id);

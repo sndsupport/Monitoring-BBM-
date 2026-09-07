@@ -1037,6 +1037,17 @@
   }
   
   let __performaData = [];
+  function populatePerformaFilter() {
+    var wrap = document.getElementById('performa-filter-wrap');
+    if (!wrap) return;
+    if (userRole === 'SUPERADMIN') {
+      wrap.style.display = '';
+      fillCabangSelect(document.getElementById('performa-filter-cabang'));
+    } else {
+      wrap.style.display = 'none';
+    }
+  }
+
   function loadPerforma() {
     let tbody = document.getElementById('performa-tbody');
     let emptyState = document.getElementById('performa-empty');
@@ -1045,6 +1056,8 @@
     tbody.innerHTML = '';
     emptyState.style.display = 'none';
     loadingState.style.display = 'block';
+
+    if (typeof populatePerformaFilter === 'function') populatePerformaFilter();
 
     google.script.run
       .withSuccessHandler(function(data) {
@@ -1065,12 +1078,25 @@
     
     tbody.innerHTML = '';
     
-    if (__performaData.length === 0) {
+    let rows = __performaData;
+    if (userRole === 'SUPERADMIN') {
+      var pSel = document.getElementById('performa-filter-cabang');
+      var pKode = pSel ? pSel.value : '';
+      if (pKode) {
+        var pNama = '';
+        ((window.masterData && window.masterData.cabang) || []).forEach(function(c) {
+          if (String(c.kode) === String(pKode)) pNama = c.nama;
+        });
+        if (pNama) rows = rows.filter(function(row) { return String(row.cabang || '') === String(pNama); });
+      }
+    }
+    
+    if (rows.length === 0) {
       emptyState.style.display = 'block';
       return;
     }
     
-    __performaData.forEach(function(row) {
+    rows.forEach(function(row) {
       let efisiensiBadge = '';
       if (row.status_efisiensi === 'Sesuai standar') {
         efisiensiBadge = `<span class='badge bg-success'>Sesuai standar</span>`;

@@ -94,11 +94,17 @@
   <div class='card shadow-sm border-0 rounded-4 mb-4'>
     <div class='card-body'>
       <div class='row g-2 align-items-end'>
+        <div class='col-12 col-md-4' id='jalur-summary-cabang-wrap' style='display:none;'>
+          <label class='form-label fw-bold text-muted small text-uppercase'>Pilih Warehouse</label>
+          <select id='jalur-summary-filter-cabang' class='form-select' onchange='jalurShowSummary()'>
+            <option value=''>Semua Warehouse</option>
+          </select>
+        </div>
         <div class='col-12 col-md-4'>
           <label class='form-label fw-bold text-muted small text-uppercase'>Filter Tanggal</label>
           <input type='date' id='jalur-filter-tanggal' class='form-control'>
         </div>
-        <div class='col-12 col-md-8 d-flex flex-wrap gap-2'>
+        <div class='col-12 col-md-4 d-flex flex-wrap gap-2'>
           <button class='btn btn-primary rounded-4 fw-bold' onclick='jalurShowSummary()'><i class='bi bi-search me-1'></i>Tampilkan</button>
           <button class='btn btn-outline-primary rounded-4 fw-bold' onclick='jalurTakeScreenshot()'><i class='bi bi-camera me-1'></i>Screenshot</button>
         </div>

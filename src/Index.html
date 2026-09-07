@@ -652,6 +652,15 @@
               <i class='bi bi-speedometer2 me-2'></i> Ringkasan Performa Kendaraan (Per 7 Trip)
             </h4>
             
+            <div class='row g-2 align-items-end mb-3' id='performa-filter-wrap' style='display:none;'>
+              <div class='col-12 col-md-4'>
+                <label class='form-label fw-bold text-muted small text-uppercase'>Pilih Warehouse</label>
+                <select id='performa-filter-cabang' class='form-select' onchange='renderPerforma()'>
+                  <option value=''>Semua Warehouse</option>
+                </select>
+              </div>
+            </div>
+            
             <div id='performa-content'>
               <div class='table-responsive'>
                 <table class='table table-bordered table-striped table-hover'>

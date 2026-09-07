@@ -61,6 +61,8 @@ function loadFlazzDataWrapper(force) {
       renderFlazzMasterTable(flazzDataCache.cards);
       populateFlazzDropdowns(flazzDataCache);
       renderFlazzHistory(flazzDataCache);
+      __flazzListingData = flazzDataCache;
+      if (typeof renderFlazzListingTable === 'function') renderFlazzListingTable();
       return;
    }
    var rid = ++__flazzRequestId;
@@ -85,6 +87,8 @@ function loadFlazzDataWrapper(force) {
        renderFlazzMasterTable(res.cards);
        populateFlazzDropdowns(res);
        renderFlazzHistory(res);
+       __flazzListingData = res;
+       if (typeof renderFlazzListingTable === 'function') renderFlazzListingTable();
     })
     .withFailureHandler(function(err) {
       if (rid !== __flazzRequestId) return;
@@ -944,6 +948,9 @@ function renderFlazzListingTable() {
   cards = cards.filter(function(c) {
     return !q || String(c.card_number||'').toLowerCase().indexOf(q) >= 0 || String(c.card_name||'').toLowerCase().indexOf(q) >= 0;
   });
+  if (__flazzFilterCabang) {
+    cards = cards.filter(function(c) { return String(c.branch_id || '') === String(__flazzFilterCabang); });
+  }
   let selectedDate = document.getElementById('flazz-listing-date').value;
   if (!selectedDate) {
     selectedDate = new Date().toISOString().slice(0, 10);
