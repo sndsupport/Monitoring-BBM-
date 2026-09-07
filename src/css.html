@@ -663,6 +663,58 @@
 
   .sidebar-logout-btn:hover { background: var(--color-danger-light); }
 
+  /* ============ NAVIGATION ACCORDION (sidebar) ============ */
+  .menu-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .menu-group:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+
+  .menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    text-align: left;
+    cursor: pointer;
+    transition: color var(--transition-fast), background-color var(--transition-fast);
+  }
+
+  .menu-toggle:hover { color: var(--color-primary-dark); background: var(--color-primary-light); }
+
+  .menu-chevron {
+    font-size: 11px;
+    transition: transform var(--transition-fast);
+  }
+
+  .menu-group.open .menu-chevron { transform: rotate(180deg); }
+
+  .menu-sub {
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+    padding-left: 8px;
+    margin-top: 2px;
+  }
+
+  .menu-group.open .menu-sub { display: flex; }
+
   .app-footer {
     margin-top: 24px;
     padding: 14px 4px;

@@ -119,56 +119,75 @@
             <i class='bi bi-grid-1x2'></i> <span>Dashboard</span>
           </a>
 
-          <div class='sidebar-heading text-muted mt-3 mb-1 px-3 fw-bold' style='font-size:0.75rem'>JALUR PENGIRIMAN</div>
-          <a class='nav-link sidebar-link' id='tab-jalur-buat' href='javascript:void(0)' onclick='switchTab("jalur-buat")'>
-            <i class='bi bi-calendar-plus'></i> <span>Buat Jalur</span>
-          </a>
-          <a class='nav-link sidebar-link' id='tab-jalur-listing' href='javascript:void(0)' onclick='switchTab("jalur-listing")'>
-            <i class='bi bi-list-ul'></i> <span>Daftar Jalur</span>
-          </a>
-          <a class='nav-link sidebar-link' id='tab-jalur-summary' href='javascript:void(0)' onclick='switchTab("jalur-summary")'>
-            <i class='bi bi-clipboard-data'></i> <span>Summary Pengiriman</span>
-          </a>
-
-          <div class='sidebar-heading text-muted mt-3 mb-1 px-3 fw-bold' style='font-size:0.75rem'>OPERASIONAL KENDARAAN</div>
-          <a class='nav-link sidebar-link' id='tab-form' href='javascript:void(0)' onclick='switchTab("form")'>
-            <i class='bi bi-pencil-square'></i> <span>Input Laporan</span>
-          </a>
-          <a class='nav-link sidebar-link' id='tab-history' href='javascript:void(0)' onclick='switchTab("history")'>
-            <i class='bi bi-clock-history'></i> <span>History Laporan</span>
-          </a>
-          <a class='nav-link sidebar-link' id='tab-gallery' href='javascript:void(0)' onclick='switchTab("gallery")'>
-            <i class='bi bi-images'></i> <span>Galeri Foto</span>
-          </a>
-          <a class='nav-link sidebar-link' id='tab-performa' href='javascript:void(0)' onclick='switchTab("performa")'>
-            <i class='bi bi-speedometer2'></i> <span>Performa Kendaraan</span>
-          </a>
-
-          <div class='sidebar-heading text-muted mt-3 mb-1 px-3 fw-bold' style='font-size:0.75rem'>KARTU FLAZZ</div>
-          <a class='nav-link sidebar-link' id='tab-flazz-topup' href='javascript:void(0)' onclick='switchTab("flazz-topup")'>
-            <i class='bi bi-wallet2'></i> <span>Top Up Flazz</span>
-          </a>
-          <a class='nav-link sidebar-link' id='tab-flazz-recon' href='javascript:void(0)' onclick='switchTab("flazz-recon")'>
-            <i class='bi bi-check2-all'></i> <span>Rekonsiliasi Flazz</span>
-          </a>
-          <a class='nav-link sidebar-link' id='tab-flazz-listing' href='javascript:void(0)' onclick='switchTab("flazz-listing")'>
-            <i class='bi bi-credit-card'></i> <span>List Flazz & Saldo</span>
-          </a>
-          <a class='nav-link sidebar-link' id='tab-flazz-history' href='javascript:void(0)' onclick='switchTab("flazz-history")'>
-            <i class='bi bi-journal-text'></i> <span>Riwayat Transaksi</span>
-          </a>
-
-          <div class='d-none sidebar-admin-group' id='nav-master'>
-            <div class='sidebar-heading text-muted mt-3 mb-1 px-3 fw-bold' style='font-size:0.75rem'>ADMIN</div>
-            <a class='nav-link sidebar-link' id='tab-master' href='javascript:void(0)' onclick='switchTab("master")'>
-              <i class='bi bi-database'></i> <span>Data Master</span>
-            </a>
+          <div class='menu-group' id='group-jalur'>
+            <button type='button' class='menu-toggle' onclick='toggleNavMenu("group-jalur")'>
+              <span>JALUR PENGIRIMAN</span><i class='bi bi-chevron-down menu-chevron'></i>
+            </button>
+            <div class='menu-sub'>
+              <a class='nav-link sidebar-link' id='tab-jalur-buat' href='javascript:void(0)' onclick='switchTab("jalur-buat")'>
+                <i class='bi bi-calendar-plus'></i> <span>Buat Jalur</span>
+              </a>
+              <a class='nav-link sidebar-link' id='tab-jalur-listing' href='javascript:void(0)' onclick='switchTab("jalur-listing")'>
+                <i class='bi bi-list-ul'></i> <span>Daftar Jalur</span>
+              </a>
+              <a class='nav-link sidebar-link' id='tab-jalur-summary' href='javascript:void(0)' onclick='switchTab("jalur-summary")'>
+                <i class='bi bi-clipboard-data'></i> <span>Summary Pengiriman</span>
+              </a>
+            </div>
           </div>
-          <div class='d-none' id='nav-settings'>
-            <div class='sidebar-heading text-muted mt-3 mb-1 px-3 fw-bold' style='font-size:0.75rem'>ADMIN</div>
-            <a class='nav-link sidebar-link' id='tab-settings' href='javascript:void(0)' onclick='switchTab("settings")'>
-              <i class='bi bi-sliders'></i> <span>Pengaturan</span>
-            </a>
+
+          <div class='menu-group' id='group-operasional'>
+            <button type='button' class='menu-toggle' onclick='toggleNavMenu("group-operasional")'>
+              <span>LAPORAN OPERASIONAL KENDARAAN</span><i class='bi bi-chevron-down menu-chevron'></i>
+            </button>
+            <div class='menu-sub'>
+              <a class='nav-link sidebar-link' id='tab-form' href='javascript:void(0)' onclick='switchTab("form")'>
+                <i class='bi bi-pencil-square'></i> <span>Input Laporan</span>
+              </a>
+              <a class='nav-link sidebar-link' id='tab-history' href='javascript:void(0)' onclick='switchTab("history")'>
+                <i class='bi bi-clock-history'></i> <span>History Laporan</span>
+              </a>
+              <a class='nav-link sidebar-link' id='tab-gallery' href='javascript:void(0)' onclick='switchTab("gallery")'>
+                <i class='bi bi-images'></i> <span>Galeri Foto</span>
+              </a>
+              <a class='nav-link sidebar-link' id='tab-performa' href='javascript:void(0)' onclick='switchTab("performa")'>
+                <i class='bi bi-speedometer2'></i> <span>Performa Kendaraan</span>
+              </a>
+            </div>
+          </div>
+
+          <div class='menu-group' id='group-flazz'>
+            <button type='button' class='menu-toggle' onclick='toggleNavMenu("group-flazz")'>
+              <span>KARTU FLAZZ</span><i class='bi bi-chevron-down menu-chevron'></i>
+            </button>
+            <div class='menu-sub'>
+              <a class='nav-link sidebar-link' id='tab-flazz-topup' href='javascript:void(0)' onclick='switchTab("flazz-topup")'>
+                <i class='bi bi-wallet2'></i> <span>Top Up Flazz</span>
+              </a>
+              <a class='nav-link sidebar-link' id='tab-flazz-recon' href='javascript:void(0)' onclick='switchTab("flazz-recon")'>
+                <i class='bi bi-check2-all'></i> <span>Rekonsiliasi Flazz</span>
+              </a>
+              <a class='nav-link sidebar-link' id='tab-flazz-listing' href='javascript:void(0)' onclick='switchTab("flazz-listing")'>
+                <i class='bi bi-credit-card'></i> <span>List Flazz & Saldo</span>
+              </a>
+              <a class='nav-link sidebar-link' id='tab-flazz-history' href='javascript:void(0)' onclick='switchTab("flazz-history")'>
+                <i class='bi bi-journal-text'></i> <span>Riwayat Transaksi</span>
+              </a>
+            </div>
+          </div>
+
+          <div class='menu-group d-none sidebar-admin-group' id='nav-master'>
+            <button type='button' class='menu-toggle' onclick='toggleNavMenu("nav-master")'>
+              <span>ADMIN</span><i class='bi bi-chevron-down menu-chevron'></i>
+            </button>
+            <div class='menu-sub'>
+              <a class='nav-link sidebar-link' id='tab-master' href='javascript:void(0)' onclick='switchTab("master")'>
+                <i class='bi bi-database'></i> <span>Data Master</span>
+              </a>
+              <a class='nav-link sidebar-link d-none' id='tab-settings' href='javascript:void(0)' onclick='switchTab("settings")'>
+                <i class='bi bi-sliders'></i> <span>Pengaturan</span>
+              </a>
+            </div>
           </div>
 
           <div class='sidebar-footer'>

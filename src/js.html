@@ -228,7 +228,9 @@
         }
 
         if (userRole === 'SUPERADMIN') {
-          document.getElementById('nav-settings').classList.remove('d-none');
+          document.getElementById('nav-master').classList.remove('d-none');
+          var settingsLink = document.querySelector('#nav-master a#tab-settings');
+          if (settingsLink) settingsLink.classList.remove('d-none');
           document.getElementById('btn-nav-settings').style.display = 'flex';
           var inputCabangFilter = document.getElementById('input-cabang-filter');
           if (inputCabangFilter) inputCabangFilter.style.display = 'block';
@@ -403,6 +405,15 @@
       .getAppSettings();
   }
 
+  // Accordion navigasi sidebar & bottom-nav: tutup semua grup lain lalu toggle grup yang diklik (auto-hide).
+  function toggleNavMenu(groupId) {
+    var target = document.getElementById(groupId);
+    if (!target) return;
+    var wasOpen = target.classList.contains('open');
+    document.querySelectorAll('.menu-group.open').forEach(function(g) { g.classList.remove('open'); });
+    if (!wasOpen) target.classList.add('open');
+  }
+
   function switchTab(tab) {
     document.getElementById('page-form').style.display = 'none';
     document.getElementById('page-dashboard').style.display = 'none';
@@ -480,6 +491,7 @@
     let activeBtn = document.querySelector('.btn-nav[data-tab="' + tab + '"]');
     if (activeBtn) activeBtn.classList.add('active');
     
+    document.querySelectorAll('.menu-group.open').forEach(function(g) { g.classList.remove('open'); });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
