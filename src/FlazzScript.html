@@ -1121,8 +1121,8 @@ function renderFlazzDetailHistory(cardId, data) {
       : '';
   }
 
-  // Pengeluaran (Tol + BBM gabungan)
-  let tols = (data.tols || []).filter(t => t.card_id === cardId && inRange(t.date, start, end));
+  // Pengeluaran (Tol dari Flazz_Tol + toll_amount dari BBM harian + BBM)
+  let tols = (data.tolHistory || []).filter(t => t.card_id === cardId && inRange(t.date, start, end));
   let bbm = (data.bbmFlazz || []).filter(b => b.card_id === cardId && inRange(b.tanggal || b.timestamp, start, end));
   let totalExpense = 0;
   let pengeluaranTbody = document.getElementById('tb-detail-pengeluaran');
