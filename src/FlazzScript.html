@@ -532,7 +532,7 @@ function renderHistSection(type) {
   if(!data) return;
   let list = [];
   if (type === 'topup') list = data.topups || [];
-  else if (type === 'tol') list = data.tols || [];
+  else if (type === 'tol') list = data.tolHistory || data.tols || [];
   else if (type === 'bbm') list = data.bbmFlazz || [];
   else if (type === 'usage') list = data.usages || [];
   else if (type === 'recon') list = data.recons || [];
@@ -562,17 +562,23 @@ function renderHistSection(type) {
       </tr>`;
     } else if (type === 'tol') {
       let cardStr = data.cards.find(c => c.id === t.card_id)?.card_number || t.card_id;
+      let isDaily = t.source === 'DAILY';
+      let srcBadge = isDaily ? " <span class='badge bg-info ms-1'>Laporan Harian</span>" : '';
+      let bukti = t.evidence_url
+        ? `<a href="${t.evidence_url}" target="_blank">Lihat Bukti</a>`
+        : "<span class='text-muted'>-</span>";
+      let aksi = isDaily
+        ? "<span class='text-muted small'>Dari laporan harian</span>"
+        : `<button class="btn btn-sm btn-outline-primary" title="Edit Tol" aria-label="Edit tol" onclick="editTol('${t.id}')"><i class="bi bi-pencil"></i></button> ` +
+          `<button class="btn btn-sm btn-outline-danger" title="Hapus Tol" aria-label="Hapus tol" onclick="deleteTol('${t.id}')"><i class="bi bi-trash"></i></button>`;
       tbody.innerHTML += `<tr>
-        <td>${formatDateShort(t.date)}</td>
+        <td>${formatDateShort(t.date)}${srcBadge}</td>
         <td>${cardStr}</td>
-        <td>${t.driver_id} / ${t.vehicle_id}</td>
+        <td>${t.driver_id || '-'} / ${t.vehicle_id || '-'}</td>
         <td class="fw-bold text-danger">-${formatCurrency(t.amount)}</td>
-        <td><a href="${t.evidence_url}" target="_blank">Lihat Bukti</a></td>
-        <td>${t.notes}</td>
-        <td class="text-end text-nowrap">
-          <button class="btn btn-sm btn-outline-primary" title="Edit Tol" aria-label="Edit tol" onclick="editTol('${t.id}')"><i class="bi bi-pencil"></i></button>
-          <button class="btn btn-sm btn-outline-danger" title="Hapus Tol" aria-label="Hapus tol" onclick="deleteTol('${t.id}')"><i class="bi bi-trash"></i></button>
-        </td>
+        <td>${bukti}</td>
+        <td>${t.notes || ''}</td>
+        <td class="text-end text-nowrap">${aksi}</td>
       </tr>`;
     } else if (type === 'usage') {
       let cardStr = data.cards.find(c => c.id === t.card_id)?.card_number || t.card_id;
@@ -642,7 +648,7 @@ function histGotoPage(type, n) {
   let data = __flazzHist;
   let len = 0;
   if (type === 'topup') len = (data.topups||[]).length;
-  else if (type === 'tol') len = (data.tols||[]).length;
+  else if (type === 'tol') len = (data.tolHistory || data.tols || []).length;
   else if (type === 'bbm') len = (data.bbmFlazz||[]).length;
   else if (type === 'usage') len = (data.usages||[]).length;
   else if (type === 'recon') len = (data.recons||[]).length;
