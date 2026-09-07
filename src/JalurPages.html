@@ -6,6 +6,12 @@
       <h5 class='mb-0 text-primary fw-bold'><i class='bi bi-calendar-event me-2'></i>Form Jadwal</h5>
     </div>
     <div class='card-body'>
+      <div class='mb-3' id='jalur-buat-cabang-wrap' style='display:none;'>
+        <label class='form-label fw-bold text-muted small text-uppercase'>Pilih Warehouse</label>
+        <select id='jalur-filter-cabang' class='form-select' onchange='onJalurBuatCabangChange()'>
+          <option value=''>Semua Warehouse</option>
+        </select>
+      </div>
       <div class='mb-3'>
         <label class='form-label fw-bold text-muted small text-uppercase'>Tanggal Pengiriman</label>
         <input type='date' id='jalur-tanggal' class='form-control' required>
@@ -172,7 +178,9 @@
         </div>
         <div class='mb-3'>
           <label class='form-label text-muted small fw-bold'>Kartu Etoll</label>
-          <input type='text' id='jalur-edit-etoll' class='form-control' readonly placeholder='(auto dari driver)'>
+          <select id='jalur-edit-etoll' class='form-select' onchange="document.getElementById('jalur-edit-etoll-id').value = this.value">
+            <option value=''>Pilih Kartu Etoll...</option>
+          </select>
           <input type='hidden' id='jalur-edit-etoll-id'>
         </div>
         <button type='button' class='btn btn-primary w-100 rounded-4 fw-bold' onclick='jalurSaveEdit()'><i class='bi bi-check me-1'></i>Simpan</button>
