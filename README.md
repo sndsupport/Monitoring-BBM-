@@ -66,6 +66,7 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - **Fallback saldo awal bila opening rekonsiliasi 0:** jika record Rekonsiliasi tanggal tersebut punya `opening_balance` **0** (mis. rekonsiliasi tanggal laporan dikerjakan belakangan sehingga usage yang direkam tidak relevan), listing & cetak memakai rumus fallback `saldo_akhir + pengeluaran − topup` alih-alih menampilkan 0 yang menyesatkan.
 - **Rekonsiliasi backend merekonstruksi saldo awal:** saat menyimpan Rekonsiliasi (`saveFlazzRecon`), bila `opening_balance` dari `Flazz_Usage` bernilai 0/kosong, saldo awal direkonstruksi dari ledger (`saldo kini + pengeluaran periode − topup periode`) agar tersimpan nilai yang bermakna, bukan 0.
 - **Pencocokan tanggal aman zona waktu:** seluruh filter tanggal (BBM, Tol, Top Up, Rekonsiliasi) di listing/print membandingkan tanggal dalam zona waktu lokal, sehingga transaksi yang dicatat pada tanggal tertentu tidak hilang karena pergeseran UTC.
+- **Gate Rekonsiliasi (Laporan Valid):** Rekonsiliasi Flazz diblokir selama belum ada minimal **1 laporan FLAZZ yang valid** pada periode kartu — syaratnya foto **KM Awal & KM Akhir** terisi (untuk kendaraan berindikator Digital Bar juga mensyaratkan KM aktual > 0; untuk jarum cukup foto). Pengeluaran BBM/tol **boleh 0** dan laporan tetap valid selama foto KM ada. Gate diterapkan **backend + frontend**: form menampilkan status hijau/merah dan menonaktifkan tombol simpan bila syarat belum terpenuhi, dan server menolak rekonsiliasi meski dipaksa via API.
 
 ### Input KM & Laporan Cepat
 - Upload foto odometer awal dan akhir secara langsung di formulir Input Laporan.
@@ -86,7 +87,7 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - **Dua Driver per Kendaraan:** Mendukung penugasan hingga 2 driver sekaligus (Driver 1 & Driver 2 opsional) untuk jalur/pengiriman jarak jauh, terutama untuk gudang pusat.
 - **Buat Jadwal:** form multi-baris untuk mencatat jadwal pengiriman harian — tanggal, driver 1, driver 2, kendaraan, dan rute tujuan. Satu tanggal bisa menampung banyak baris/entri sekaligus.
 - **Busy state & reset otomatis:** tombol **"Simpan Jadwal"** menampilkan **"Memproses..."** (spinner + dinonaktifkan) saat menyimpan, mencegah double-submit; setelah simpan berhasil, **tanggal pengiriman otomatis di-reset ke hari ini** agar siap mengisi jadwal baru.
-- **Daftar Jadwal & Manajemen:** halaman khusus `Daftar Jadwal Pengiriman` (tanpa filter tanggal) yang meload seluruh data *history* jadwal. Mendukung fitur **Edit & Hapus** baris jadwal (soft-delete).
+- **Daftar Jadwal & Manajemen:** halaman khusus `Daftar Jadwal Pengiriman` (tanpa filter tanggal) yang meload seluruh data *history* jadwal. Mendukung fitur **Edit & Hapus** baris jadwal (**hard delete**: baris benar-benar dihapus dari sheet, bukan sekadar ditandai).
 - **Summary per Tanggal (Read-only):** halaman *Summary* bersih tanpa tombol aksi (cocok untuk dokumentasi/laporan screenshot), dilengkapi dengan format *header* rapi (Jalur Pengiriman, Tanggal Pengiriman, Dibuat oleh [Nama Admin]).
 - **Screenshot Praktis:** tombol *Screenshot* merender tabel *summary* menjadi pratinjau gambar (menggunakan *html2canvas* lokal) yang bisa **disalin (Ctrl+C)** dan ditempel (Ctrl+V) langsung ke WhatsApp tanpa harus mengunduh file secara manual.
 - **Reminder Dokumen Lengkap:** Mengintegrasikan 3 data jatuh tempo dokumen dari master Kendaraan: **Pajak Tahunan**, **Pajak 5 Tahunan**, dan **KIR** (khusus mobil). *Listing summary* akan memunculkan *badge* status (aman/waspada/kritis/lewat) untuk setiap kendaraan yang bertugas.
@@ -101,6 +102,10 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - Konfigurasi nama aplikasi, nama perusahaan, footer text.
 - Filter cabang di form input untuk Superadmin (pilih cabang tertentu atau semua).
 - Tema warna (Branding) kustom, seperti warna utama (primary color) hijau khas perusahaan.
+
+### Keamanan Sesi
+- **Auto Logout Idle:** Jika aplikasi tidak digunakan selama **5 menit**, sistem menampilkan modal peringatan dengan **countdown 60 detik**. Bila tanpa aktivitas sampai waktu habis, aplikasi **logout otomatis** dan kembali ke halaman login. Aktivitas apa pun (klik, ketik, scroll, sentuh, fokus) akan mereset timer; tombol **"Lanjutkan Sesi"** pada modal membatalkan logout. Timer hanya aktif saat sesi berjalan (tidak berlaku di halaman login).
+- **Sesi berbasis localStorage:** login tersimpan di `localStorage` (`bbm_user`) dengan masa berlaku maksimal 12 jam (`SESSION_MAX_AGE_MS`).
 
 ### Data Tersimpan di Google Sheets
 - Seluruh data operasional langsung terekam pada Google Sheets.
@@ -173,7 +178,7 @@ Setelah menjalankan `seedDummyData()`:
 | `FlazzOps.js` | CRUD kartu & transaksi Flazz (header-safe), soft-delete, dan logika rekonsiliasi penuh ke Google Sheets (termasuk rekonstruksi saldo awal dari ledger bila opening usage 0). |
 | `JalurOps.js` | CRUD jadwal pengiriman (header-safe) + helper perhitungan sisa hari pajak kendaraan. |
 | `Index.html` | Struktur UI utama (Bootstrap 5 + mobile-first), halaman Dashboard Umum, & navigasi. |
-| `js.html` | Logika interaksi sisi client (JavaScript), termasuk rendering Dashboard Umum & pre-fill formulir laporan. |
+| `js.html` | Logika interaksi sisi client (JavaScript), termasuk rendering Dashboard Umum, pre-fill formulir laporan, dan auto-logout idle 5 menit. |
 | `css.html` | Gaya desain custom (responsive, mobile-first). |
 | `Settings.html` | Halaman pengaturan aplikasi (logo, nama, perusahaan, footer). |
 | `FlazzPages.html` | Halaman UI modul Flazz (dashboard, kartu, top-up, rekonsiliasi, riwayat). |
