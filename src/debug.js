@@ -95,3 +95,26 @@ function sheetDiag(cardNumber) {
   }
   Logger.log('FLAZZ rows total=' + flazzRows + ' matchedCardTotal bbm=' + totalBbm + ' tol=' + totalTol);
 }
+
+function testReconGate() {
+  const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+  const cardSheet = ss.getSheetByName('Flazz_Card');
+  const cData = cardSheet.getDataRange().getValues();
+  const cHeaders = cData[0];
+  const cId = cHeaders.indexOf('id');
+  if (cId < 0) { Logger.log('NO card id col'); return; }
+  const sampleCard = String(cData[1][cId]);
+  Logger.log('testReconGate card=' + sampleCard + ' result=' + JSON.stringify(checkReconGate(sampleCard)));
+  const usageSheet = ss.getSheetByName('Flazz_Usage');
+  if (usageSheet) {
+    const uData = usageSheet.getDataRange().getValues();
+    const uHeaders = uData[0];
+    const uCard = uHeaders.indexOf('card_id');
+    const uStatus = uHeaders.indexOf('status');
+    let found = false;
+    for (let i = 1; i < uData.length; i++) {
+      if (String(uData[i][uCard]) === sampleCard && uData[i][uStatus] === 'DIBERIKAN') { found = true; break; }
+    }
+    Logger.log('testReconGate hasActiveUsage=' + found);
+  }
+}

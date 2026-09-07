@@ -211,6 +211,7 @@ function apiSaveFlazzCard(payload, userInfo) { return saveFlazzCard(payload, use
 function apiSaveFlazzTopUp(payload) { return saveFlazzTopUp(payload); }
 function apiSaveFlazzTol(payload) { return saveFlazzTol(payload); }
 function apiSaveFlazzRecon(payload) { return saveFlazzRecon(payload); }
+function apiCheckReconGate(cardId) { return checkReconGate(cardId); }
 function apiSaveFlazzUsage(payload) { return saveFlazzUsage(payload); }
 
 function apiGetFlazzDashboardData(userInfo) { return getFlazzDashboardData(userInfo.role, userInfo.cabang); }

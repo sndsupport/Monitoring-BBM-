@@ -534,6 +534,99 @@ function computeFlazzLedger(cardId, ss, sinceTime) {
   return result;
 }
 
+// Gate rekonsiliasi: wajib minimal 1 laporan FLAZZ valid (foto KM awal+akhir terisi;
+// utk tipe Bar juga KM aktual >0) pada periode kartu (timestamp > sinceDate).
+// sinceDate null → semua baris dianggap dalam periode (konsisten dengan ledger).
+function hasCompliantFlazzLaporan(cardId, sinceDate, ss) {
+  if (!ss) ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+  const since = sinceDate ? new Date(sinceDate).getTime() : null;
+
+  const kendSheet = ss.getSheetByName('Kendaraan');
+  const jenisMap = {};
+  if (kendSheet) {
+    const kd = kendSheet.getDataRange().getValues();
+    const kHeaders = kd[0];
+    const kVeh = kHeaders.indexOf('vehicle_id');
+    const kJenis = kHeaders.indexOf('jenis_indikator');
+    for (let i = 1; i < kd.length; i++) {
+      if (kVeh > -1) jenisMap[String(kd[i][kVeh])] = (kJenis > -1 && kd[i][kJenis]) ? String(kd[i][kJenis]) : 'DIGITAL_BAR';
+    }
+  }
+
+  const bbmSheet = ss.getSheetByName('Penggunaan_BBM');
+  if (!bbmSheet) return false;
+  const data = bbmSheet.getDataRange().getValues();
+  const h = data[0];
+  const cMetode = h.indexOf('metode_pembayaran');
+  const cCard = h.indexOf('flazz_card_id');
+  const cStamp = h.indexOf('timestamp');
+  const fallbackStamp = h.indexOf('tanggal');
+  const cVeh = h.indexOf('vehicle_id');
+  const cFotoAwal = h.indexOf('foto_km_awal');
+  const cFotoAkhir = h.indexOf('foto_km_akhir');
+  const cKmAwal = h.indexOf('km_awal_confirmed');
+  const cKmAkhir = h.indexOf('km_akhir_confirmed');
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (cMetode > -1 && row[cMetode] !== 'FLAZZ') continue;
+    if (cCard > -1 && String(row[cCard]) !== String(cardId)) continue;
+    if (since !== null) {
+      const stampIdx = cStamp > -1 ? cStamp : fallbackStamp;
+      const raw = (stampIdx > -1) ? row[stampIdx] : null;
+      const dt = (raw instanceof Date) ? raw : new Date(raw);
+      if (raw === null || isNaN(dt.getTime())) continue;
+      if (dt.getTime() <= since) continue;
+    }
+
+    const photoAwal = cFotoAwal > -1 ? String(row[cFotoAwal] || '').trim() : '';
+    const photoAkhir = cFotoAkhir > -1 ? String(row[cFotoAkhir] || '').trim() : '';
+    if (photoAwal === '' || photoAkhir === '') continue;
+
+    const type = (cVeh > -1) ? (jenisMap[String(row[cVeh])] || 'DIGITAL_BAR') : 'DIGITAL_BAR';
+    if (type === 'ANALOG_JARUM') return true;
+
+    const kmAwal = cKmAwal > -1 ? (parseFloat(row[cKmAwal]) || 0) : 0;
+    const kmAkhir = cKmAkhir > -1 ? (parseFloat(row[cKmAkhir]) || 0) : 0;
+    if (kmAwal > 0 && kmAkhir > 0) return true;
+  }
+  return false;
+}
+
+// Endpoint untuk frontend: apa kartu boleh direkonsiliasi?
+function checkReconGate(cardId) {
+  try {
+    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const usageSheet = ss.getSheetByName('Flazz_Usage');
+    let sinceDate = null;
+    if (usageSheet) {
+      const uData = usageSheet.getDataRange().getValues();
+      const uHeaders = uData[0];
+      const uCard = uHeaders.indexOf('card_id');
+      const uStatus = uHeaders.indexOf('status');
+      const uUsed = uHeaders.indexOf('used_at');
+      const uDate = uHeaders.indexOf('date');
+      // Loop ke bawah → menyimpan usage DIBERIKAN terakhir (pola sama dengan saveFlazzRecon)
+      for (let i = 1; i < uData.length; i++) {
+        if (String(uData[i][uCard]) === String(cardId) && uData[i][uStatus] === 'DIBERIKAN') {
+          const raw = (uUsed > -1 && uData[i][uUsed]) || uData[i][uDate];
+          const dt = new Date(raw);
+          if (!isNaN(dt.getTime())) sinceDate = dt;
+        }
+      }
+    }
+    const eligible = hasCompliantFlazzLaporan(cardId, sinceDate, ss);
+    return {
+      eligible: eligible,
+      reason: eligible
+        ? 'Laporan valid dengan foto KM awal & akhir terdeteksi.'
+        : 'Belum ada laporan valid dengan foto KM awal & akhir pada periode kartu ini.'
+    };
+  } catch (e) {
+    return { eligible: false, reason: 'Gagal memeriksa gate: ' + e.toString() };
+  }
+}
+
 // Rekonsiliasi Flazz (Return & Closing)
 function saveFlazzRecon(payload) {
   try {
