@@ -360,6 +360,7 @@
 
         allVehicles = data.vehicles || [];
         allDrivers = data.drivers || [];
+        if (data.cabangList) window.masterData.cabang = data.cabangList;
         if (data.bbmList) window.masterData.bbm = data.bbmList;
         if (data.flazzCards) window.masterData.flazzCards = data.flazzCards;
         populateSupirDatalist();
@@ -463,6 +464,26 @@
     if (!wrap) return;
     wrap.style.display = 'none';
     wrap.dataset.key = '';
+  }
+
+  // ===== Infrastruktur filter SUPERADMIN =====
+  // Token request-id per area agar respons lama tidak menimpa yang baru (race-condition).
+  var __flazzRequestId = 0;
+  var __jalurRequestId = 0;
+  var __masterRequestId = 0;
+
+  // Isi <select> warehouse dari masterData.cabang (getCabangList), tanpa hardcode.
+  function fillCabangSelect(sel) {
+    if (!sel) return;
+    var cur = sel.value;
+    sel.innerHTML = '<option value="">Semua Warehouse</option>';
+    ((window.masterData && window.masterData.cabang) || []).forEach(function(c) {
+      var o = document.createElement('option');
+      o.value = c.kode;
+      o.text = c.nama;
+      sel.appendChild(o);
+    });
+    if (cur) sel.value = cur;
   }
 
   function switchTab(tab) {
