@@ -85,11 +85,8 @@
     }).doLogin(un, pw);
   }
 
-  var IDLE_TIMEOUT_MS = 5 * 60 * 1000;
-  var IDLE_COUNTDOWN_MS = 60 * 1000;
+  var IDLE_TIMEOUT_MS = 2 * 60 * 1000;
   var idleTimeoutId = null;
-  var idleCountdownId = null;
-  var idleCountdownLeft = 0;
   var idleLastReset = 0;
   var idleListenersAttached = false;
 
@@ -103,8 +100,6 @@
 
   function cancelIdleTimers() {
     if (idleTimeoutId) { clearTimeout(idleTimeoutId); idleTimeoutId = null; }
-    if (idleCountdownId) { clearInterval(idleCountdownId); idleCountdownId = null; }
-    idleCountdownLeft = 0;
     var modalEl = document.getElementById('modal-idle-warning');
     if (modalEl) {
       var modal = bootstrap.Modal.getInstance(modalEl);
@@ -119,25 +114,7 @@
     if (now - idleLastReset < 1000) return;
     idleLastReset = now;
     cancelIdleTimers();
-    idleTimeoutId = setTimeout(showIdleWarning, IDLE_TIMEOUT_MS);
-  }
-
-  function showIdleWarning() {
-    if (idleCountdownId) return;
-    var modalEl = document.getElementById('modal-idle-warning');
-    if (!modalEl) return;
-    idleCountdownLeft = Math.round(IDLE_COUNTDOWN_MS / 1000);
-    var txt = document.getElementById('idle-countdown-text');
-    if (txt) txt.textContent = idleCountdownLeft;
-    new bootstrap.Modal(modalEl, { backdrop: 'static' }).show();
-    idleCountdownId = setInterval(function() {
-      idleCountdownLeft = idleCountdownLeft - 1;
-      if (txt) txt.textContent = idleCountdownLeft;
-      if (idleCountdownLeft <= 0) {
-        cancelIdleTimers();
-        logout();
-      }
-    }, 1000);
+    idleTimeoutId = setTimeout(logout, IDLE_TIMEOUT_MS);
   }
 
   function idleExtendSession() {
