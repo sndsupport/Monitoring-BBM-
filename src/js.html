@@ -739,6 +739,12 @@
   }
 
   async function processDailyReport() {
+    if (window.__bbmSubmitting) {
+      showToast('Laporan sedang diproses, harap tunggu...', 'warning');
+      return;
+    }
+    window.__bbmSubmitting = true;
+
     let odoAwal = document.getElementById('foto_odo_awal').files[0];
     let odoAkhir = document.getElementById('foto_odo_akhir').files[0];
     let fotoIndikator = document.getElementById('foto_indikator') ? document.getElementById('foto_indikator').files[0] : null;
@@ -776,6 +782,7 @@
     }, 120000);
     function finalizeSaving() {
       saveTokens.done = true;
+      window.__bbmSubmitting = false;
       clearTimeout(wdTimer1);
       clearTimeout(wdTimer2);
     }
@@ -818,6 +825,7 @@
           if (!confirm('KM tidak terbaca dan estimasi tidak tersedia (Standar KM/L belum diisi, atau tidak ada penurunan level BBM / liter). Simpan laporan tanpa KM?')) {
             btn.disabled = false;
             btn.innerHTML = originalText;
+            window.__bbmSubmitting = false;
             return;
           }
           kmTanpaEstimasi = true;

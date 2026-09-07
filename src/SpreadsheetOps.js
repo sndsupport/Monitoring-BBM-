@@ -180,6 +180,11 @@ function saveTransactionEndOfDay(payload) {
     payload.keterangan || '',
     km_sumber
   ];
+
+  if (isDuplicateTransaction(sheet, payload, row)) {
+    return { success: false, error: 'Laporan sudah pernah disimpan. Untuk menghindari data ganda, tidak disimpan ulang. Silakan cek Riwayat Transaksi.' };
+  }
+
   sheet.appendRow(row);
 
   // Jika menggunakan Flazz, potong saldo (BBM + tol) dan catat penyerahan otomatis bila perlu
@@ -207,6 +212,49 @@ function saveTransactionEndOfDay(payload) {
   }
 
   return { success: true };
+}
+
+// Deteksi laporan ganda (double submit) pada sheet Penggunaan_BBM.
+// Membandingkan pasangan kunci (vehicle_id, tanggal, km_awal, km_akhir, liter, biaya_bbm, biaya_toll)
+// dengan baris terakhir untuk tanggal yang sama. Jika cocok semua, anggap sebagai duplikat.
+function isDuplicateTransaction(sheet, payload, row) {
+  try {
+    const tanggalQ = String(payload.tanggal);
+    const vehicleQ = String(payload.vehicle_id);
+    const kmAwalQ = String(payload.km_awal_confirmed || payload.km_awal_val || payload.serverData.km_awal || row[10]);
+    const kmAkhirQ = String(payload.km_akhir_confirmed || payload.km_akhir_val || payload.serverData.km_akhir || row[14]);
+    const literQ = String(parseFloat(payload.liter_bbm) || 0);
+    const bbmQ = String(parseFloat(payload.biaya_bbm) || 0);
+    const tolQ = String(parseFloat(payload.biaya_toll) || 0);
+
+    const data = sheet.getDataRange().getValues();
+    if (data.length < 2) return false;
+    const headers = data[0];
+    const idxVehicle = headers.indexOf('vehicle_id');
+    const idxTanggal = headers.indexOf('tanggal');
+    const idxKmAwal = headers.indexOf('km_awal');
+    const idxKmAkhir = headers.indexOf('km_akhir');
+    const idxLiter = headers.indexOf('liter');
+    const idxBbm = headers.indexOf('biaya_bbm');
+    const idxTol = headers.indexOf('biaya_toll');
+
+    for (let i = data.length - 1; i >= 1; i--) {
+      if (String(data[i][idxVehicle]) === vehicleQ && String(data[i][idxTanggal]) === tanggalQ) {
+        const sameKmAwal = (idxKmAwal >= 0) ? String(data[i][idxKmAwal]) === kmAwalQ : false;
+        const sameKmAkhir = (idxKmAkhir >= 0) ? String(data[i][idxKmAkhir]) === kmAkhirQ : false;
+        const sameLiter = (idxLiter >= 0) ? String(data[i][idxLiter]) === literQ : false;
+        const sameBbm = (idxBbm >= 0) ? String(data[i][idxBbm]) === bbmQ : false;
+        const sameTol = (idxTol >= 0) ? String(data[i][idxTol]) === tolQ : false;
+        if (sameKmAwal && sameKmAkhir && sameLiter && sameBbm && sameTol) {
+          return true;
+        }
+      }
+    }
+    return false;
+  } catch (e) {
+    Logger.log('isDuplicateTransaction error: ' + e.toString());
+    return false;
+  }
 }
 
 // Buat catatan penyerahan kartu (Flazz_Usage) otomatis bila kartu belum punya status DIBERIKAN.
