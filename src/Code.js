@@ -6,6 +6,40 @@ function doGet(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+function doPost(e) {
+  try {
+    var body = JSON.parse(e.postData.contents || '{}');
+    var action = body.action;
+    if (action === 'backup') {
+      var user = requireUser(body.token);
+      if (user.role !== 'SUPERADMIN') {
+        return jsonResponse({ success: false, msg: 'Akses ditolak: hanya SUPERADMIN.' });
+      }
+      var res = runDailyBackup();
+      var out = { success: res.kode !== 'ramje', kode: res.kode };
+      if (res.spreadsheetCopyId) out.spreadsheetCopyId = res.spreadsheetCopyId;
+      if (res.backupFolderUrl) out.backupFolderUrl = res.backupFolderUrl;
+      if (res.msg) out.msg = res.msg;
+      try { logAudit(user, 'BACKUP', 'backup', 'Backup manual dijalankan: ' + (res.spreadsheetCopyId || 'gagal')); } catch (e1) { /* audit opsional */ }
+      return jsonResponse(out);
+    }
+    if (action === 'diagnose_backup') {
+      var user2 = requireUser(body.token);
+      if (user2.role !== 'SUPERADMIN') {
+        return jsonResponse({ success: false, msg: 'Akses ditolak: hanya SUPERADMIN.' });
+      }
+      return jsonResponse(diagnoseBackup());
+    }
+    return jsonResponse({ success: false, msg: 'Action tidak dikenal: ' + action });
+  } catch (e) {
+    return jsonResponse({ success: false, msg: e.toString() });
+  }
+}
+
+function jsonResponse(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }

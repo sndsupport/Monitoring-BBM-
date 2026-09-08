@@ -182,6 +182,7 @@ Akun SUPERADMIN dibuat terpisah lewat `createSuperadmin()` (bukan dari seed). Ak
 | File | Deskripsi |
 |------|-----------|
 | `Code.js` | Backend utama, hubungkan UI dengan fungsi database; wrapper API, deteksi level BBM (Gemini), dan pre-fill formulir (`getLastLaporanPrefill`). |
+| `BackupOperations.js` | Backup harian otomatis: `runDailyBackup()` (salinan spreadsheet 4 sheet data: `SESSION`, `PENGENDARA`, `Supir`, `Flazz_Card`), `performBackup` (pure), `pruneBackups`, `diagnoseBackup`, dan `setupBackupTrigger`. |
 | `DatabaseSetup.js` | Inisialisasi tabel & struktur Google Sheets + migrasi kolom idempotent. |
 | `SpreadsheetOps.js` | CRUD ke Google Sheets. |
 | `DriveOps.js` | Penyimpanan foto ke Google Drive. |
@@ -196,6 +197,36 @@ Akun SUPERADMIN dibuat terpisah lewat `createSuperadmin()` (bukan dari seed). Ak
 | `JalurPages.html` | Halaman UI modul Jalur Pengiriman (buat jadwal & summary per tanggal). |
 | `JalurScript.html` | Logika interaksi sisi client untuk modul Jalur Pengiriman (render jadwal, screenshot, share WA). |
 | `Html2canvasLib.html` | Library html2canvas lokal (di-embed client-side) untuk pratinjau screenshot summary agar bisa disalin ke WhatsApp. |
+
+## Backup & Pemulihan
+
+Backup harian otomatis menyalin **4 sheet data utama** (`SESSION`, `PENGENDARA`, `Supir`, `Flazz_Card`) ke spreadsheet baru bernama `Monitoring_BBM_backup_<YYYY-MM-DD>` di dalam folder **`BBM_BACKUP`** (dibuat PRIVATE), lalu memangkas (prune) hanya menyimpan 14 backup terakhir. Hasil backup di-cache dengan prefix `backup:` (TTL 300 detik).
+
+### 1. Menyalakan Backup Otomatis (Manual dari Editor)
+Fungsi `setupBackupTrigger()` **tidak dijalankan otomatis**. Untuk mengaktifkan, jalankan manual sekali dari editor Apps Script:
+- Buka **`BackupOperations.js`** di Editor Apps Script.
+- Pilih fungsi **`setupBackupTrigger`** pada dropdown di atas editor, lalu tekan **Run**.
+- Fungsi akan membuat trigger berbasis waktu harian pukul **02:00 Asia/Jakarta** yang memanggil `runDailyBackup`. Jika trigger sudah ada, tidak dibuat duplikat.
+
+> Alternatif: backup bisa juga dipicu manual kapan saja lewat `runDailyBackup()` di editor, atau lewat route **POST `/doPost`** dengan action `backup` (khusus SUPERADMIN, memakai token sesi) yang mengembalikan `kode: 'ok' | 'ramje' | 'copies'`. Route `diagnose_backup` menampilkan info backup terakhir.
+
+### 2. RPO (Recovery Point Objective)
+Maksimal **24 jam** — data yang hilang tidak dapat dipulihkan melebihi rentang backup harian terakhir.
+
+### 3. Langkah Restore
+1. Buka folder **`BBM_BACKUP`** di Google Drive, lalu pilih salinan spreadsheet dengan tanggal yang diinginkan (`Monitoring_BBM_backup_<tanggal>`).
+2. Buka salinan tersebut dan **copy Spreadsheet ID** dari URL.
+3. Jalankan fungsi **`configureSpreadsheet(ID_BARU)`** di editor Apps Script (lihat `Config.gs`) untuk mengarahkan aplikasi ke salinan backup.
+4. **Uji login** dengan akun yang sudah ada untuk memastikan data terbaca benar.
+5. Arahkan kembali deploy / spreadsheet produksi sesuai kebutuhan.
+
+### 4. Catatan Keamanan
+- Folder **`BBM_BACKUP`** dibuat dengan akses **PRIVATE**; jangan pernah membagikannya publik.
+- Keempat sheet backup bersifat independen dari sheet operasional lain (`Penggunaan_BBM`, `Jalur_Pengiriman`, dsb.) — hanya 4 sheet data inti yang disalin.
+
+### Keterbatasan Diketahui (Known Limitation)
+- Sheet `SESSION` menyimpan data **semua cabang**, tetapi ringkasan & backup saat ini beroperasi pada level **satu cabang bawaan** (built-in cabang). Artinya `SESSION` berisi data lintas cabang namun ringkasan/backup hanya mencakup cabang bawaan tersebut.
+- **P2 akan bercabang per cabang** (per-branch) — pencatatan dan backup dipisahkan per cabang karena aplikasi ini menghasilkan satu spreadsheet untuk menampung 12 cabang × 2 user. Hingga saat ini, data lintas cabang tetap tersimpan di `SESSION`, dan backup menyertakan seluruh isi sheet tersebut.
 
 ## Konfigurasi Tambahan
 
