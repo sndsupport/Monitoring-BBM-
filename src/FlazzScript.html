@@ -17,6 +17,35 @@ function escUrl(v) {
   if (/^https:\/\//.test(s)) return s;
   return '';
 }
+function compressImageFile(file, maxDim, quality, cb) {
+  if (!file || !/^image\/(jpeg|png|webp)$/i.test(file.type)) { cb(file ? file : null); return; }
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    var img = new Image();
+    img.onload = function() {
+      var scale = 1;
+      if (img.width > maxDim || img.height > maxDim) {
+        scale = Math.min(maxDim / img.width, maxDim / img.height);
+      }
+      var canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      try {
+        var type = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+        var dataUrl = canvas.toDataURL(type, quality);
+        cb({ dataUrl: dataUrl, name: file.name, size: dataUrl.length });
+      } catch (err) {
+        cb(null);
+      }
+    };
+    img.onerror = function() { cb(null); };
+    img.src = ev.target.result;
+  };
+  reader.onerror = function() { cb(null); };
+  reader.readAsDataURL(file);
+}
 function openPrintWindowFor(html) {
   var f = document.createElement('iframe');
   f.style.position = 'fixed';
@@ -543,13 +572,25 @@ function saveFlazzReconForm(e) {
 
   let proceed = function() {
     if (file) {
-      let reader = new FileReader();
-      reader.onload = function(event) {
-         payload.foto_bukti = event.target.result;
-         payload.foto_bukti_name = file.name;
-         submitRecon();
-      };
-      reader.readAsDataURL(file);
+      compressImageFile(file, 1280, 0.7, function(c) {
+        if (c && c.dataUrl) {
+          payload.foto_bukti = c.dataUrl;
+          payload.foto_bukti_name = c.name;
+          submitRecon();
+        } else if (c) {
+          // file bukan gambar: upload asli via base64
+          let reader = new FileReader();
+          reader.onload = function(event) {
+            payload.foto_bukti = event.target.result;
+            payload.foto_bukti_name = c.name;
+            submitRecon();
+          };
+          reader.onerror = function() { submitRecon(); };
+          reader.readAsDataURL(c);
+        } else {
+          submitRecon();
+        }
+      });
     } else {
       submitRecon();
     }

@@ -7,6 +7,8 @@
   let allDrivers = [];
 
   var SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+  var __dashCache = null;
+  var __perfCache = null;
   function bbmToken() {
     return localStorage.getItem('bbm_token') || '';
   }
@@ -810,6 +812,52 @@
     });
   }
 
+  function compressImageFile(file, maxDim, quality, cb) {
+    if (!file || !/^image\/(jpeg|png|webp)$/i.test(file.type)) { cb(file ? file : null); return; }
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      var img = new Image();
+      img.onload = function() {
+        var scale = 1;
+        if (img.width > maxDim || img.height > maxDim) {
+          scale = Math.min(maxDim / img.width, maxDim / img.height);
+        }
+        var canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        try {
+          var type = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+          var dataUrl = canvas.toDataURL(type, quality);
+          cb({ dataUrl: dataUrl, name: file.name, size: dataUrl.length });
+        } catch (err) {
+          cb(null);
+        }
+      };
+      img.onerror = function() { cb(null); };
+      img.src = ev.target.result;
+    };
+    reader.onerror = function() { cb(null); };
+    reader.readAsDataURL(file);
+  }
+
+  function compressPhoto(file) {
+    return new Promise(function(resolve) {
+      if (!file) { resolve(null); return; }
+      compressImageFile(file, 1280, 0.7, function(c) {
+        if (c && c.dataUrl) { resolve(c); return; }
+        if (c) {
+          getBase64(c).then(function(dataUrl) {
+            resolve({ dataUrl: dataUrl, name: c.name });
+          }).catch(function() { resolve(null); });
+          return;
+        }
+        resolve(null);
+      });
+    });
+  }
+
   async function processDailyReport() {
     if (window.__bbmSubmitting) {
       showToast('Laporan sedang diproses, harap tunggu...', 'warning');
@@ -904,6 +952,10 @@
         }
       }
 
+      var odoAwalC = await compressPhoto(odoAwal);
+      var odoAkhirC = await compressPhoto(odoAkhir);
+      var fotoIndC = await compressPhoto(fotoIndikator);
+
       formDataPayload = {
         vehicle_id: document.getElementById('vehicle').value,
         nama_supir: document.getElementById('nama_supir').value,
@@ -918,12 +970,12 @@
         jenis_bbm_nama: bbmNama,
         metode_pembayaran: metode_pembayaran,
         flazz_card_id: flazz_card_id,
-        foto_odo_awal: await getBase64(odoAwal),
-        foto_odo_awal_name: odoAwal.name,
-        foto_odo_akhir: await getBase64(odoAkhir),
-        foto_odo_akhir_name: odoAkhir.name,
-        foto_indikator: fotoIndikator ? await getBase64(fotoIndikator) : null,
-        foto_indikator_name: fotoIndikator ? fotoIndikator.name : null,
+        foto_odo_awal: odoAwalC ? odoAwalC.dataUrl : null,
+        foto_odo_awal_name: odoAwalC ? odoAwalC.name : (odoAwal ? odoAwal.name : null),
+        foto_odo_akhir: odoAkhirC ? odoAkhirC.dataUrl : null,
+        foto_odo_akhir_name: odoAkhirC ? odoAkhirC.name : (odoAkhir ? odoAkhir.name : null),
+        foto_indikator: fotoIndC ? fotoIndC.dataUrl : null,
+        foto_indikator_name: fotoIndC ? fotoIndC.name : (fotoIndikator ? fotoIndikator.name : null),
         level_bbm: document.getElementById('level_bbm') ? document.getElementById('level_bbm').value : '',
         confidence_bbm: document.getElementById('confidence_bbm') ? document.getElementById('confidence_bbm').value : '',
         keterangan: document.getElementById('keterangan') ? document.getElementById('keterangan').value : '',
@@ -956,6 +1008,8 @@
                     finalizeSaving();
                     if (saveRes.success) {
                       showToast('Data Harian berhasil disimpan!', 'success');
+                      window.__dashForce = true;
+                      window.__perfForce = true;
                       if (saveRes.newOdo) {
                         updateMasterOdometer(formDataPayload.plat_nomor, saveRes.newOdo);
                       }
@@ -1020,10 +1074,20 @@
 
     if (typeof populatePerformaFilter === 'function') populatePerformaFilter();
 
+    if (__perfCache && !window.__perfForce) {
+      loadingState.style.display = 'none';
+      __performaData = __perfCache || [];
+      window.__perfForce = false;
+      renderPerforma();
+      return;
+    }
+
     google.script.run
       .withSuccessHandler(function(data) {
         loadingState.style.display = 'none';
-        __performaData = data || [];
+        __perfCache = data || [];
+        window.__perfForce = false;
+        __performaData = __perfCache;
         renderPerforma();
       })
       .withFailureHandler(function(err) {
@@ -1137,39 +1201,51 @@
     box.querySelector('.row').innerHTML = html;
   }
 
+  function renderDashGallery(res) {
+    let galleryEl = document.getElementById('dash-gallery-content');
+    let allData = (res && res.transactions) ? res.transactions : [];
+    window.__dashData = allData;
+    let items = allData.filter(r => r.foto_odo_awal || r.foto_odo_akhir || r.foto_struk_bbm || r.foto_struk_toll || r.foto_indikator);
+    items = items.slice(0, 6);
+    let html = '';
+    if (items.length === 0) {
+      html = "<div class='col-12 text-center text-muted py-4'>Belum ada foto operasional.</div>";
+    } else {
+      items.forEach(row => {
+        let imgHtml = '';
+        if (row.foto_odo_awal) imgHtml = "<img src='" + escUrl(row.foto_odo_awal_thumb || row.foto_odo_awal) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
+        else if (row.foto_odo_akhir) imgHtml = "<img src='" + escUrl(row.foto_odo_akhir_thumb || row.foto_odo_akhir) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
+        else if (row.foto_struk_bbm) imgHtml = "<img src='" + escUrl(row.foto_struk_bbm_thumb || row.foto_struk_bbm) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
+        else if (row.foto_struk_toll) imgHtml = "<img src='" + escUrl(row.foto_struk_toll_thumb || row.foto_struk_toll) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
+        else if (row.foto_indikator) imgHtml = "<img src='" + escUrl(row.foto_indikator_thumb || row.foto_indikator) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
+        let link = row.foto_odo_awal || row.foto_odo_akhir || row.foto_struk_bbm || row.foto_struk_toll || row.foto_indikator;
+        html += "<div class='col-6 col-md-2'>" +
+          "<a href='" + escUrl(link) + "' target='_blank' class='text-decoration-none'>" +
+            "<div class='card border-0 shadow-sm h-100'>" +
+              imgHtml +
+              "<div class='card-body py-1 px-2 small text-truncate'>" + escapeAttr(row.tanggal) + "</div>" +
+            "</div>" +
+          "</a>" +
+        "</div>";
+      });
+    }
+    galleryEl.innerHTML = html;
+  }
+
   function loadDashboardGallery() {
     let galleryEl = document.getElementById('dash-gallery-content');
     if (!galleryEl) return;
+    if (__dashCache && !window.__dashForce) {
+      renderDashGallery(__dashCache);
+      window.__dashForce = false;
+      return;
+    }
     galleryEl.innerHTML = "<div class='col-12 text-center text-muted py-4'>Memuat galeri...</div>";
     google.script.run
       .withSuccessHandler(function(res) {
-        const allData = (res && res.transactions) ? res.transactions : [];
-        window.__dashData = allData;
-        let items = allData.filter(r => r.foto_odo_awal || r.foto_odo_akhir || r.foto_struk_bbm || r.foto_struk_toll || r.foto_indikator);
-        items = items.slice(0, 6);
-        let html = '';
-        if (items.length === 0) {
-          html = "<div class='col-12 text-center text-muted py-4'>Belum ada foto operasional.</div>";
-        } else {
-          items.forEach(row => {
-            let imgHtml = '';
-            if (row.foto_odo_awal) imgHtml = "<img src='" + escUrl(row.foto_odo_awal_thumb || row.foto_odo_awal) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
-            else if (row.foto_odo_akhir) imgHtml = "<img src='" + escUrl(row.foto_odo_akhir_thumb || row.foto_odo_akhir) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
-            else if (row.foto_struk_bbm) imgHtml = "<img src='" + escUrl(row.foto_struk_bbm_thumb || row.foto_struk_bbm) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
-            else if (row.foto_struk_toll) imgHtml = "<img src='" + escUrl(row.foto_struk_toll_thumb || row.foto_struk_toll) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
-            else if (row.foto_indikator) imgHtml = "<img src='" + escUrl(row.foto_indikator_thumb || row.foto_indikator) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
-            let link = row.foto_odo_awal || row.foto_odo_akhir || row.foto_struk_bbm || row.foto_struk_toll || row.foto_indikator;
-            html += "<div class='col-6 col-md-2'>" +
-              "<a href='" + escUrl(link) + "' target='_blank' class='text-decoration-none'>" +
-                "<div class='card border-0 shadow-sm h-100'>" +
-                  imgHtml +
-                  "<div class='card-body py-1 px-2 small text-truncate'>" + escapeAttr(row.tanggal) + "</div>" +
-                "</div>" +
-              "</a>" +
-            "</div>";
-          });
-        }
-        galleryEl.innerHTML = html;
+        __dashCache = res;
+        window.__dashForce = false;
+        renderDashGallery(res);
       })
       .withFailureHandler(function(err) {
         galleryEl.innerHTML = "<div class='col-12 text-center text-muted py-4'>Gagal memuat galeri.</div>";
@@ -1203,24 +1279,35 @@
     if(galleryContent) galleryContent.innerHTML = '';
     if(galleryEmpty) galleryEmpty.style.display = 'none';
     if(galleryLoading) galleryLoading.style.display = 'block';
-    
+
+    function applyDash(allData, res) {
+      loadingState.style.display = 'none';
+      if(galleryLoading) galleryLoading.style.display = 'none';
+      let data = allData.filter(function(row) {
+        if (filterCabang && row.cabang !== filterCabang) return false;
+        if (filterSupir && row.supir !== filterSupir) return false;
+        if (startTimestamp && row.timestamp < startTimestamp) return false;
+        if (endTimestamp && row.timestamp > endTimestamp) return false;
+        return true;
+      });
+      window.__recent = data;
+      window.__dashData = data;
+      window.__dashPage = 1;
+      renderMonthlySummary((res && res.monthly) || []);
+      renderDashboardData();
+    }
+
+    if (__dashCache && !window.__dashForce) {
+      applyDash((__dashCache && __dashCache.transactions) || [], __dashCache);
+      window.__dashForce = false;
+      return;
+    }
+
     google.script.run
       .withSuccessHandler(function(res) {
-        loadingState.style.display = 'none';
-        if(galleryLoading) galleryLoading.style.display = 'none';
-        const allData = (res && res.transactions) ? res.transactions : [];
-        let data = allData.filter(function(row) {
-          if (filterCabang && row.cabang !== filterCabang) return false;
-          if (filterSupir && row.supir !== filterSupir) return false;
-          if (startTimestamp && row.timestamp < startTimestamp) return false;
-          if (endTimestamp && row.timestamp > endTimestamp) return false;
-          return true;
-        });
-        window.__recent = data;
-        window.__dashData = data;
-        window.__dashPage = 1;
-        renderMonthlySummary((res && res.monthly) || []);
-        renderDashboardData();
+        __dashCache = res;
+        window.__dashForce = false;
+        applyDash((res && res.transactions) ? res.transactions : [], res);
       })
       .withFailureHandler(function(err) {
         loadingState.style.display = 'none';
@@ -1601,6 +1688,8 @@
          showToast(res.msg, 'success'); 
          bootstrap.Modal.getInstance(document.getElementById('modal-edit-daily')).hide(); 
          if (typeof flazzDataCache !== 'undefined') flazzDataCache = null; // Flush cache
+         window.__dashForce = true;
+         window.__perfForce = true;
          loadDashboard();
          if (typeof loadFlazzDataWrapper === 'function') loadFlazzDataWrapper(true);
       }
@@ -1613,6 +1702,8 @@
       if(res.success){ 
          showToast(res.msg, 'success'); 
          if (typeof flazzDataCache !== 'undefined') flazzDataCache = null; // Flush cache
+         window.__dashForce = true;
+         window.__perfForce = true;
          loadDashboard();
          if (typeof loadFlazzDataWrapper === 'function') loadFlazzDataWrapper(true);
       }
