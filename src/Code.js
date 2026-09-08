@@ -2,15 +2,45 @@ function doGet(e) {
   return HtmlService.createTemplateFromFile('Index')
     .evaluate()
     .setTitle('Laporan BBM & Operasional Harian')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
+// ==========================================
+// AUTH
+// ==========================================
+
 function doLogin(username, password) {
-  return authenticateUser(username, password);
+  var runaway = checkRate('login:' + String(username).toLowerCase(), 5, 5 * 60 * 1000);
+  if (!runaway.allowed) {
+    return { success: false, msg: 'Terlalu banyak percobaan login. Tunggu ' + runaway.retryAfterSec + ' detik.' };
+  }
+  var res = authenticateUser(username, password);
+  if (!res.success) return res;
+  resetRate('login:' + String(username).toLowerCase());
+  var token = createSession(res);
+  Logger.log('LOGIN OK: ' + res.username + ' (' + res.role + ') cabang=' + res.cabang);
+  return {
+    success: true,
+    token: token,
+    user: {
+      user_id: res.user_id,
+      username: res.username,
+      nama: res.nama,
+      role: res.role,
+      cabang: res.cabang,
+      must_change: !!res.must_change
+    }
+  };
+}
+
+function doLogout(token) {
+  destroySession(token);
+  return { success: true };
 }
 
 function safeList(fn) {
@@ -48,36 +78,34 @@ function cleanSerializable(obj) {
   }
 }
 
-function processInitialData(userInfo) {
-  if (!userInfo || !userInfo.username) {
-    return { error: 'Not logged in' };
-  }
+function processInitialData(token) {
+  var user = requireUser(token);
   ensurePenggunaBBMColumns();
   var payload = {
-    vehicles: safeList(function() { return getActiveVehicles(userInfo.role, userInfo.cabang); }),
-    drivers: safeList(function() { return getActiveDrivers(userInfo.role, userInfo.cabang); }),
+    vehicles: safeList(function() { return getActiveVehicles(user.role, user.cabang); }),
+    drivers: safeList(function() { return getActiveDrivers(user.role, user.cabang); }),
     cabangList: safeList(function() { return getCabangList(); }),
     bbmList: safeList(function() { return getActiveBBM(); }),
-    user: (userInfo.nama || ''),
-    username: userInfo.username,
-    role: userInfo.role,
-    cabang: userInfo.cabang,
-    flazzCards: safeList(function() { return getFlazzCards(userInfo.role, userInfo.cabang); }),
-    penggunaList: (userInfo.role === 'SUPERADMIN') ? safeList(function() { return getAllUsers(); }) : []
+    user: (user.nama || ''),
+    username: user.username,
+    role: user.role,
+    cabang: user.cabang,
+    flazzCards: safeList(function() { return getFlazzCards(user.role, user.cabang); }),
+    penggunaList: (user.role === 'SUPERADMIN') ? safeList(function() { return getAllUsers(); }) : []
   };
   return cleanSerializable(payload);
 }
 
-function getLastLaporanPrefill(userInfo) {
+function getLastLaporanPrefill(token) {
   try {
-    if (!userInfo || !userInfo.username) return { error: 'Not logged in', pref: null };
+    var user = requireUser(token);
     const ss = getDB();
     const sheet = ss.getSheetByName('Penggunaan_BBM');
     if (!sheet) return { pref: null };
     const data = sheet.getDataRange().getValues();
     if (data.length <= 1) return { pref: null };
-    const role = userInfo.role;
-    const cabang = userInfo.cabang;
+    const role = user.role;
+    const cabang = user.cabang;
     for (let i = data.length - 1; i >= 1; i--) {
       let row = data[i];
       if (role !== 'SUPERADMIN' && row[5] !== cabang) continue;
@@ -104,39 +132,50 @@ function getLastLaporanPrefill(userInfo) {
   }
 }
 
-function getMasterData(userInfo) {
-  if (!userInfo || !userInfo.username) {
-    return { error: 'Not logged in' };
-  }
+function getMasterData(token) {
+  var user = requireUser(token);
   var payload = {
-    vehicles: safeList(function() { return getActiveVehicles(userInfo.role, userInfo.cabang); }),
-    drivers: safeList(function() { return getActiveDrivers(userInfo.role, userInfo.cabang); }),
+    vehicles: safeList(function() { return getActiveVehicles(user.role, user.cabang); }),
+    drivers: safeList(function() { return getActiveDrivers(user.role, user.cabang); }),
     cabangList: safeList(function() { return getCabangList(); }),
     bbmList: safeList(function() { return getActiveBBM(); }),
-    flazzCards: safeList(function() { return getFlazzCards(userInfo.role, userInfo.cabang); }),
-    penggunaList: (userInfo.role === 'SUPERADMIN') ? safeList(function() { return getAllUsers(); }) : []
+    flazzCards: safeList(function() { return getFlazzCards(user.role, user.cabang); }),
+    penggunaList: (user.role === 'SUPERADMIN') ? safeList(function() { return getAllUsers(); }) : []
   };
   return cleanSerializable(payload);
 }
 
-function processDailyImages(data) {
+function getDashboardData(token) {
+  var user = requireUser(token);
+  return getRecentTransactions(user.role, user.cabang);
+}
+
+function getPerformaData(token) {
+  var user = requireUser(token);
+  return getPerformaSummary(user.role, user.cabang);
+}
+
+function processDailyImages(data, token) {
   try {
+    var user = requireUser(token);
+    var gm = checkRate('gemini:' + user.user_id, 30, 24 * 60 * 60 * 1000);
+    if (!gm.allowed) {
+      return { success: false, error: 'Kuota deteksi BBM harian tercapai. Coba lagi besok.' };
+    }
     let result = { success: true, files: {} };
-    let odoAwalFile = uploadImageToDrive(data.foto_odo_awal, data.foto_odo_awal_name, 'KM_Awal');
+    let odoAwalFile = uploadImageToDrive(data.foto_odo_awal, data.foto_odo_awal_name, 'KM_Awal', user.cabang);
     if (!odoAwalFile.success) return { success: false, error: 'Upload foto KM awal gagal: ' + odoAwalFile.error };
     result.files.odo_awal = odoAwalFile.fileUrl;
 
-    let odoAkhirFile = uploadImageToDrive(data.foto_odo_akhir, data.foto_odo_akhir_name, 'KM_Akhir');
+    let odoAkhirFile = uploadImageToDrive(data.foto_odo_akhir, data.foto_odo_akhir_name, 'KM_Akhir', user.cabang);
     if (!odoAkhirFile.success) return { success: false, error: 'Upload foto KM akhir gagal: ' + odoAkhirFile.error };
     result.files.odo_akhir = odoAkhirFile.fileUrl;
-    
-    // Pass back the manual KM inputs
+
     result.km_awal = data.km_awal_val;
     result.km_akhir = data.km_akhir_val;
 
-    // Deteksi level indikator BBM via Gemini (dilewati untuk kendaraan jarum: indikator analog tak terbaca otomatis)
     if (data.foto_indikator) {
-      let indFile = uploadImageToDrive(data.foto_indikator, data.foto_indikator_name, 'Indikator_BBM');
+      let indFile = uploadImageToDrive(data.foto_indikator, data.foto_indikator_name, 'Indikator_BBM', user.cabang);
       result.files.indikator = indFile.success ? indFile.fileUrl : '';
 
       if (!data.skip_ai_deteksi) {
@@ -157,81 +196,56 @@ function processDailyImages(data) {
   }
 }
 
-function saveDailyTransaction(payload) {
-  return saveTransactionEndOfDay(payload); 
+function saveDailyTransaction(payload, token) {
+  payload.userInfo = requireUser(token);
+  return saveTransactionEndOfDay(payload);
 }
 
-function getDashboardData(userInfo) {
-  if (!userInfo) return [];
-  return getRecentTransactions(userInfo.role, userInfo.cabang);
-}
-
-function getPerformaData(userInfo) {
-  if (!userInfo) return [];
-  return getPerformaSummary(userInfo.role, userInfo.cabang);
-}
-
-function saveMasterCabang(data, userInfo) {
-  return insertCabang(data, userInfo);
-}
-
-function saveMasterKendaraan(data, userInfo) {
-  return insertKendaraan(data, userInfo);
-}
-
-function saveMasterSupir(data, userInfo) {
-  return insertSupir(data, userInfo);
-}
-
-function deleteMasterKendaraan(vehicleId, userInfo) {
-  return deleteKendaraanById(vehicleId, userInfo);
-}
-
-
-function updateMasterCabang(data, userInfo) { return updateCabang(data, userInfo); }
-function updateMasterKendaraan(data, userInfo) { return updateKendaraan(data, userInfo); }
-function updateMasterSupir(data, userInfo) { return updateSupir(data, userInfo); }
-function updateMasterBBM(data, userInfo) { return updateBBM(data, userInfo); }
-
-function saveMasterBBM(data, userInfo) { return insertBBM(data, userInfo); }
-
-function deleteMasterCabang(kode, userInfo) { return deleteCabangById(kode, userInfo); }
-function deleteMasterSupir(id, userInfo) { return deleteSupirById(id, userInfo); }
-function deleteMasterBBM(id, userInfo) { return deleteBBMById(id, userInfo); }
-
-function saveMasterPengguna(data, userInfo) { return insertUser(data, userInfo); }
-function updateMasterPengguna(data, userInfo) { return updateUser(data, userInfo); }
-function deleteMasterPengguna(userId, userInfo) { return setUserStatus(userId, 'Non-Aktif', userInfo); }
-function activateMasterPengguna(userId, userInfo) { return setUserStatus(userId, 'Aktif', userInfo); }
+function saveMasterCabang(data, token) { return insertCabang(data, requireUser(token)); }
+function saveMasterKendaraan(data, token) { return insertKendaraan(data, requireUser(token)); }
+function saveMasterSupir(data, token) { return insertSupir(data, requireUser(token)); }
+function deleteMasterKendaraan(vehicleId, token) { return deleteKendaraanById(vehicleId, requireUser(token)); }
+function updateMasterCabang(data, token) { return updateCabang(data, requireUser(token)); }
+function updateMasterKendaraan(data, token) { return updateKendaraan(data, requireUser(token)); }
+function updateMasterSupir(data, token) { return updateSupir(data, requireUser(token)); }
+function updateMasterBBM(data, token) { return updateBBM(data, requireUser(token)); }
+function saveMasterBBM(data, token) { return insertBBM(data, requireUser(token)); }
+function deleteMasterCabang(kode, token) { return deleteCabangById(kode, requireUser(token)); }
+function deleteMasterSupir(id, token) { return deleteSupirById(id, requireUser(token)); }
+function deleteMasterBBM(id, token) { return deleteBBMById(id, requireUser(token)); }
+function saveMasterPengguna(data, token) { return insertUser(data, requireUser(token)); }
+function updateMasterPengguna(data, token) { return updateUser(data, requireUser(token)); }
+function deleteMasterPengguna(userId, token) { return setUserStatus(userId, 'Non-Aktif', requireUser(token)); }
+function activateMasterPengguna(userId, token) { return setUserStatus(userId, 'Aktif', requireUser(token)); }
 
 // ==========================================
 // FLAZZ API WRAPPERS
 // ==========================================
-function apiSaveFlazzCard(payload, userInfo) { return saveFlazzCard(payload, userInfo); }
-function apiSaveFlazzTopUp(payload) { return saveFlazzTopUp(payload); }
-function apiSaveFlazzTol(payload) { return saveFlazzTol(payload); }
-function apiSaveFlazzRecon(payload) { return saveFlazzRecon(payload); }
-function apiCheckReconGate(cardId) { return checkReconGate(cardId); }
-function apiSaveFlazzUsage(payload) { return saveFlazzUsage(payload); }
+function apiSaveFlazzCard(payload, token) { return saveFlazzCard(payload, requireUser(token)); }
+function apiSaveFlazzTopUp(payload, token) { payload.userInfo = requireUser(token); return saveFlazzTopUp(payload); }
+function apiSaveFlazzTol(payload, token) { payload.userInfo = requireUser(token); return saveFlazzTol(payload); }
+function apiSaveFlazzRecon(payload, token) { payload.userInfo = requireUser(token); return saveFlazzRecon(payload); }
+function apiCheckReconGate(cardId, token) { requireUser(token); return checkReconGate(cardId); }
+function apiSaveFlazzUsage(payload, token) { payload.userInfo = requireUser(token); return saveFlazzUsage(payload); }
 
-function apiGetFlazzDashboardData(userInfo) { return getFlazzDashboardData(userInfo.role, userInfo.cabang); }
-function apiDeleteFlazzCard(cardId, userInfo) { return deleteFlazzCard(cardId, userInfo); }
-function apiActivateFlazzCard(cardId, userInfo) { return activateFlazzCard(cardId, userInfo); }
-function apiEditFlazzTopUp(payload, userInfo) { return editFlazzTopUp(payload, userInfo); }
-function apiDeleteFlazzTopUp(id, userInfo) { return deleteFlazzTopUp(id, userInfo); }
-function apiEditFlazzTol(payload, userInfo) { return editFlazzTol(payload, userInfo); }
-function apiDeleteFlazzTol(id, userInfo) { return deleteFlazzTol(id, userInfo); }
-function apiDeleteFlazzBBM(transactionId, mode, userInfo) { return deleteFlazzBBM(transactionId, mode, userInfo); }
-function apiEditDailyTransaction(payload, userInfo) { return editDailyTransaction(payload, userInfo); }
-function apiDeleteDailyTransaction(transactionId, userInfo) { return deleteDailyTransaction(transactionId, userInfo); }
+function apiGetFlazzDashboardData(token) { var user = requireUser(token); return getFlazzDashboardData(user.role, user.cabang); }
+function apiDeleteFlazzCard(cardId, token) { return deleteFlazzCard(cardId, requireUser(token)); }
+function apiActivateFlazzCard(cardId, token) { return activateFlazzCard(cardId, requireUser(token)); }
+function apiEditFlazzTopUp(payload, token) { return editFlazzTopUp(payload, requireUser(token)); }
+function apiDeleteFlazzTopUp(id, token) { return deleteFlazzTopUp(id, requireUser(token)); }
+function apiEditFlazzTol(payload, token) { return editFlazzTol(payload, requireUser(token)); }
+function apiDeleteFlazzTol(id, token) { return deleteFlazzTol(id, requireUser(token)); }
+function apiDeleteFlazzBBM(transactionId, mode, token) { return deleteFlazzBBM(transactionId, mode, requireUser(token)); }
+function apiEditDailyTransaction(payload, token) { return editDailyTransaction(payload, requireUser(token)); }
+function apiDeleteDailyTransaction(transactionId, token) { return deleteDailyTransaction(transactionId, requireUser(token)); }
 
 // ==========================================
 // JALUR PENGIRIMAN API WRAPPERS
 // ==========================================
-function apiSaveJalur(payload, userInfo) { return saveJalur(payload, userInfo); }
-function apiUpdateJalur(data, userInfo) { return updateJalur(data, userInfo); }
-function apiDeleteJalur(id, userInfo) { return deleteJalur(id, userInfo); }
-function apiGetJalurByTanggal(tanggal, userInfo, opts) { return getJalurByTanggal(tanggal, userInfo, opts || {}); }
+function apiSaveJalur(payload, token) { return saveJalur(payload, requireUser(token)); }
+function apiUpdateJalur(data, token) { return updateJalur(data, requireUser(token)); }
+function apiDeleteJalur(id, token) { return deleteJalur(id, requireUser(token)); }
+function apiGetJalurByTanggal(tanggal, token, opts) { var user = requireUser(token); return getJalurByTanggal(tanggal, user, opts || {}); }
 
 // ==========================================
 // GEMINI FUEL GAUGE (indikator BBM) DETECTION
@@ -338,7 +352,31 @@ function detectFuelLevel(base64DataUrl) {
   }
 }
 
-function apiDetectFuelLevel(base64DataUrl) {
+// ==========================================
+// SETTINGS (wrapper server-side; fungsi storage di DatabaseSetup.js)
+// ==========================================
+function saveAppSettings(data, token) {
+  var user = requireUser(token);
+  if (user.role !== 'SUPERADMIN') throw new Error('Akses ditolak: hanya SUPERADMIN yang dapat mengubah pengaturan.');
+  return DatabaseSaveAppSettings(data);
+}
+
+function uploadLogo(base64Data, fileName, token) {
+  var user = requireUser(token);
+  if (user.role !== 'SUPERADMIN') throw new Error('Akses ditolak: hanya SUPERADMIN yang dapat mengunggah logo.');
+  return DatabaseUploadLogo(base64Data, fileName);
+}
+
+function getAppSettings(token) {
+  return DatabaseGetAppSettings();
+}
+
+function apiDetectFuelLevel(base64DataUrl, token) {
+  var user = requireUser(token);
+  var gm = checkRate('gemini:' + user.user_id, 30, 24 * 60 * 60 * 1000);
+  if (!gm.allowed) {
+    return { level: 0, confidence_pct: 0, status: 'NOT_DETECTED', message: 'Kuota deteksi BBM harian tercapai. Coba lagi besok.' };
+  }
   return detectFuelLevel(base64DataUrl);
 }
 
