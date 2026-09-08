@@ -790,7 +790,7 @@ function editDailyTransactionUnlocked(payload, userInfo) {
 
     // Ganti foto odometer awal jika ada file baru
     if (payload.foto_odo_awal && idxFotoAwal > -1) {
-      const up = uploadImageToDrive(payload.foto_odo_awal, payload.foto_odo_awal_name || 'odo_awal.jpg', 'KM_Awal');
+      const up = uploadImageToDrive(payload.foto_odo_awal, payload.foto_odo_awal_name || 'odo_awal.jpg', 'KM_Awal', userInfo ? userInfo.cabang : '');
       if (!up.success) return { success: false, msg: 'Upload foto odometer awal gagal: ' + up.error };
       const oldVal = sheet.getRange(rowIndex, idxFotoAwal + 1).getValue();
       const oldId = extractDriveFileId(oldVal);
@@ -799,7 +799,7 @@ function editDailyTransactionUnlocked(payload, userInfo) {
     }
     // Ganti foto odometer akhir jika ada file baru
     if (payload.foto_odo_akhir && idxFotoAkhir > -1) {
-      const up = uploadImageToDrive(payload.foto_odo_akhir, payload.foto_odo_akhir_name || 'odo_akhir.jpg', 'KM_Akhir');
+      const up = uploadImageToDrive(payload.foto_odo_akhir, payload.foto_odo_akhir_name || 'odo_akhir.jpg', 'KM_Akhir', userInfo ? userInfo.cabang : '');
       if (!up.success) return { success: false, msg: 'Upload foto odometer akhir gagal: ' + up.error };
       const oldVal = sheet.getRange(rowIndex, idxFotoAkhir + 1).getValue();
       const oldId = extractDriveFileId(oldVal);

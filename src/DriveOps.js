@@ -9,27 +9,50 @@ function getFolderByNameOrCreate(folderName, parentFolder = DriveApp.getRootFold
 
 function initDriveFolders() {
   let mainFolder = getFolderByNameOrCreate('BBM_OPERASIONAL');
-  let odoFolder = getFolderByNameOrCreate('Odometer', mainFolder);
-  getFolderByNameOrCreate('KM_Awal', odoFolder);
-  getFolderByNameOrCreate('KM_Akhir', odoFolder);
-  getFolderByNameOrCreate('Struk_BBM', mainFolder);
-  getFolderByNameOrCreate('Evidence', mainFolder);
+  let branches = getDB().getSheetByName('Cabang');
+  let cabangs = [];
+  if (branches && branches.getLastRow() > 1) {
+    const data = branches.getRange(2, 1, branches.getLastRow() - 1, 2).getValues();
+    cabangs = data.map(r => r[0]).filter(c => c);
+  }
+  cabangs.forEach(function(c) {
+    const bf = getFolderByNameOrCreate(String(c).replace(/[^A-Za-z0-9_-]/g, ''), mainFolder);
+    getFolderByNameOrCreate('KM_Awal', bf);
+    getFolderByNameOrCreate('KM_Akhir', bf);
+    getFolderByNameOrCreate('Indikator_BBM', bf);
+    getFolderByNameOrCreate('Flazz_TopUp', bf);
+    getFolderByNameOrCreate('Flazz_Recon', bf);
+    getFolderByNameOrCreate('Struk_BBM', bf);
+  });
   return mainFolder.getId();
 }
 
-function uploadImageToDrive(base64Data, filename, subfolderName) {
+function uploadImageToDrive(base64Data, filename, subfolderName, cabang) {
   try {
-    let mainFolder = getFolderByNameOrCreate('BBM_OPERASIONAL');
-    // Simplified logic, in real use we navigate to proper subfolder
-    
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+
     let mimeType = 'image/jpeg';
     let match = base64Data.match(/^data:(.*?);base64,/);
     if (match) mimeType = match[1];
     let base64String = match ? base64Data.split(',')[1] : base64Data;
-    let blob = Utilities.newBlob(Utilities.base64Decode(base64String), mimeType, filename);
-    let file = mainFolder.createFile(blob);
+
+    if (allowedTypes.indexOf(String(mimeType).toLowerCase()) === -1) {
+      throw new Error('Tipe file tidak diizinkan: ' + mimeType);
+    }
+    const bytes = Utilities.base64Decode(base64String);
+    if (bytes.length > 10 * 1024 * 1024) {
+      throw new Error('Ukuran file melebihi 10MB');
+    }
+
+    const blob = Utilities.newBlob(bytes, mimeType, filename);
+    const cabangDir = String(cabang || 'TANPA-CABANG').replace(/[^A-Za-z0-9_-]/g, '');
+    const mainFolder = getFolderByNameOrCreate('BBM_OPERASIONAL');
+    const branchFolder = getFolderByNameOrCreate(cabangDir, mainFolder);
+    const targetFolder = subfolderName ? getFolderByNameOrCreate(subfolderName, branchFolder) : branchFolder;
+
+    const file = targetFolder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    
+
     return {
       success: true,
       fileId: file.getId(),

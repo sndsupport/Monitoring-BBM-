@@ -266,7 +266,7 @@ function saveFlazzTopUpUnlocked(payload) {
 
     let evidenceUrl = '';
     if (payload.foto_bukti && payload.foto_bukti_name) {
-      let uploadRes = uploadImageToDrive(payload.foto_bukti, payload.foto_bukti_name, 'Flazz_TopUp');
+      let uploadRes = uploadImageToDrive(payload.foto_bukti, payload.foto_bukti_name, 'Flazz_TopUp', payload.userInfo ? payload.userInfo.cabang : '');
       if (uploadRes.success) evidenceUrl = uploadRes.fileUrl;
     }
 
@@ -425,7 +425,7 @@ function saveFlazzTolUnlocked(payload) {
 
     let evidenceUrl = '';
     if (payload.foto_bukti && payload.foto_bukti_name) {
-      let uploadRes = uploadImageToDrive(payload.foto_bukti, payload.foto_bukti_name, 'Flazz_Tol');
+      let uploadRes = uploadImageToDrive(payload.foto_bukti, payload.foto_bukti_name, 'Flazz_Tol', payload.userInfo ? payload.userInfo.cabang : '');
       if (uploadRes.success) evidenceUrl = uploadRes.fileUrl;
     }
     if (!evidenceUrl) throw new Error('Bukti Tol wajib dilampirkan.');
@@ -755,7 +755,7 @@ function saveFlazzReconUnlocked(payload) {
 
     let evidenceUrl = '';
     if (payload.foto_bukti && payload.foto_bukti_name) {
-      let uploadRes = uploadImageToDrive(payload.foto_bukti, payload.foto_bukti_name, 'Flazz_Recon');
+      let uploadRes = uploadImageToDrive(payload.foto_bukti, payload.foto_bukti_name, 'Flazz_Recon', payload.userInfo ? payload.userInfo.cabang : '');
       if (uploadRes.success) evidenceUrl = uploadRes.fileUrl;
     }
 
