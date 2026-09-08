@@ -8,6 +8,9 @@ let __flazzFilterCabang = '';
 let __flazzHistStart = '';
 let __flazzHistEnd = '';
 
+function bbmToken() {
+  return localStorage.getItem('bbm_token') || '';
+}
 function flazzUserInfo() {
   var u = (typeof userInfo !== 'undefined' && userInfo) ? userInfo : {};
   var loginName = document.getElementById('login_username') ? document.getElementById('login_username').value : '';
@@ -44,11 +47,7 @@ function loadFlazzDashboard() {
        showToast("Gagal memuat data Flazz: " + err, 'error');
        document.getElementById('flazz-dashboard-loading').style.display = 'none';
     })
-    .apiGetFlazzDashboardData({
-       username: document.getElementById('login_username').value, 
-       role: userRole,
-       cabang: userRole === 'SUPERADMIN' ? '' : flazzUserInfo().cabang
-    });
+    .apiGetFlazzDashboardData(bbmToken());
 }
 
 // Override loadFlazzDashboard call in switchTab if needed. We can just patch switchTab to call this.
@@ -66,13 +65,6 @@ function loadFlazzDataWrapper(force) {
       return;
    }
    var rid = ++__flazzRequestId;
-   let uInfo = {
-       username: document.getElementById('login_username') ? document.getElementById('login_username').value : '',
-       role: userRole,
-       cabang: userRole === 'SUPERADMIN'
-         ? (__flazzFilterCabang || '')
-         : flazzUserInfo().cabang
-   };
    document.getElementById('flazz-dashboard-loading').style.display = 'block';
    document.getElementById('flazz-dashboard-content').style.display = 'none';
 
@@ -96,7 +88,7 @@ function loadFlazzDataWrapper(force) {
       document.getElementById('flazz-dashboard-content').style.display = 'block';
       showToast('Gagal memuat data Flazz: ' + (err && err.message || err), 'error');
     })
-    .apiGetFlazzDashboardData(uInfo);
+    .apiGetFlazzDashboardData(bbmToken());
 }
 
 function populateFlazzWidgets() {
@@ -363,7 +355,7 @@ function updateReconGateStatus(cardId) {
       box.className = 'alert d-none py-2';
       if (btn) btn.disabled = false;
     })
-    .apiCheckReconGate(cardId);
+    .apiCheckReconGate(cardId, bbmToken());
 }
 
 function calculateReconVariance() {
@@ -422,8 +414,6 @@ function saveFlazzCardForm(e) {
     notes: document.getElementById('f_notes').value
   };
 
-  let uInfo = flazzUserInfo();
-
   google.script.run
     .withSuccessHandler(function(res) {
        btn.disabled = false;
@@ -437,7 +427,7 @@ function saveFlazzCardForm(e) {
        }
     })
     .withFailureHandler(flazzFailHandler('Menyimpan kartu', ['btn-save-flazz-card']))
-    .apiSaveFlazzCard(payload, uInfo);
+    .apiSaveFlazzCard(payload, bbmToken());
 }
 
 // ... Additional forms for usage, topup, tol, recon will follow the same pattern:
@@ -461,7 +451,6 @@ function saveFlazzTopUpForm(e) {
     amount: document.getElementById('t_amount').value,
     tanggal: transTimestamp(document.getElementById('t_date').value),
     notes: document.getElementById('t_notes').value,
-    userInfo: flazzUserInfo(),
     foto_bukti: null,
     foto_bukti_name: null
   };
@@ -477,7 +466,7 @@ function saveFlazzTopUpForm(e) {
       } else showToast(res.msg, 'error');
    })
    .withFailureHandler(flazzFailHandler('Menyimpan top up', ['btn-save-topup']))
-   .apiSaveFlazzTopUp(payload);
+   .apiSaveFlazzTopUp(payload, bbmToken());
 }
 
 function saveFlazzReconForm(e) {
@@ -501,8 +490,7 @@ function saveFlazzReconForm(e) {
     actual_balance: document.getElementById('r_actual_balance').value,
     action: document.getElementById('r_action').value,
     notes: document.getElementById('r_notes').value,
-    userInfo: flazzUserInfo()
-  };
+    };
 
   let submitRecon = function() {
     google.script.run
@@ -519,7 +507,7 @@ function saveFlazzReconForm(e) {
          } else showToast(res.msg, 'error');
       })
       .withFailureHandler(flazzFailHandler('Menyimpan recon', ['btn-save-recon']))
-      .apiSaveFlazzRecon(payload);
+      .apiSaveFlazzRecon(payload, bbmToken());
   };
 
   let proceed = function() {
@@ -552,7 +540,7 @@ function saveFlazzReconForm(e) {
       btn.innerHTML = orig;
       showToast('Gagal memverifikasi gate: ' + err, 'error');
     })
-    .apiCheckReconGate(cardId);
+    .apiCheckReconGate(cardId, bbmToken());
 }
 
 function showHistoryTab(type, e) {
@@ -755,8 +743,7 @@ function saveEditTopUp(e) {
     amount: document.getElementById('et_amount').value,
     date: transTimestamp(document.getElementById('et_date').value),
     notes: document.getElementById('et_notes').value,
-    userInfo: flazzUserInfo()
-  };
+    };
   google.script.run.withSuccessHandler(res => {
     btn.disabled = false;
     btn.innerHTML = orig;
@@ -766,14 +753,14 @@ function saveEditTopUp(e) {
     btn.disabled = false;
     btn.innerHTML = orig;
     flazzFailHandler('Menyimpan edit top up', [])(err);
-  }).apiEditFlazzTopUp(payload, flazzUserInfo());
+  }).apiEditFlazzTopUp(payload, bbmToken());
 }
 function deleteTopUp(id) {
   if(!confirm('Yakin menghapus top up ini? Saldo kartu akan dikurangi nominal tersebut.')) return;
   google.script.run.withSuccessHandler(res => {
     if(res.success){ showToast(res.msg, 'success'); loadFlazzDataWrapper(true); }
     else showToast(res.msg, 'error');
-  }).withFailureHandler(flazzFailHandler('Menghapus top up', [])).apiDeleteFlazzTopUp(id, flazzUserInfo());
+  }).withFailureHandler(flazzFailHandler('Menghapus top up', [])).apiDeleteFlazzTopUp(id, bbmToken());
 }
 function editTol(id) {
   let t = (flazzDataCache && flazzDataCache.tols || []).find(x => x.id === id);
@@ -799,8 +786,7 @@ function saveEditTol(e) {
     amount: document.getElementById('etol_amount').value,
     date: transTimestamp(document.getElementById('etol_date').value),
     notes: document.getElementById('etol_notes').value,
-    userInfo: flazzUserInfo()
-  };
+    };
   google.script.run.withSuccessHandler(res => {
     btn.disabled = false;
     btn.innerHTML = orig;
@@ -810,21 +796,21 @@ function saveEditTol(e) {
     btn.disabled = false;
     btn.innerHTML = orig;
     flazzFailHandler('Menyimpan edit tol', [])(err);
-  }).apiEditFlazzTol(payload, flazzUserInfo());
+  }).apiEditFlazzTol(payload, bbmToken());
 }
 function deleteTol(id) {
   if(!confirm('Yakin menghapus tol ini? Saldo kartu akan dikembalikan nominal tersebut.')) return;
   google.script.run.withSuccessHandler(res => {
     if(res.success){ showToast(res.msg, 'success'); loadFlazzDataWrapper(true); }
     else showToast(res.msg, 'error');
-  }).withFailureHandler(flazzFailHandler('Menghapus tol', [])).apiDeleteFlazzTol(id, flazzUserInfo());
+  }).withFailureHandler(flazzFailHandler('Menghapus tol', [])).apiDeleteFlazzTol(id, bbmToken());
 }
 function deleteBBMFlazz(trxId) {
   if(!confirm('Lepas transaksi BBM ini dari Flazz? Laporan harian tetap tersimpan, saldo kartu dikembalikan.')) return;
   google.script.run.withSuccessHandler(res => {
     if(res.success){ showToast(res.msg, 'success'); loadFlazzDataWrapper(true); }
     else showToast(res.msg, 'error');
-  }).withFailureHandler(flazzFailHandler('Melepas BBM dari Flazz', [])).apiDeleteFlazzBBM(trxId, 'detach', flazzUserInfo());
+  }).withFailureHandler(flazzFailHandler('Melepas BBM dari Flazz', [])).apiDeleteFlazzBBM(trxId, 'detach', bbmToken());
 }
 
 function transTimestamp(val) {
@@ -898,7 +884,7 @@ function deleteFlazzCardClient(id) {
        else { showToast(res.msg, 'error'); }
     })
     .withFailureHandler(flazzFailHandler('Menonaktifkan kartu', []))
-    .apiDeleteFlazzCard(id, flazzUserInfo());
+    .apiDeleteFlazzCard(id, bbmToken());
 }
 
 function activateFlazzCardClient(id) {
@@ -909,7 +895,7 @@ function activateFlazzCardClient(id) {
        else { showToast(res.msg, 'error'); }
     })
     .withFailureHandler(flazzFailHandler('Mengaktifkan kartu', []))
-    .apiActivateFlazzCard(id, flazzUserInfo());
+    .apiActivateFlazzCard(id, bbmToken());
 }
 </script>
 <script>

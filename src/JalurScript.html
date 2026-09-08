@@ -1,4 +1,8 @@
 <script>
+function bbmToken() {
+  return localStorage.getItem('bbm_token') || '';
+}
+
 function loadJalurWrapper() {
   if (typeof jalurEnsureMaster === 'function') jalurEnsureMaster(function(){});
 }
@@ -22,7 +26,7 @@ function jalurEnsureMaster(callback) {
     .withFailureHandler(function() {
       if (typeof callback === 'function') callback();
     })
-    .getMasterData(userInfo);
+    .getMasterData(bbmToken());
 }
 
 function jalurPopulateDriverDatalist() {
@@ -304,7 +308,7 @@ function jalurShowListing() {
       if (loading) loading.style.display = 'none';
       showToast('Gagal memuat: ' + err.message, 'error'); 
     })
-    .apiGetJalurByTanggal(tanggal, userInfo, { tanggalAkhir: tanggalAkhir, cabang: cabang });
+    .apiGetJalurByTanggal(tanggal, bbmToken(), { tanggalAkhir: tanggalAkhir, cabang: cabang });
 }
 
 function jalurShowSummary() {
@@ -364,7 +368,7 @@ function jalurShowSummary() {
         if (loading) loading.style.display = 'none';
         showToast('Gagal memuat: ' + err.message, 'error'); 
       })
-      .apiGetJalurByTanggal(tanggal, userInfo, { cabang: cabang });
+      .apiGetJalurByTanggal(tanggal, bbmToken(), { cabang: cabang });
 }
 
 function jalurRefreshActive() {
@@ -431,7 +435,7 @@ function jalurSave() {
       if (btnJalur) { btnJalur.disabled = false; btnJalur.innerHTML = originalJalurHTML; }
       showToast('Gagal menyimpan: ' + err.message, 'error');
     })
-    .apiSaveJalur({ tanggal: tanggal, rows: rows }, userInfo);
+    .apiSaveJalur({ tanggal: tanggal, rows: rows }, bbmToken());
 }
 
 function jalurPajakBadge(status, days, label) {
@@ -483,7 +487,7 @@ function jalurEdit(id) {
       new bootstrap.Modal(document.getElementById('modal-jalur-edit')).show();
     })
     .withFailureHandler(function(err) { showToast('Gagal memuat data edit: ' + err.message, 'error'); })
-    .apiGetJalurByTanggal(tanggal, userInfo, { tanggalAkhir: tanggalAkhir, cabang: cabang });
+    .apiGetJalurByTanggal(tanggal, bbmToken(), { tanggalAkhir: tanggalAkhir, cabang: cabang });
 }
 
 function jalurSaveEdit() {
@@ -513,7 +517,7 @@ function jalurSaveEdit() {
       }
     })
     .withFailureHandler(function(err) { showToast('Gagal: ' + err.message, 'error'); })
-    .apiUpdateJalur(data, userInfo);
+    .apiUpdateJalur(data, bbmToken());
 }
 
 function jalurDelete(id) {
@@ -524,7 +528,7 @@ function jalurDelete(id) {
       if (res.success) jalurRefreshActive();
     })
     .withFailureHandler(function(err) { showToast('Gagal menghapus: ' + err.message, 'error'); })
-    .apiDeleteJalur(id, userInfo);
+    .apiDeleteJalur(id, bbmToken());
 }
 
 function jalurSummaryText() {

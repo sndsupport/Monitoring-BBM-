@@ -67,6 +67,9 @@
 </div>
 
 <script>
+function bbmToken() {
+  return localStorage.getItem('bbm_token') || '';
+}
 var selectedLogoFile = null;
 
 function previewLogo(input) {
@@ -95,7 +98,7 @@ function loadSettings() {
     .withFailureHandler(function(err) {
       showToast('Gagal memuat pengaturan: ' + err.message, 'error');
     })
-    .getAppSettings();
+    .getAppSettings(bbmToken());
 }
 
 function saveSettings() {
@@ -110,6 +113,11 @@ function saveSettings() {
   };
   
   if (selectedLogoFile) {
+    if (selectedLogoFile.size > 10 * 1024 * 1024) {
+      loading.style.display = 'none';
+      showToast('Ukuran logo tidak boleh melebihi 10MB.', 'error');
+      return;
+    }
     var reader = new FileReader();
     reader.onload = function(e) {
       var base64Data = e.target.result;
@@ -127,7 +135,7 @@ function saveSettings() {
           loading.style.display = 'none';
           showToast('Gagal upload logo: ' + err.message, 'error');
         })
-        .uploadLogo(base64Data, selectedLogoFile.name);
+        .uploadLogo(base64Data, selectedLogoFile.name, bbmToken());
     };
     reader.readAsDataURL(selectedLogoFile);
   } else {
@@ -140,7 +148,7 @@ function saveSettings() {
         loading.style.display = 'none';
         showToast('Gagal menyimpan pengaturan: ' + err.message, 'error');
       })
-      .getAppSettings();
+      .getAppSettings(bbmToken());
   }
 }
 
@@ -160,6 +168,6 @@ function saveSettingsData(data, loading) {
       loading.style.display = 'none';
       showToast('Gagal menyimpan pengaturan: ' + err.message, 'error');
     })
-    .saveAppSettings(data);
+    .saveAppSettings(data, bbmToken());
 }
 </script>
