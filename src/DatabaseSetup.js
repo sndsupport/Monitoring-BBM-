@@ -1,5 +1,5 @@
 function setupDatabase() {
-  const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+  const ss = getDB();
   
   if (!ss) {
     Logger.log('Spreadsheet tidak ditemukan!');
@@ -86,7 +86,7 @@ function setupDatabase() {
 }
 
 function seedDummyData() {
-  const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+  const ss = getDB();
   
   // Seed BBM
   let sheetBBM = ss.getSheetByName('BBM');
@@ -128,8 +128,8 @@ function seedDummyData() {
   Logger.log('Data dummy (Cabang, Kendaraan, Pengguna) berhasil dimasukkan.');
 }
 
-function getAppSettings() {
-  var ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+function DatabaseGetAppSettings() {
+  var ss = getDB();
   var sheet = ss.getSheetByName('Pengaturan');
 
   if (!sheet) {
@@ -156,8 +156,8 @@ function getAppSettings() {
   };
 }
 
-function saveAppSettings(data) {
-  var ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+function DatabaseSaveAppSettings(data) {
+  var ss = getDB();
   var sheet = ss.getSheetByName('Pengaturan');
 
   if (!sheet) {
@@ -192,10 +192,13 @@ function saveAppSettings(data) {
   return { success: true, msg: 'Pengaturan berhasil disimpan' };
 }
 
-function uploadLogo(base64Data, fileName) {
+function DatabaseUploadLogo(base64Data, fileName) {
   try {
     var data = base64Data.split(',')[1];
-    var blob = Utilities.newBlob(Utilities.base64Decode(data), 'image/png', fileName);
+    if (!data) throw new Error('Data base64 tidak valid');
+    var bytes = Utilities.base64Decode(data);
+    if (bytes.length > 10 * 1024 * 1024) throw new Error('Ukuran file melebihi 10MB');
+    var blob = Utilities.newBlob(bytes, 'image/png', fileName);
 
     var folder = DriveApp.getFoldersByName('BBM_Logos');
     if (!folder.hasNext()) {
@@ -209,7 +212,7 @@ function uploadLogo(base64Data, fileName) {
 
     var fileUrl = 'https://drive.google.com/uc?export=view&id=' + file.getId();
 
-    saveAppSettings({ logo_url: fileUrl });
+    DatabaseSaveAppSettings({ logo_url: fileUrl });
 
     return { success: true, url: fileUrl };
   } catch (e) {
