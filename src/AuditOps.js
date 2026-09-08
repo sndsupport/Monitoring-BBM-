@@ -5,6 +5,7 @@
 function logAudit(user, action, modul, keterangan, dataSebelum, dataSesudah) {
   try {
     if (!user) return;
+    ensureAuditLogColumns();
     var ss = getDB();
     var sheet = ss.getSheetByName('Audit_Log');
     if (!sheet) return;

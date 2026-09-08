@@ -16,7 +16,7 @@ function setupDatabase() {
     { name: 'Penggunaan_BBM', headers: ['transaction_id', 'timestamp', 'tanggal', 'user_id', 'nama_pengguna', 'kode_cabang', 'vehicle_id', 'plat_nomor', 'foto_km_awal', 'ocr_km_awal', 'km_awal_confirmed', 'bar_awal', 'foto_km_akhir', 'ocr_km_akhir', 'km_akhir_confirmed', 'bar_akhir', 'km_tempuh', 'perubahan_bar', 'liter_bbm', 'biaya_bbm', 'foto_struk_bbm', 'biaya_toll', 'foto_struk_toll', 'km_per_liter', 'status', 'warning', 'nama_supir', 'metode_pembayaran', 'flazz_card_id', 'foto_indikator', 'level_bbm', 'confidence_bbm', 'level_status', 'keterangan', 'km_sumber'] },
     { name: 'Pengisian_BBM', headers: ['fuel_id', 'timestamp', 'tanggal', 'vehicle_id', 'plat_nomor', 'user_id', 'km', 'jenis_bbm', 'liter', 'harga_per_liter', 'total_biaya', 'nama_spbu', 'foto_struk', 'status'] },
     { name: 'Foto_Evidence', headers: ['evidence_id', 'transaction_id', 'tipe_foto', 'file_url', 'file_id', 'timestamp'] },
-    { name: 'Audit_Log', headers: ['log_id', 'timestamp', 'user_id', 'action', 'modul', 'keterangan', 'data_sebelum', 'data_sesudah'] },
+    { name: 'Audit_Log', headers: ['log_id', 'timestamp', 'user_id', 'username', 'action', 'modul', 'keterangan', 'data_sebelum', 'data_sesudah'] },
     { name: 'Konfigurasi', headers: ['key', 'value', 'keterangan'] },
     { name: 'Dashboard', headers: ['Metrics', 'Value'] },
     { name: 'Pengaturan', headers: ['key', 'value', 'updated_at'] },
@@ -83,6 +83,24 @@ function setupDatabase() {
   }
 
   Logger.log('Setup database selesai.');
+}
+
+function ensureAuditLogColumns() {
+  const HEADERS = ['log_id', 'timestamp', 'user_id', 'username', 'action', 'modul', 'keterangan', 'data_sebelum', 'data_sesudah'];
+  try {
+    const ss = getDB();
+    const sheet = ss.getSheetByName('Audit_Log');
+    if (!sheet) return;
+    const lastCol = Math.max(sheet.getLastColumn(), HEADERS.length);
+    const headers = sheet.getLastRow() > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+    const current = String(headers[3] || '').trim().toLowerCase();
+    if (current === 'username') return;
+    sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
+    sheet.getRange(1, 1, 1, HEADERS.length).setFontWeight('bold').setBackground('#f3f3f3');
+    sheet.setFrozenRows(1);
+  } catch (e) {
+    console.error('ensureAuditLogColumns gagal: ' + e);
+  }
 }
 
 function seedDummyData() {
