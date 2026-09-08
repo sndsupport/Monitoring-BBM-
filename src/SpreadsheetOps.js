@@ -1211,6 +1211,7 @@ function updateUser(data, userInfo) {
   const password = String(data.password || '');
   const newPassword = password ? hashPassword(password) : String(currentRow[2]);
   sheet.getRange(rowIndex, 2, 1, 5).setValues([[uname, newPassword, nama, role, cabang]]);
+  logAudit(userInfo, 'EDIT', 'pengguna', 'Update user ' + userId);
   return { msg: 'Pengguna Berhasil Diupdate' };
 }
 
@@ -1235,6 +1236,7 @@ function setUserStatus(userId, status, userInfo) {
     }
   }
   sheet.getRange(rowIndex, 7).setValue(status);
+  logAudit(userInfo, 'DELETE', 'pengguna', (status === 'Aktif' ? 'Aktifkan ' : 'Nonaktifkan ') + userId);
   return { msg: status === 'Aktif' ? 'Pengguna Berhasil Diaktifkan Kembali' : 'Pengguna Berhasil Dinonaktifkan' };
 }
 

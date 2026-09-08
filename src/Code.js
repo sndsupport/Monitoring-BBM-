@@ -24,6 +24,7 @@ function doLogin(username, password) {
   resetRate('login:' + String(username).toLowerCase());
   var token = createSession(res);
   Logger.log('LOGIN OK: ' + res.username + ' (' + res.role + ') cabang=' + res.cabang);
+  logAudit(res, 'LOGIN', 'auth', 'Login berhasil role=' + res.role + ' cabang=' + (res.cabang || '-'));
   return {
     success: true,
     token: token,
@@ -39,6 +40,8 @@ function doLogin(username, password) {
 }
 
 function doLogout(token) {
+  var u = resolveSession(token);
+  if (u) logAudit(u, 'LOGOUT', 'auth', 'Logout');
   destroySession(token);
   return { success: true };
 }
