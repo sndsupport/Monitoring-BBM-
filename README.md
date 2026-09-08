@@ -8,10 +8,13 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - **SUPERADMIN:** Akses penuh ke seluruh cabang, semua history, data master, dan pengaturan aplikasi.
 - **PIC CABANG:** Hanya bisa mengelola laporan untuk kendaraan dan supir di cabangnya sendiri.
 - **Pembatasan Data per Cabang (Server-side):** Enforce tambahan di sisi server (Google Apps Script) — untuk pengguna **selain SUPERADMIN** yang tidak mengirimkan `cabang` yang valid pada request, endpoint data Flazz, Jalur, dan ringkasan transaksi menolak/bahkan mengembalikan daftar kosong (mis. `getFlazzCards`, `getFlazzDashboardData`, `getJalurByTanggal`, `getRecentTransactions`, `getPerformaSummary`). Ini mencegah kebocoran data antar cabang meskipun payload client diubah-ubah.
+- **Pembatasan dropdown cabang (frontend):** pada formulir Master (**Kendaraan** & **Supir**), dropdown pilih cabang hanya menampilkan cabang miliknya bagi **PIC CABANG**; SUPERADMIN melihat semua cabang. Server tetap memverifikasi (`assertOwnWarehouse`) sehingga request dengan cabang asing ditolak.
+- **Foto dibatasi per cabang:** upload foto bukti (odometer, struk, indikator) diverifikasi jenis file (MIME gambar) dan disimpan ke folder Drive sesuai cabang transaksi; PIC tidak dapat menyimpan foto ke cabang lain.
 
 ### Mobile-First Responsive Design
 - Bottom navigation bar (mobile) / **sidebar** (desktop).
 - **Navigasi terkelompok per fungsi:** sidebar desktop disusun berdasarkan alur proses operasional: **Dashboard** (posisi teratas) → **JALUR PENGIRIMAN** (Buat Jadwal, Daftar Jadwal, Summary) → **OPERASIONAL KENDARAAN** (Input Laporan, History, Galeri, Performa) → **KARTU FLAZZ** (Top Up, Rekonsiliasi, List, Riwayat) → **ADMIN** (Master, Pengaturan). Urutan ini mencerminkan alur kerja harian: jadwal → input → monitoring.
+- **Sub-menu tetap terbuka antar menu:** pada sidebar desktop, grup menu yang sedang aktif tidak tertutup otomatis saat berpindah antar item dalam grup yang sama (mis. tetap di grup JALUR PENGIRIMAN saat pindah Buat Jadwal → Daftar Jadwal); grup tertutup hanya saat berpindah ke menu dari grup lain.
 - Card-based form input bergaya modern dengan preview foto dan layout 2-kolom dinamis di perangkat Desktop/PC.
 - Dashboard tampilan cards (mobile) atau table (desktop).
 - Toast notification untuk semua aksi (bukan alert).
@@ -41,7 +44,7 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
     - **TIDAK_ADA:** field level disembunyikan sepenuhnya; konsumsi BBM hanya dari liter beli.
   - **Cabang transaksi mengikuti kendaraan:** saat laporan BBM disimpan, kode cabang transaksi diambil dari cabang **kendaraan** (bukan cabang user), sehingga SUPERADMIN/PIC yang memasukkan laporan kendaraan lintas cabang tetap tercatat pada cabang yang benar.
 - **Supir:** Nama, cabang, dan relasi kendaraan default.
-- **BBM:** Jenis, harga per liter.
+- **BBM:** Jenis, harga per liter. **Harga dapat di-override per cabang** — baris dengan `kode_cabang` terisi berhak atas harga yang lebih spesifik dari harga global (kosong = global). Formulir input laporan otomatis memakai daftar jenis & harga sesuai cabang pengguna/transaksi via `getBBMForCabang`.
 - **Manajemen Lengkap (CRUD):** Tambah, Edit, dan Hapus (Delete) dengan Bootstrap Modals interaktif untuk semua kategori.
 
 ### Kartu & Transaksi Flazz
@@ -82,6 +85,7 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - Menampilkan foto odometer, struk BBM, struk tol, dan indikator BBM.
 - **Filter Pintar:** Terdapat filter dropdown untuk menyeleksi dan memfokuskan tampilan pada jenis foto tertentu secara cerdas.
 - **Pembersihan Foto Orphan:** Jika foto di Google Drive sudah dihapus tetapi URL-nya masih tersisa di kolom sheet (sehingga foto "hantu" masih tampil di galeri), jalankan fungsi **`cleanupOrphanPhotos`** di editor Apps Script untuk mengosongkan kolom foto yang file-nya tidak lagi ditemukan di Drive. Gunakan **`diagnoseOrphanPhotos`** terlebih dahulu untuk melihat daftar baris yang terdampak sebelum membersihkan.
+- **Validasi & Kompresi Foto:** foto di-compress di sisi client (skala maks. 1280px, kualitas JPEG ~0.7) sebelum dikirim untuk menghemat storage dan mempercepat upload; server menolak file non-gambar (validasi MIME) sehingga ekstensi berbahaya tidak tersimpan.
 
 ### Jalur Pengiriman
 - **Autocomplete Driver:** field driver (Input Laporan & Buat Jadwal) berupa input teks dengan dropdown *autocomplete*; memilih driver otomatis memicu *pre-fill* untuk kendaraan (secara default), sementara data form lainnya otomatis menyesuaikan *history* terakhir supir tersebut.
@@ -109,8 +113,9 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - **Password ter-hash:** password disimpan sebagai `SHA-256` dengan salt (`salt$hash`); password legacy plaintext otomatis di-migrasi saat login pertama (flag `must_change`).
 - **Akses publik aman:** Web App terdeploy sebagai `ANYONE_ANONYMOUS` aman karena seluruh fungsi butuh token sesi; satu-satunya fungsi tanpa token adalah `getAppSettings` yang hanya mengembalikan data non-sensitif. `USER_DEPLOYING` dipertahankan agar kode menulis spreadsheet & Drive milik deployer.
 - **Rate limiting & audit:** login dibatasi (5×/5 menit per username), deteksi Gemini 30×/24 jam per user, dan peristiwa login/logout/update akun tercatat ke sheet `Audit_Log`.
-- **Auto Logout Idle:** Jika aplikasi dioperasikan (klik, ketik, scroll, sentuh, fokus) tidak terdeteksi selama **2 menit**, aplikasi langsung **logout otomatis** dan kembali ke halaman login, tanpa peringatan countdown. Aktivitas apa pun akan mereset timer. Timer hanya aktif saat sesi berjalan (tidak berlaku di halaman login).
-- **Sesi berbasis localStorage:** token sesi disimpan di `localStorage` (`bbm_token`) bersama informasi tampilan (`bbm_user`); masa berlaku token 12 jam (`SESSION_MAX_AGE_MS`).
+- **Sesi berbasis localStorage:** token sesi disimpan di `localStorage` (`bbm_token`) bersama informasi tampilan (`bbm_user`); masa berlaku token 12 jam (`SESSION_TTL_SECONDS` di server, `SESSION_MAX_AGE_MS` di client). **Auto-logout idle 2 menit sudah dihapus** — aplikasi tidak lagi keluar otomatis saat tidak aktif; sesi berakhir sesuai TTL token (masa berlaku 12 jam dari login).
+- **Escape output (anti-XSS):** seluruh data dinamis dirender client melalui fungsi `esc()`/`escUrl()`; nilai yang disisipkan ke atribut (mis. `onclick` dengan data JSON) memakai `JSON.stringify` agar karakter khusus seperti tanda kutip atau `<script>` tidak dieksekusi. Catatan: meta `Content-Security-Policy` via `addMetaTag` **tidak didukung** Google Apps Script (ditolak saat render), sehingga tidak digunakan.
+- **Pemantauan kesehatan harian (HealthOps):** `dailyHealthReport()` mengirim ringkasan kesehatan sistem ke alamat email pada kolom `email` pengguna **SUPERADMIN** (kolom dibuat `setupDatabase`). Aktifkan dengan `setupDailyHealthTrigger()` (dijalankan manual sekali di editor); `sendAdminAlert` digunakan untuk sinyal kondisi abnormal.
 
 ### Data Tersimpan di Google Sheets
 - Seluruh data operasional langsung terekam pada Google Sheets.
@@ -133,6 +138,7 @@ Setelah semua kode berada di Editor Apps Script:
 3. Pilih fungsi **`createSuperadmin`** pada menu dropdown di atas editor, lalu klik **Run** untuk membuat akun **SUPERADMIN pertama**, lalu isi `user_id`, `username`, `nama`, dan `password` (tersimpan sebagai hash SHA-256) saat diminta.
    > (`seedDummyData` kini **hanya membuat akun PIC cabang** — akun SUPERADMIN `admin` tidak lagi bagian dari seed. Gunakan `createSuperadmin` untuk membangun akun admin dari nol.)
 4. (Opsional) Jalankan **`seedDummyData`** untuk mengisi data percobaan.
+5. (Disarankan) Setelah database terbentuk: jalankan sekali **`initDriveFolders()`** dan **`fixPhotoPermissions()`** (membuat struktur folder foto per cabang di Drive & memperbaiki izin agar galeri tampil), isi kolom **`email`** pada akun SUPERADMIN di sheet `Pengguna` (dipakai laporan kesehatan harian), lalu jalankan **`setupDailyHealthTrigger()`** agar `dailyHealthReport` terkirim otomatis.
 
 > **Password legacy:** akun yang dibuat `seedDummyData` di versi lama (mis. `pic123`) masih tersimpan sebagai **plaintext legacy**. Saat user login pertama kali, sistem otomatis me-migrasinya ke hash dan menandai `must_change`; password tersebut wajib segera diganti lewat menu pengguna. Jalankan `migrateLegacyPasswords()` di editor untuk konversi massal tanpa menunggu login.
 
@@ -181,21 +187,31 @@ Akun SUPERADMIN dibuat terpisah lewat `createSuperadmin()` (bukan dari seed). Ak
 
 | File | Deskripsi |
 |------|-----------|
-| `Code.js` | Backend utama, hubungkan UI dengan fungsi database; wrapper API, deteksi level BBM (Gemini), dan pre-fill formulir (`getLastLaporanPrefill`). |
-| `BackupOperations.js` | Backup harian otomatis: `runDailyBackup()` (salinan spreadsheet 4 sheet data: `SESSION`, `PENGENDARA`, `Supir`, `Flazz_Card`), `performBackup` (pure), `pruneBackups`, `diagnoseBackup`, dan `setupBackupTrigger`. |
-| `DatabaseSetup.js` | Inisialisasi tabel & struktur Google Sheets + migrasi kolom idempotent. |
-| `SpreadsheetOps.js` | CRUD ke Google Sheets. |
-| `DriveOps.js` | Penyimpanan foto ke Google Drive. |
-| `FlazzOps.js` | CRUD kartu & transaksi Flazz (header-safe), soft-delete, dan logika rekonsiliasi penuh ke Google Sheets (termasuk rekonstruksi saldo awal dari ledger bila opening usage 0). |
-| `JalurOps.js` | CRUD jadwal pengiriman (header-safe) + helper perhitungan sisa hari pajak kendaraan. |
+| `Code.js` | Backend utama; wrapper API berbasis token, deteksi level BBM (Gemini), pre-fill formulir (`getLastLaporanPrefill`), dan `doGet` merender UI (tanpa meta CSP karena tidak didukung GAS). |
+| `AuditOps.js` | Pencatatan audit terpusat (login/logout, update akun, galat signifikan) ke sheet `Audit_Log`. |
+| `BackupOperations.js` | Backup harian otomatis: `runDailyBackup()` (salinan 4 sheet data: `SESSION`, `PENGENDARA`, `Supir`, `Flazz_Card`), `performBackup` (pure), `pruneBackups`, `diagnoseBackup`, dan `setupBackupTrigger`. |
+| `CacheUtil.js` | Util cache `CacheService` + anti-race (single-flight) untuk data master/lookup; dipakai `SheetRead` & endpoint ringkasan. |
+| `Config.gs` | Konstanten konfigurasi (`PROD_SPREADSHEET_ID`), `spreadsheetId()`, dan `configureSpreadsheet(ID)` untuk mengarahkan aplikasi ke salinan backup. |
+| `DatabaseSetup.js` | Inisialisasi tabel & struktur Google Sheets (termasuk kolom `email` pada `Pengguna` untuk laporan kesehatan) + migrasi kolom idempotent. |
+| `DriveOps.js` | Penyimpanan foto ke Google Drive dengan validasi tipe gambar (MIME) & scope folder per cabang (`uploadImageToDrive`, `initDriveFolders`, `fixPhotoPermissions`). |
+| `FlazzOps.js` | CRUD kartu & transaksi Flazz (header-safe), soft-delete, dan logika rekonsiliasi penuh ke Google Sheets. |
+| `HealthOps.js` | Laporan kesehatan harian (`dailyHealthReport`) & notifikasi email admin (`superadminEmails`, `sendAdminAlert`) + `setupDailyHealthTrigger` (manual). |
+| `JalurOps.js` | CRUD jadwal pengiriman (header-safe) + helper sisa hari pajak kendaraan. |
+| `Locks.js` | `LockService` untuk operasi tulis sensitif (transaksi, rekonsiliasi) agar aman dari tab ganda. |
+| `RateLimit.js` | Rate limiting login (5×/5 menit) & deteksi Gemini (30×/24 jam). |
+| `SessionAuth.js` | Token sesi server (`requireUser`, `SESSION_TTL_SECONDS`), hash password `SHA-256` + salt, migrasi password legacy. |
+| `SheetRead.js` | Helper `readRowsCols` (baca kolom terbatas) agar cache konsisten & hemat kuota. |
+| `SpreadsheetOps.js` | CRUD ke Google Sheets + enforcement cabang server-side (`assertOwnWarehouse`) + harga BBM per cabang. |
+| `SummaryOps.js` | Materialisasi ringkasan bulanan per cabang ke tab `Dashboard` (sumber halaman dashboard & performa). |
+| `TestRunner.js` | Test suite internal untuk verifikasi fungsi backend dari editor. |
 | `Index.html` | Struktur UI utama (Bootstrap 5 + mobile-first), halaman Dashboard Umum, & navigasi. |
-| `js.html` | Logika interaksi sisi client (JavaScript), termasuk rendering Dashboard Umum, pre-fill formulir laporan, dan auto-logout idle 2 menit. |
+| `js.html` | Logika interaksi sisi client: render dashboard & formulir, pre-fill laporan, dropdown cabang dibatasi peran (`cabangOptionsForRole`), sub-menu sidebar tetap terbuka, kompresi foto, watchdog 2 menit. |
 | `css.html` | Gaya desain custom (responsive, mobile-first). |
 | `Settings.html` | Halaman pengaturan aplikasi (logo, nama, perusahaan, footer). |
 | `FlazzPages.html` | Halaman UI modul Flazz (dashboard, kartu, top-up, rekonsiliasi, riwayat). |
-| `FlazzScript.html` | Logika interaksi sisi client untuk modul Flazz (termasuk tab riwayat & rekonsiliasi, edit top-up/tol, List Flazz dengan filter rentang tanggal, pencocokan tanggal aman zona waktu, dan cetak laporan A4 per periode). |
+| `FlazzScript.html` | Logika interaksi sisi client untuk modul Flazz (termasuk tab riwayat & rekonsiliasi, edit top-up/tol, List Flazz dengan filter rentang tanggal, pencocokan tanggal aman zona waktu, dan cetak laporan A4 per periode); dropdown cabang mengikuti peran pengguna. |
 | `JalurPages.html` | Halaman UI modul Jalur Pengiriman (buat jadwal & summary per tanggal). |
-| `JalurScript.html` | Logika interaksi sisi client untuk modul Jalur Pengiriman (render jadwal, screenshot, share WA). |
+| `JalurScript.html` | Logika interaksi sisi client untuk modul Jalur Pengiriman (render jadwal, screenshot, share WA); filter/kolom cabang tampil hanya untuk SUPERADMIN. |
 | `Html2canvasLib.html` | Library html2canvas lokal (di-embed client-side) untuk pratinjau screenshot summary agar bisa disalin ke WhatsApp. |
 
 ## Backup & Pemulihan
@@ -226,7 +242,7 @@ Maksimal **24 jam** — data yang hilang tidak dapat dipulihkan melebihi rentang
 
 ### Keterbatasan Diketahui (Known Limitation)
 - Backup `Monitoring_BBM_backup_*` menyalin **seluruh** isi `SESSION`, `PENGENDARA`, `Supir`, dan `Flazz_Card` — termasuk data lintas cabang — dalam satu file; backup belum dipisah per cabang. Ringkasan bulanan di tab `Dashboard` dihitung **per cabang** (baris `cabang + periode`).
-- **P2 akan bercabang per cabang** (per-branch) — pencatatan dan backup dipisahkan per cabang karena aplikasi ini menghasilkan satu spreadsheet untuk menampung 12 cabang × 2 user. Hingga saat ini, data lintas cabang tetap tersimpan di `SESSION`, dan backup menyertakan seluruh isi sheet tersebut.
+- Aplikasi menampung **12 cabang dalam satu spreadsheet**; data operasional lintas cabang tersimpan di sheet yang sama sehingga backup juga menyeluruh. Namun seluruh endpoint sudah menerapkan **enforce cabang server-side** bagi non-SUPERADMIN, sehingga pemisahan pencatatan per cabang sudah terjamin pada lapisan aplikasi.
 
 ## Konfigurasi Tambahan
 
