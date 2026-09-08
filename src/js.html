@@ -2181,8 +2181,8 @@
           '</div>' +
         '</div>' +
         '<div>' +
-      '<button class="btn btn-sm btn-outline-primary me-2" aria-label="Edit cabang ' + esc(c.nama) + '" onclick="editCabang(\'' + c.kode + '\')"><i class="bi bi-pencil"></i></button>' +
-      '<button class="btn btn-sm btn-outline-danger" aria-label="Hapus cabang ' + esc(c.nama) + '" onclick="deleteCabang(\'' + c.kode + '\')"><i class="bi bi-trash"></i></button>' +
+      '<button class="btn btn-sm btn-outline-primary me-2" aria-label="Edit cabang ' + esc(c.nama) + '" onclick="editCabang(' + JSON.stringify(c.kode) + ')"><i class="bi bi-pencil"></i></button>' +
+      '<button class="btn btn-sm btn-outline-danger" aria-label="Hapus cabang ' + esc(c.nama) + '" onclick="deleteCabang(' + JSON.stringify(c.kode) + ')"><i class="bi bi-trash"></i></button>' +
     '</div>' +
       '</div>'
     ).join('');
