@@ -148,7 +148,17 @@ function getMasterData(token) {
 
 function getDashboardData(token) {
   var user = requireUser(token);
-  return getRecentTransactions(user.role, user.cabang);
+  var trans = getRecentTransactions(user.role, user.cabang);
+  var periode = periodKey(new Date());
+  var monthly = [];
+  try {
+    if (user.role === 'SUPERADMIN') {
+      getCabangList().forEach(function(c) { monthly.push(getMonthlySummary(c.kode, periode)); });
+    } else {
+      monthly.push(getMonthlySummary(user.cabang, periode));
+    }
+  } catch (e) { monthly = []; }
+  return { transactions: trans, monthly: monthly.filter(function(x) { return !!x; }) };
 }
 
 function getPerformaData(token) {

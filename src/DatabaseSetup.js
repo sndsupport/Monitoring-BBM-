@@ -18,7 +18,7 @@ function setupDatabase() {
     { name: 'Foto_Evidence', headers: ['evidence_id', 'transaction_id', 'tipe_foto', 'file_url', 'file_id', 'timestamp'] },
     { name: 'Audit_Log', headers: ['log_id', 'timestamp', 'user_id', 'username', 'action', 'modul', 'keterangan', 'data_sebelum', 'data_sesudah'] },
     { name: 'Konfigurasi', headers: ['key', 'value', 'keterangan'] },
-    { name: 'Dashboard', headers: ['Metrics', 'Value'] },
+    { name: 'Dashboard', headers: ['cabang', 'periode', 'total_transaksi', 'total_liter', 'total_biaya_bbm', 'total_toll', 'updated_at'] },
     { name: 'Pengaturan', headers: ['key', 'value', 'updated_at'] },
     // --- FLAZZ MODULE SHEETS ---
     { name: 'Flazz_Card', headers: ['id', 'card_number', 'card_name', 'card_type', 'card_role', 'branch_id', 'driver_id', 'default_driver_id', 'last_balance', 'status', 'notes', 'created_at', 'updated_at'] },

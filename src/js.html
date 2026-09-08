@@ -1170,9 +1170,10 @@
     if (!galleryEl) return;
     galleryEl.innerHTML = "<div class='col-12 text-center text-muted py-4'>Memuat galeri...</div>";
     google.script.run
-      .withSuccessHandler(function(allData) {
-        window.__dashData = allData || [];
-        let items = (allData || []).filter(r => r.foto_odo_awal || r.foto_odo_akhir || r.foto_struk_bbm || r.foto_struk_toll || r.foto_indikator);
+      .withSuccessHandler(function(res) {
+        const allData = (res && res.transactions) ? res.transactions : [];
+        window.__dashData = allData;
+        let items = allData.filter(r => r.foto_odo_awal || r.foto_odo_akhir || r.foto_struk_bbm || r.foto_struk_toll || r.foto_indikator);
         items = items.slice(0, 6);
         let html = '';
         if (items.length === 0) {
@@ -1232,10 +1233,10 @@
     if(galleryLoading) galleryLoading.style.display = 'block';
     
     google.script.run
-      .withSuccessHandler(function(allData) {
+      .withSuccessHandler(function(res) {
         loadingState.style.display = 'none';
         if(galleryLoading) galleryLoading.style.display = 'none';
-        
+        const allData = (res && res.transactions) ? res.transactions : [];
         let data = allData.filter(function(row) {
           if (filterCabang && row.cabang !== filterCabang) return false;
           if (filterSupir && row.supir !== filterSupir) return false;
@@ -1246,6 +1247,7 @@
         window.__recent = data;
         window.__dashData = data;
         window.__dashPage = 1;
+        renderMonthlySummary((res && res.monthly) || []);
         renderDashboardData();
       })
       .withFailureHandler(function(err) {
@@ -1253,6 +1255,37 @@
         showToast('Gagal memuat dashboard: ' + err.message, 'error');
       })
       .getDashboardData(bbmToken());
+  }
+
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function(c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function renderMonthlySummary(monthly) {
+    let cont = document.getElementById('ringkasan-bulan-ini');
+    if (!cont) return;
+    if (!monthly || monthly.length === 0 || !monthly[0].total_transaksi) {
+      cont.style.display = 'none';
+      return;
+    }
+    cont.style.display = 'block';
+    let rows = [];
+    monthly.forEach(function(m) {
+      let biaya = parseFloat(m.total_biaya_bbm) || 0;
+      let toll = parseFloat(m.total_toll) || 0;
+      rows.push(
+        '<div class="col-6 col-md-3 mb-2">' +
+          '<div class="border rounded p-2 bg-light">' +
+            '<div class="text-muted small">' + esc(m.cabang) + '</div>' +
+            '<div class="fw-bold">' + m.total_transaksi + ' transaksi</div>' +
+            '<div class="small">' + (m.total_liter || 0) + ' L BBM</div>' +
+            '<div class="small">Rp ' + biaya.toLocaleString('id-ID') + ' + tol ' + toll.toLocaleString('id-ID') + '</div>' +
+          '</div>' +
+        '</div>');
+    });
+    cont.innerHTML = rows.join('');
   }
 
   const DASH_PER = 10;

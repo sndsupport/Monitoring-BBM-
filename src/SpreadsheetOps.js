@@ -211,6 +211,7 @@ function saveTransactionEndOfDayUnlocked(payload) {
   }
 
   sheet.appendRow(row);
+  try { recomputeMonthlySummary(trxCabang, periodKey(payload.tanggal)); } catch (e) { console.error('summary gagal: ' + e); }
 
   // Jika menggunakan Flazz, potong saldo (BBM + tol) dan catat penyerahan otomatis bila perlu
   if (payload.metode_pembayaran === 'FLAZZ' && payload.flazz_card_id) {
@@ -690,8 +691,9 @@ function editDailyTransactionUnlocked(payload, userInfo) {
     const idxStamp = headers.indexOf('timestamp');
     const idxFotoAwal = headers.indexOf('foto_odo_awal');
     const idxFotoAkhir = headers.indexOf('foto_odo_akhir');
+    const idxCabang = headers.indexOf('kode_cabang');
 
-    let rowIndex = -1, oldMetode = '', oldCard = null, oldBiaya = 0, oldToll = 0, vehicleId = '';
+    let rowIndex = -1, oldMetode = '', oldCard = null, oldBiaya = 0, oldToll = 0, vehicleId = '', oldCabang = '', oldTgl = '';
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][idxTrx]) === String(payload.transaction_id)) {
         rowIndex = i + 1;
@@ -700,6 +702,8 @@ function editDailyTransactionUnlocked(payload, userInfo) {
         oldBiaya = parseFloat(data[i][idxBiaya]) || 0;
         oldToll = idxToll > -1 ? (parseFloat(data[i][idxToll]) || 0) : 0;
         vehicleId = headers.indexOf('vehicle_id') > -1 ? String(data[i][headers.indexOf('vehicle_id')] || '') : '';
+        oldCabang = idxCabang > -1 ? data[i][idxCabang] : '';
+        oldTgl = idxTgl > -1 ? data[i][idxTgl] : '';
         break;
       }
     }
@@ -795,6 +799,11 @@ function editDailyTransactionUnlocked(payload, userInfo) {
       sheet.getRange(rowIndex, idxFotoAkhir + 1).setValue(up.fileUrl);
     }
 
+    const newCabang = oldCabang;
+    const newTgl = (payload.tanggal !== undefined && payload.tanggal !== '') ? payload.tanggal : oldTgl;
+    try { recomputeMonthlySummary(oldCabang, periodKey(oldTgl)); } catch (e) { console.error('summary gagal: ' + e); }
+    try { recomputeMonthlySummary(newCabang, periodKey(newTgl)); } catch (e) { console.error('summary gagal: ' + e); }
+
     return { success: true, msg: 'Transaksi BBM berhasil diperbarui.' };
   } catch (err) {
     return { success: false, msg: err.message };
@@ -821,8 +830,10 @@ function deleteDailyTransactionUnlocked(transactionId, userInfo) {
     const idxBiaya = headers.indexOf('biaya_bbm');
     const idxToll = headers.indexOf('biaya_toll');
     const idxVehicle = headers.indexOf('vehicle_id');
+    const idxTgl = headers.indexOf('tanggal');
+    const idxCabang = headers.indexOf('kode_cabang');
 
-    let rowIndex = -1, isFlazz = false, cardId = null, biaya = 0, toll = 0, vehicleId = '';
+    let rowIndex = -1, isFlazz = false, cardId = null, biaya = 0, toll = 0, vehicleId = '', delCabang = '', delTgl = '';
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][idxTrx]) === String(transactionId)) {
         rowIndex = i + 1;
@@ -831,6 +842,8 @@ function deleteDailyTransactionUnlocked(transactionId, userInfo) {
         biaya = parseFloat(data[i][idxBiaya]) || 0;
         toll = idxToll > -1 ? (parseFloat(data[i][idxToll]) || 0) : 0;
         vehicleId = idxVehicle > -1 ? String(data[i][idxVehicle] || '') : '';
+        delCabang = idxCabang > -1 ? data[i][idxCabang] : '';
+        delTgl = idxTgl > -1 ? data[i][idxTgl] : '';
         break;
       }
     }
@@ -841,6 +854,7 @@ function deleteDailyTransactionUnlocked(transactionId, userInfo) {
     if (isFlazz && cardId) {
       setCardBalance(cardId, (getCardBalance(cardId) || 0) + (biaya + toll));
     }
+    try { recomputeMonthlySummary(delCabang, periodKey(delTgl)); } catch (e) { console.error('summary gagal: ' + e); }
     return { success: true, msg: 'Transaksi BBM dihapus.' };
   } catch (err) {
     return { success: false, msg: err.message };
