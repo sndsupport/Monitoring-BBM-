@@ -299,6 +299,16 @@ function saveMasterBBM(data, token) {
   if (res && res.msg) invalidateMaster('SUPERADMIN', '');
   return res;
 }
+
+function apiGetBBMForCabang(token) {
+  var user = requireUser(token);
+  var ck = 'bbm:' + (user.cabang || 'SUPERADMIN');
+  var hit = cacheGet(ck);
+  if (hit) return hit;
+  var out = getActiveBBMForCabang(user.cabang);
+  cachePut(ck, out, 120);
+  return out;
+}
 function deleteMasterCabang(kode, token) {
   var res = deleteCabangById(kode, requireUser(token));
   if (res && res.msg) invalidateMaster('SUPERADMIN', '');

@@ -10,7 +10,7 @@ function setupDatabase() {
   const sheets = [
     { name: 'Cabang', headers: ['kode_cabang', 'nama_cabang', 'lokasi', 'status'] },
     { name: 'Supir', headers: ['supir_id', 'nama_supir', 'kode_cabang', 'status'] },
-    { name: 'BBM', headers: ['bbm_id', 'jenis_bbm', 'harga_per_liter', 'status'] },
+    { name: 'BBM', headers: ['bbm_id', 'jenis_bbm', 'harga_per_liter', 'kode_cabang', 'status'] },
     { name: 'Pengguna', headers: ['user_id', 'username', 'password', 'nama', 'role', 'kode_cabang', 'status'] },
     { name: 'Kendaraan', headers: ['vehicle_id', 'plat_nomor', 'nama_kendaraan', 'jenis_kendaraan', 'merk', 'model', 'kapasitas_tangki', 'jumlah_bar', 'standar_km_l', 'kode_cabang', 'status', 'jenis_indikator', 'tanggal_pajak', 'tanggal_pajak_5_tahunan', 'tanggal_kir'] },
     { name: 'Penggunaan_BBM', headers: ['transaction_id', 'timestamp', 'tanggal', 'user_id', 'nama_pengguna', 'kode_cabang', 'vehicle_id', 'plat_nomor', 'foto_km_awal', 'ocr_km_awal', 'km_awal_confirmed', 'bar_awal', 'foto_km_akhir', 'ocr_km_akhir', 'km_akhir_confirmed', 'bar_akhir', 'km_tempuh', 'perubahan_bar', 'liter_bbm', 'biaya_bbm', 'foto_struk_bbm', 'biaya_toll', 'foto_struk_toll', 'km_per_liter', 'status', 'warning', 'nama_supir', 'metode_pembayaran', 'flazz_card_id', 'foto_indikator', 'level_bbm', 'confidence_bbm', 'level_status', 'keterangan', 'km_sumber'] },
@@ -109,9 +109,9 @@ function seedDummyData() {
   // Seed BBM
   let sheetBBM = ss.getSheetByName('BBM');
   if (sheetBBM && sheetBBM.getLastRow() === 1) {
-    sheetBBM.appendRow(['BBM-001', 'Solar', 6800, 'Aktif']);
-    sheetBBM.appendRow(['BBM-002', 'Pertalite', 10000, 'Aktif']);
-    sheetBBM.appendRow(['BBM-003', 'Pertamax', 12950, 'Aktif']);
+    sheetBBM.appendRow(['BBM-001', 'Solar', 6800, '', 'Aktif']);
+    sheetBBM.appendRow(['BBM-002', 'Pertalite', 10000, '', 'Aktif']);
+    sheetBBM.appendRow(['BBM-003', 'Pertamax', 12950, '', 'Aktif']);
   }
   
   // Seed Cabang

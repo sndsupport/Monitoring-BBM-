@@ -299,15 +299,26 @@
         }
 
         let selectBBM = document.getElementById('jenis_bbm');
-        if (selectBBM && data.bbmList) {
-          selectBBM.innerHTML = '<option value="">-- Pilih BBM --</option>';
-          data.bbmList.forEach(b => {
-             let opt = document.createElement('option');
-             opt.value = b.harga;
-             opt.text = b.jenis + ' (Rp ' + b.harga + '/L)';
-             opt.dataset.jenis = b.jenis;
-             selectBBM.appendChild(opt);
-          });
+        if (selectBBM) {
+          function renderBBMOptions(list) {
+            selectBBM.innerHTML = '<option value="">-- Pilih BBM --</option>';
+            (list || []).forEach(function(b) {
+               var opt = document.createElement('option');
+               opt.value = b.harga_per_liter;
+               opt.text = esc(b.jenis_bbm) + ' \u2014 Rp ' + Number(b.harga_per_liter).toLocaleString('id-ID') + '/L';
+               opt.dataset.jenis = b.jenis_bbm;
+               selectBBM.appendChild(opt);
+            });
+          }
+          if (window.__bbmForCabang) {
+            renderBBMOptions(window.__bbmForCabang);
+          } else {
+            selectBBM.innerHTML = '<option value="">-- Pilih BBM --</option>';
+            google.script.run.withSuccessHandler(function(list) {
+              window.__bbmForCabang = list || [];
+              renderBBMOptions(window.__bbmForCabang);
+            }).apiGetBBMForCabang(bbmToken());
+          }
         }
 
         let selectFlazz = document.getElementById('flazz_card_id');
@@ -1533,10 +1544,13 @@
 
     let jenisSel = document.getElementById('ed_jenis_bbm');
     if(jenisSel){
-      let bbms = (window.masterData && window.masterData.bbm) ? window.masterData.bbm : [];
-      jenisSel.innerHTML = '<option value="">-- Pilih BBM --</option>' + bbms.map(b => '<option value="' + b.harga + '">' + b.jenis + ' (Rp ' + b.harga + '/L)</option>').join('');
-      // Default pilih BBM pertama agar liter terisi otomatis dari harga
-      if (bbms.length && row.biaya_bbm) jenisSel.value = String(bbms[0].harga);
+      let bbms = (window.__bbmForCabang || (window.masterData && window.masterData.bbm) || []);
+      jenisSel.innerHTML = '<option value="">-- Pilih BBM --</option>' + bbms.map(function(b) {
+        var harga = b.harga_per_liter !== undefined ? b.harga_per_liter : b.harga;
+        var jenis = b.jenis_bbm || b.jenis || '';
+        return '<option value="' + harga + '">' + esc(jenis) + ' \u2014 Rp ' + Number(harga).toLocaleString('id-ID') + '/L</option>';
+      }).join('');
+      if (bbms.length && row.biaya_bbm) jenisSel.value = String(bbms[0].harga_per_liter !== undefined ? bbms[0].harga_per_liter : bbms[0].harga);
       calcEditLiter();
     }
 

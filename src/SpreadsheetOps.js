@@ -1010,11 +1010,36 @@ function getActiveBBM() {
   const data = sheet.getDataRange().getValues();
   const list = [];
   for (let i = 1; i < data.length; i++) {
-    if (data[i][3] === 'Aktif') {
+    if (data[i][4] === 'Aktif') {
       list.push({ id: data[i][0], jenis: data[i][1], harga: data[i][2] });
     }
   }
   return list;
+}
+
+function getActiveBBMForCabang(cabang) {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('BBM');
+  if (!sheet) return [];
+  const h = sheetHeaders(sheet);
+  const idx = colIndex(h, ['bbm_id', 'jenis_bbm', 'harga_per_liter', 'kode_cabang', 'status']);
+  const rows = readRowsCols(sheet, [idx.bbm_id, idx.jenis_bbm, idx.harga_per_liter, idx.kode_cabang, idx.status]);
+  const globals = {};
+  const overrides = {};
+  rows.forEach(function(r) {
+    if (String(r[4] || '') !== 'Aktif') return;
+    const item = { bbm_id: r[0], jenis_bbm: r[1], harga_per_liter: parseFloat(r[2]) || 0, kode_cabang: r[3] || '' };
+    const key = String(item.bbm_id);
+    if (item.kode_cabang) {
+      if (String(item.kode_cabang) === String(cabang)) overrides[key] = item;
+    } else {
+      globals[key] = item;
+    }
+  });
+  const merged = {};
+  Object.keys(globals).forEach(function(k) { merged[k] = globals[k]; });
+  Object.keys(overrides).forEach(function(k) { merged[k] = overrides[k]; });
+  return Object.keys(merged).map(function(k) { return merged[k]; });
 }
 
 function updateCabang(data, userInfo) {
@@ -1100,7 +1125,7 @@ function updateBBM(data, userInfo) {
   const values = sheet.getDataRange().getValues();
   for (let i = 1; i < values.length; i++) {
     if (values[i][0] == data.edit_id) {
-      sheet.getRange(i + 1, 2, 1, 2).setValues([[data.jenis, data.harga]]);
+      sheet.getRange(i + 1, 1, 1, 5).setValues([[data.edit_id, data.jenis, data.harga, data.kode_cabang || '', 'Aktif']]);
       logAudit(userInfo, 'EDIT', 'master', 'BBM ' + data.edit_id,
         { jenis: values[i][1], harga: values[i][2] },
         { jenis: data.jenis, harga: data.harga });
@@ -1114,7 +1139,7 @@ function insertBBM(data, userInfo) {
   assertSuperadminOnly(userInfo, 'menambah master BBM');
   const ss = getDB();
   let id = 'BBM-' + new Date().getTime();
-  ss.getSheetByName('BBM').appendRow([id, data.jenis, data.harga, 'Aktif']);
+  ss.getSheetByName('BBM').appendRow([id, data.jenis, data.harga, data.kode_cabang || '', 'Aktif']);
   logAudit(userInfo, 'CREATE', 'master', 'BBM ' + id, null, { id: id, jenis: data.jenis, harga: data.harga });
   return { msg: 'BBM Berhasil Ditambahkan' };
 }

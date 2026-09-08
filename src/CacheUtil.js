@@ -13,8 +13,12 @@ function performaCacheKey(role, cabang) {
 function invalidateMaster(role, cabang) {
   var c = CacheService.getScriptCache();
   c.remove(masterCacheKey(role, cabang));
+  c.remove('bbm:' + cabang);
+  c.remove('bbm:SUPERADMIN');
   // SUPERADMIN melihat SEMUA cabang; tarik semua variasi
   c.remove(masterCacheKey('SUPERADMIN', ''));
+  c.remove('bbm:' + cabang);
+  c.remove('bbm:SUPERADMIN');
 }
 
 function invalidatePerforma(role, cabang) {
