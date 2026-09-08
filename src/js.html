@@ -38,7 +38,6 @@
     let storedUser = loadSessionUser();
     if (storedUser) {
        userInfo = storedUser;
-       attachIdleListeners();
        loadInitialData(userInfo);
     } else {
        document.getElementById('page-login').style.display = 'block';
@@ -93,42 +92,6 @@
     }).doLogin(un, pw);
   }
 
-  var IDLE_TIMEOUT_MS = 2 * 60 * 1000;
-  var idleTimeoutId = null;
-  var idleLastReset = 0;
-  var idleListenersAttached = false;
-
-  function attachIdleListeners() {
-    if (idleListenersAttached) return;
-    idleListenersAttached = true;
-    var events = ['click', 'keydown', 'keyup', 'touchstart', 'scroll', 'focus'];
-    events.forEach(function(ev) { document.addEventListener(ev, resetIdleTimer, true); });
-    window.addEventListener('focus', resetIdleTimer);
-  }
-
-  function cancelIdleTimers() {
-    if (idleTimeoutId) { clearTimeout(idleTimeoutId); idleTimeoutId = null; }
-    var modalEl = document.getElementById('modal-idle-warning');
-    if (modalEl) {
-      var modal = bootstrap.Modal.getInstance(modalEl);
-      if (modal) modal.hide();
-    }
-  }
-
-  function resetIdleTimer() {
-    if (!userInfo) return;
-    // Debounce: abaikan event beruntun (misal mousemove) dalam 1 detik
-    var now = Date.now();
-    if (now - idleLastReset < 1000) return;
-    idleLastReset = now;
-    cancelIdleTimers();
-    idleTimeoutId = setTimeout(logout, IDLE_TIMEOUT_MS);
-  }
-
-  function idleExtendSession() {
-    resetIdleTimer();
-  }
-
   function logout() {
     var t = bbmToken();
     localStorage.removeItem('bbm_token');
@@ -136,7 +99,6 @@
     if (t) {
       try { google.script.run.doLogout(t); } catch (e) { /* abaikan */ }
     }
-    cancelIdleTimers();
     document.getElementById('user-info').innerHTML = '';
     var sidebarUserInfo = document.getElementById('sidebar-user-info');
     if (sidebarUserInfo) sidebarUserInfo.innerHTML = '';
@@ -358,7 +320,6 @@
         loadAppSettings();
         switchTab('dashboard');
         prefillFormFromLast(uInfo);
-        resetIdleTimer();
       })
       .processInitialData(bbmToken());
   }
