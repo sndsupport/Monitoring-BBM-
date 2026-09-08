@@ -3,6 +3,37 @@
 // FLAZZ SCRIPTS
 // ==========================================
 
+function esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+function escUrl(v) {
+  var s = esc(v);
+  if (/^(https:\/\/drive\.google\.com|https:\/\/lh3\.googleusercontent\.com|data:image\/)/.test(s)) return s;
+  if (/^https:\/\//.test(s)) return s;
+  return '';
+}
+function openPrintWindowFor(html) {
+  var f = document.createElement('iframe');
+  f.style.position = 'fixed';
+  f.style.right = '0';
+  f.style.bottom = '0';
+  f.style.width = '0';
+  f.style.height = '0';
+  f.style.border = '0';
+  f.srcdoc = html;
+  document.body.appendChild(f);
+  f.onload = function() {
+    setTimeout(function() {
+      try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { console.error('print gagal', e); }
+    }, 350);
+  };
+}
+
 let flazzDataCache = null;
 let __flazzFilterCabang = '';
 let __flazzHistStart = '';
@@ -193,11 +224,11 @@ function renderFlazzDashboardCards(data) {
     let tr = document.createElement('tr');
     let badgeClass = c.status === 'SEDANG_DIGUNAKAN' ? 'bg-warning' : (c.status === 'TERSEDIA' ? 'bg-success' : 'bg-secondary');
     tr.innerHTML = `
-      <td class="fw-bold">${c.card_number}</td>
-      <td>${c.card_type}</td>
-      <td>${c.driver_id || '-'}</td>
+      <td class="fw-bold">${esc(c.card_number)}</td>
+      <td>${esc(c.card_type)}</td>
+      <td>${esc(c.driver_id || '-')}</td>
       <td class="fw-bold">${formatCurrency(c.last_balance)}</td>
-      <td><span class="badge ${badgeClass}">${c.status}</span></td>
+      <td><span class="badge ${badgeClass}">${esc(c.status)}</span></td>
     `;
     tbody.appendChild(tr);
   });
@@ -211,14 +242,14 @@ function renderFlazzMasterTable(cards) {
     let tr = document.createElement('tr');
     let badgeClass = c.status === 'SEDANG_DIGUNAKAN' ? 'bg-warning' : (c.status === 'TERSEDIA' ? 'bg-success' : 'bg-secondary');
     tr.innerHTML = `
-      <td><small class="text-muted">${c.id}</small></td>
-      <td class="fw-bold">${c.card_number}</td>
-      <td>${c.card_name || '-'}</td>
-      <td>${c.card_type || '-'}</td>
-      <td><span class="badge ${c.card_role === 'UTAMA' ? 'bg-primary' : 'bg-secondary'}">${c.card_role || 'CADANGAN'}</span></td>
-      <td>${c.branch_id}</td>
+      <td><small class="text-muted">${esc(c.id)}</small></td>
+      <td class="fw-bold">${esc(c.card_number)}</td>
+      <td>${esc(c.card_name || '-')}</td>
+      <td>${esc(c.card_type || '-')}</td>
+      <td><span class="badge ${c.card_role === 'UTAMA' ? 'bg-primary' : 'bg-secondary'}">${esc(c.card_role || 'CADANGAN')}</span></td>
+      <td>${esc(c.branch_id)}</td>
       <td class="fw-bold">${formatCurrency(c.last_balance)}</td>
-      <td><span class="badge ${badgeClass}">${c.status}</span></td>
+      <td><span class="badge ${badgeClass}">${esc(c.status)}</span></td>
       <td class="text-center">
          <button class="btn btn-sm btn-outline-primary" onclick="editFlazzCard('${c.id}')" title="Edit" aria-label="Edit kartu"><i class="bi bi-pencil"></i></button> 
          ${c.status === 'NONAKTIF' 
@@ -248,7 +279,7 @@ function populateFlazzDropdowns(data) {
   
   // Top up: semua kartu aktif (bisa top up kapan saja)
   cards.filter(c => c.status !== 'NONAKTIF').forEach(c => {
-     let opt = `<option value="${c.id}">${c.card_number} ${c.driver_id ? '['+c.driver_id+']' : ''} - ${formatCurrency(c.last_balance)}</option>`;
+     let opt = `<option value="${esc(c.id)}">${esc(c.card_number)} ${c.driver_id ? '['+esc(c.driver_id)+']' : ''} - ${formatCurrency(c.last_balance)}</option>`;
      if(tCard) tCard.innerHTML += opt;
   });
 
@@ -261,7 +292,7 @@ function populateFlazzDropdowns(data) {
       .map(u => String(u.card_id)));
     rCard.innerHTML = '<option value="">Pilih Kartu...</option>';
     cards.filter(c => c.status === 'SEDANG_DIGUNAKAN' || openUsageCards.has(String(c.id))).forEach(c => {
-       rCard.innerHTML += `<option value="${c.id}" data-balance="${c.last_balance}">${c.card_number} [${c.driver_id}] - Saldo: ${formatCurrency(c.last_balance)}</option>`;
+       rCard.innerHTML += `<option value="${esc(c.id)}" data-balance="${esc(c.last_balance)}">${esc(c.card_number)} [${esc(c.driver_id)}] - Saldo: ${formatCurrency(c.last_balance)}</option>`;
     });
   }
 }
@@ -347,7 +378,7 @@ function updateReconGateStatus(cardId) {
         if (btn) btn.disabled = false;
       } else {
         box.className = 'alert alert-danger py-2';
-        box.innerHTML = '<i class="bi bi-slash-circle me-1"></i> ' + ((res && res.reason) || 'Belum ada laporan valid. Rekonsiliasi diblokir.');
+        box.innerHTML = '<i class="bi bi-slash-circle me-1"></i> ' + esc(((res && res.reason) || 'Belum ada laporan valid. Rekonsiliasi diblokir.'));
         if (btn) btn.disabled = true;
       }
     })
@@ -390,7 +421,7 @@ function showFlazzModal() {
   branchSelect.innerHTML = document.getElementById('m_cabang') ? document.getElementById('m_cabang').innerHTML : '';
   let driverSelect = document.getElementById('f_driver_id');
   driverSelect.innerHTML = '<option value="">-- Tidak Ada / Kartu Bebas --</option>';
-  (allDrivers || []).forEach(d => driverSelect.innerHTML += '<option value="'+d.nama+'">'+d.nama+'</option>');
+  (allDrivers || []).forEach(d => driverSelect.innerHTML += '<option value="'+esc(d.nama)+'">'+esc(d.nama)+'</option>');
   
   new bootstrap.Modal(document.getElementById('modal-flazz-card')).show();
 }
@@ -611,10 +642,10 @@ function renderHistSection(type) {
       let cardStr = data.cards.find(c => c.id === t.card_id)?.card_number || t.card_id;
       tbody.innerHTML += `<tr>
         <td>${formatDateShort(t.date)}</td>
-        <td>${cardStr}</td>
+        <td>${esc(cardStr)}</td>
         <td class="fw-bold text-success">+${formatCurrency(t.amount)}</td>
-        <td><a href="${t.evidence_url}" target="_blank">Lihat Bukti</a></td>
-        <td>${t.notes}</td>
+        <td><a href="${escUrl(t.evidence_url)}" target="_blank">Lihat Bukti</a></td>
+        <td>${esc(t.notes)}</td>
         <td class="text-end text-nowrap">
           <button class="btn btn-sm btn-outline-primary" title="Edit Top Up" aria-label="Edit top up" onclick="editTopUp('${t.id}')"><i class="bi bi-pencil"></i></button>
           <button class="btn btn-sm btn-outline-danger" title="Hapus Top Up" aria-label="Hapus top up" onclick="deleteTopUp('${t.id}')"><i class="bi bi-trash"></i></button>
@@ -625,7 +656,7 @@ function renderHistSection(type) {
       let isDaily = t.source === 'DAILY';
       let srcBadge = isDaily ? " <span class='badge bg-info ms-1'>Laporan Harian</span>" : '';
       let bukti = t.evidence_url
-        ? `<a href="${t.evidence_url}" target="_blank">Lihat Bukti</a>`
+        ? `<a href="${escUrl(t.evidence_url)}" target="_blank">Lihat Bukti</a>`
         : "<span class='text-muted'>-</span>";
       let aksi = isDaily
         ? "<span class='text-muted small'>Dari laporan harian</span>"
@@ -633,30 +664,30 @@ function renderHistSection(type) {
           `<button class="btn btn-sm btn-outline-danger" title="Hapus Tol" aria-label="Hapus tol" onclick="deleteTol('${t.id}')"><i class="bi bi-trash"></i></button>`;
       tbody.innerHTML += `<tr>
         <td>${formatDateShort(t.date)}${srcBadge}</td>
-        <td>${cardStr}</td>
-        <td>${t.driver_id || '-'} / ${t.vehicle_id || '-'}</td>
+        <td>${esc(cardStr)}</td>
+        <td>${esc(t.driver_id || '-')} / ${esc(t.vehicle_id || '-')}</td>
         <td class="fw-bold text-danger">-${formatCurrency(t.amount)}</td>
         <td>${bukti}</td>
-        <td>${t.notes || ''}</td>
+        <td>${esc(t.notes || '')}</td>
         <td class="text-end text-nowrap">${aksi}</td>
       </tr>`;
     } else if (type === 'usage') {
       let cardStr = data.cards.find(c => c.id === t.card_id)?.card_number || t.card_id;
       tbody.innerHTML += `<tr>
         <td>${formatDateShort(t.date)}</td>
-        <td>${cardStr}</td>
-        <td>${t.driver_id} / ${t.vehicle_id}</td>
-        <td><span class="badge bg-secondary">${t.usage_type}</span></td>
-        <td>${t.notes}</td>
+        <td>${esc(cardStr)}</td>
+        <td>${esc(t.driver_id)} / ${esc(t.vehicle_id)}</td>
+        <td><span class="badge bg-secondary">${esc(t.usage_type)}</span></td>
+        <td>${esc(t.notes)}</td>
       </tr>`;
     } else if (type === 'bbm') {
       let cardStr = data.cards.find(c => c.id === t.card_id)?.card_number || t.card_id;
       tbody.innerHTML += `<tr>
         <td>${formatDateShort(t.tanggal)}</td>
-        <td>${cardStr}</td>
-        <td>${t.driver} / ${t.vehicle}</td>
+        <td>${esc(cardStr)}</td>
+        <td>${esc(t.driver)} / ${esc(t.vehicle)}</td>
         <td class="fw-bold text-danger">-${formatCurrency(t.amount)}</td>
-        <td><a href="${t.evidence}" target="_blank">Struk BBM</a></td>
+        <td><a href="${escUrl(t.evidence)}" target="_blank">Struk BBM</a></td>
         <td class="text-end">
           <button class="btn btn-sm btn-outline-danger" title="Hapus transaksi BBM" aria-label="Hapus transaksi BBM" onclick="deleteBBMFlazz('${t.transaction_id}')"><i class="bi bi-trash"></i></button>
         </td>
@@ -666,17 +697,17 @@ function renderHistSection(type) {
       let statClass = t.reconciliation_status === 'SESUAI' ? 'bg-success' : 'bg-danger';
       tbody.innerHTML += `<tr>
         <td>${formatDateShort(t.date)}</td>
-        <td>${cardStr}</td>
-        <td>${t.driver_id ? t.driver_id + ' / ' : ''}${t.vehicle_id || ''}</td>
+        <td>${esc(cardStr)}</td>
+        <td>${t.driver_id ? esc(t.driver_id) + ' / ' : ''}${esc(t.vehicle_id || '')}</td>
         <td>${formatCurrency(t.opening_balance)}</td>
         <td class="text-success">+${formatCurrency(t.total_topup)}</td>
         <td class="text-danger">-${formatCurrency(t.total_bbm_flazz + t.total_tol)}</td>
         <td class="fw-bold">${formatCurrency(t.flazz_balance)}</td>
         <td>${formatCurrency(t.actual_balance)}</td>
         <td class="${t.difference < 0 ? 'text-success' : 'text-danger'}">${formatCurrency(t.difference)}</td>
-        <td><span class="badge ${statClass}">${t.reconciliation_status}</span></td>
-        <td>${t.notes || ''}</td>
-        <td>${t.reconciled_by || ''}</td>
+        <td><span class="badge ${statClass}">${esc(t.reconciliation_status)}</span></td>
+        <td>${esc(t.notes || '')}</td>
+        <td>${esc(t.reconciled_by || '')}</td>
         <td>${t.reconciled_at ? formatDateShort(t.reconciled_at) : '-'}</td>
       </tr>`;
     }
@@ -723,7 +754,7 @@ function editTopUp(id) {
   let t = (flazzDataCache && flazzDataCache.topups || []).find(x => x.id === id);
   if(!t) return showToast('Data tidak ditemukan', 'error');
   let cards = ((flazzDataCache && flazzDataCache.cards) || []).filter(c => c.status !== 'NONAKTIF');
-  document.getElementById('et_card_id').innerHTML = cards.map(c => '<option value="'+c.id+'">'+c.card_number+'</option>').join('');
+  document.getElementById('et_card_id').innerHTML = cards.map(c => '<option value="'+esc(c.id)+'">'+esc(c.card_number)+'</option>').join('');
   document.getElementById('et_id').value = t.id;
   document.getElementById('et_card_id').value = t.card_id;
   document.getElementById('et_amount').value = t.amount;
@@ -766,7 +797,7 @@ function editTol(id) {
   let t = (flazzDataCache && flazzDataCache.tols || []).find(x => x.id === id);
   if(!t) return showToast('Data tidak ditemukan', 'error');
   let cards = ((flazzDataCache && flazzDataCache.cards) || []).filter(c => c.status !== 'NONAKTIF');
-  document.getElementById('etol_card_id').innerHTML = cards.map(c => '<option value="'+c.id+'">'+c.card_number+'</option>').join('');
+  document.getElementById('etol_card_id').innerHTML = cards.map(c => '<option value="'+esc(c.id)+'">'+esc(c.card_number)+'</option>').join('');
   document.getElementById('etol_id').value = t.id;
   document.getElementById('etol_card_id').value = t.card_id;
   document.getElementById('etol_amount').value = t.amount;
@@ -866,7 +897,7 @@ function editFlazzCard(id) {
   branchSelect.innerHTML = document.getElementById('m_cabang') ? document.getElementById('m_cabang').innerHTML : '';
   let driverSelect = document.getElementById('f_driver_id');
   driverSelect.innerHTML = '<option value="">-- Tidak Ada / Kartu Bebas --</option>';
-  (allDrivers || []).forEach(d => driverSelect.innerHTML += '<option value="'+d.nama+'">'+d.nama+'</option>');
+  (allDrivers || []).forEach(d => driverSelect.innerHTML += '<option value="'+esc(d.nama)+'">'+esc(d.nama)+'</option>');
   branchSelect.value = card.branch_id;
   document.getElementById('f_driver_id').value = card.default_driver_id || card.driver_id || '';
   
@@ -1004,12 +1035,12 @@ function renderFlazzListingTable() {
       <td class='text-center text-muted'>${idx + 1}</td>
       <td>
         <a href='#' class='fw-bold text-primary text-decoration-underline' onclick="showFlazzDetailModal('${cardId}'); return false;">
-          ${c.card_number}
+          ${esc(c.card_number)}
         </a>
       </td>
-      <td>${c.card_name || '-'}</td>
-      <td>${c.driver_id || '-'}</td>
-      <td><span class="badge ${statusBadgeCls}">${c.status || 'NONAKTIF'}</span></td>
+      <td>${esc(c.card_name || '-')}</td>
+      <td>${esc(c.driver_id || '-')}</td>
+      <td><span class="badge ${statusBadgeCls}">${esc(c.status || 'NONAKTIF')}</span></td>
       <td class='text-end'>${formatCurrency(saldoAwal)}</td>
       <td class='text-end text-danger fw-bold'>${totalExpense > 0 ? '-' + formatCurrency(totalExpense) : '-'}</td>
       <td class='text-end fw-bold'>${formatCurrency(saldoAkhir)}</td>
@@ -1046,20 +1077,20 @@ function showFlazzDetailModal(cardId) {
     (card.status === 'TERSEDIA' ? 'bg-success' : 'bg-secondary');
 
   document.getElementById('flazz-detail-title').innerHTML =
-    'Laporan Penggunaan Kartu Flazz - ' + card.card_number +
-    ' <span class="badge ' + statusBadge + ' ms-2" style="font-size:0.7rem;">' + card.status + '</span>';
+    'Laporan Penggunaan Kartu Flazz - ' + esc(card.card_number) +
+    ' <span class="badge ' + statusBadge + ' ms-2" style="font-size:0.7rem;">' + esc(card.status) + '</span>';
 
   var range = flazzListingRange();
   let html = '';
 
   // Card info section
   html += '<div class="row g-3 mb-4">';
-  html += '<div class="col-md-3"><div class="text-muted small fw-bold">Nama Kartu</div><div>' + (card.card_name || '-') + '</div></div>';
-  html += '<div class="col-md-3"><div class="text-muted small fw-bold">Tipe</div><div>' + (card.card_type || '-') + '</div></div>';
-  html += '<div class="col-md-3"><div class="text-muted small fw-bold">Driver</div><div>' + (card.driver_id || '-') + '</div></div>';
-  html += '<div class="col-md-3"><div class="text-muted small fw-bold">Cabang</div><div>' + (card.branch_id || '-') + '</div></div>';
+  html += '<div class="col-md-3"><div class="text-muted small fw-bold">Nama Kartu</div><div>' + esc(card.card_name || '-') + '</div></div>';
+  html += '<div class="col-md-3"><div class="text-muted small fw-bold">Tipe</div><div>' + esc(card.card_type || '-') + '</div></div>';
+  html += '<div class="col-md-3"><div class="text-muted small fw-bold">Driver</div><div>' + esc(card.driver_id || '-') + '</div></div>';
+  html += '<div class="col-md-3"><div class="text-muted small fw-bold">Cabang</div><div>' + esc(card.branch_id || '-') + '</div></div>';
   html += '<div class="col-md-3"><div class="text-muted small fw-bold">Saldo Saat Ini</div><div class="fw-bold text-primary fs-5">' + formatCurrency(card.last_balance) + '</div></div>';
-  html += '<div class="col-md-3"><div class="text-muted small fw-bold">Periode Laporan</div><div class="fw-bold">' + range.start + ' s/d ' + range.end + '</div></div>';
+  html += '<div class="col-md-3"><div class="text-muted small fw-bold">Periode Laporan</div><div class="fw-bold">' + esc(range.start) + ' s/d ' + esc(range.end) + '</div></div>';
   html += '</div>';
 
   // Top Up table
@@ -1095,7 +1126,7 @@ function renderFlazzDetailHistory(cardId, data) {
       topupTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Tidak ada data</td></tr>';
     } else {
       topups.forEach(t => {
-        topupTbody.innerHTML += '<tr><td>' + formatDateShort(t.date) + '</td><td class="text-success fw-bold">+' + formatCurrency(t.amount) + '</td><td>' + (t.evidence_url ? '<a href="' + t.evidence_url + '" target="_blank">Lihat</a>' : '-') + '</td><td>' + (t.notes || '') + '</td></tr>';
+        topupTbody.innerHTML += '<tr><td>' + formatDateShort(t.date) + '</td><td class="text-success fw-bold">+' + formatCurrency(t.amount) + '</td><td>' + (t.evidence_url ? '<a href="' + escUrl(t.evidence_url) + '" target="_blank">Lihat</a>' : '-') + '</td><td>' + esc(t.notes || '') + '</td></tr>';
       });
     }
   }
@@ -1127,7 +1158,7 @@ function renderFlazzDetailHistory(cardId, data) {
       pengeluaranTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Tidak ada data</td></tr>';
     } else {
       rows.forEach(r => {
-        pengeluaranTbody.innerHTML += '<tr><td>' + formatDateShort(r.tanggal) + '</td><td>' + r.jenis + '</td><td>' + r.supir + ' / ' + r.kendaraan + '</td><td class="text-danger fw-bold">' + r.nilai + '</td></tr>';
+        pengeluaranTbody.innerHTML += '<tr><td>' + formatDateShort(r.tanggal) + '</td><td>' + r.jenis + '</td><td>' + esc(r.supir) + ' / ' + esc(r.kendaraan) + '</td><td class="text-danger fw-bold">' + r.nilai + '</td></tr>';
       });
     }
   }
@@ -1148,7 +1179,7 @@ function renderFlazzDetailHistory(cardId, data) {
     } else {
       recons.forEach(r => {
         let statClass = r.reconciliation_status === 'SESUAI' ? 'bg-success' : 'bg-danger';
-        reconTbody.innerHTML += '<tr><td>' + formatDateShort(r.date) + '</td><td>' + formatCurrency(r.opening_balance) + '</td><td class="text-success">+' + formatCurrency(r.total_topup) + '</td><td class="text-danger">-' + formatCurrency(r.total_bbm_flazz + r.total_tol) + '</td><td class="fw-bold">' + formatCurrency(r.flazz_balance) + '</td><td>' + formatCurrency(r.actual_balance) + '</td><td class="' + (r.difference < 0 ? 'text-success' : 'text-danger') + '">' + formatCurrency(r.difference) + '</td><td><span class="badge ' + statClass + '">' + r.reconciliation_status + '</span></td></tr>';
+        reconTbody.innerHTML += '<tr><td>' + formatDateShort(r.date) + '</td><td>' + formatCurrency(r.opening_balance) + '</td><td class="text-success">+' + formatCurrency(r.total_topup) + '</td><td class="text-danger">-' + formatCurrency(r.total_bbm_flazz + r.total_tol) + '</td><td class="fw-bold">' + formatCurrency(r.flazz_balance) + '</td><td>' + formatCurrency(r.actual_balance) + '</td><td class="' + (r.difference < 0 ? 'text-success' : 'text-danger') + '">' + formatCurrency(r.difference) + '</td><td><span class="badge ' + statClass + '">' + esc(r.reconciliation_status) + '</span></td></tr>';
       });
     }
   }
@@ -1172,7 +1203,7 @@ function printFlazzA4() {
 
   let lastBal = parseFloat(card.last_balance) || 0;
 
-  let printHtml = '<!DOCTYPE html><html><head><title>Laporan Penggunaan Kartu Flazz - ' + card.card_number + '</title>';
+  let printHtml = '<!DOCTYPE html><html><head><title>Laporan Penggunaan Kartu Flazz - ' + esc(card.card_number) + '</title>';
   printHtml += '<style>@page{size:A4;margin:5mm 5mm 15mm 5mm;}body{font-family:Arial,sans-serif;font-size:11pt;color:#000;}';
   printHtml += '.print-header{text-align:center;margin-bottom:20px;border-bottom:2px solid #000;padding-bottom:10px;}';
   printHtml += '.print-header h2{margin:0;font-size:16pt;}';
@@ -1190,15 +1221,15 @@ function printFlazzA4() {
   printHtml += '</style></head><body>';
 
   printHtml += '<div class="print-header"><h2>LAPORAN PENGGUNAAN KARTU FLAZZ</h2>';
-  printHtml += '<div>' + card.card_number + ' | Periode: <strong>' + start + ' s/d ' + end + '</strong></div></div>';
+  printHtml += '<div>' + esc(card.card_number) + ' | Periode: <strong>' + esc(start) + ' s/d ' + esc(end) + '</strong></div></div>';
 
   printHtml += '<div class="info-grid">';
-  printHtml += '<div><span class="label">Nomor Kartu:</span> ' + card.card_number + '</div>';
-  printHtml += '<div><span class="label">Nama Kartu:</span> ' + (card.card_name || '-') + '</div>';
-  printHtml += '<div><span class="label">Tipe Kartu:</span> ' + (card.card_type || '-') + '</div>';
-  printHtml += '<div><span class="label">Driver:</span> ' + (card.driver_id || '-') + '</div>';
-  printHtml += '<div><span class="label">Cabang:</span> ' + (card.branch_id || '-') + '</div>';
-  printHtml += '<div><span class="label">Status:</span> ' + card.status + '</div>';
+  printHtml += '<div><span class="label">Nomor Kartu:</span> ' + esc(card.card_number) + '</div>';
+  printHtml += '<div><span class="label">Nama Kartu:</span> ' + esc(card.card_name || '-') + '</div>';
+  printHtml += '<div><span class="label">Tipe Kartu:</span> ' + esc(card.card_type || '-') + '</div>';
+  printHtml += '<div><span class="label">Driver:</span> ' + esc(card.driver_id || '-') + '</div>';
+  printHtml += '<div><span class="label">Cabang:</span> ' + esc(card.branch_id || '-') + '</div>';
+  printHtml += '<div><span class="label">Status:</span> ' + esc(card.status) + '</div>';
   printHtml += '<div><span class="label">Saldo Saat Ini:</span> <strong>' + formatCurrency(lastBal) + '</strong></div>';
   printHtml += '</div>';
 
@@ -1237,7 +1268,7 @@ function printFlazzA4() {
     printHtml += '<tr><td colspan="4" class="text-center">Tidak ada data</td></tr>';
   } else {
     periodTopups.forEach(t => {
-      printHtml += '<tr><td>' + formatDateShort(t.date) + '</td><td>+' + formatCurrency(t.amount) + '</td><td>' + (t.evidence_url ? 'Ada' : '-') + '</td><td>' + (t.notes || '') + '</td></tr>';
+      printHtml += '<tr><td>' + esc(formatDateShort(t.date)) + '</td><td>+' + formatCurrency(t.amount) + '</td><td>' + (t.evidence_url ? 'Ada' : '-') + '</td><td>' + esc(t.notes || '') + '</td></tr>';
     });
   }
   printHtml += '</tbody>';
@@ -1253,10 +1284,10 @@ function printFlazzA4() {
     printHtml += '<tr><td colspan="4" class="text-center">Tidak ada data</td></tr>';
   } else {
     periodTols.forEach(t => {
-      printHtml += '<tr><td>' + formatDateShort(t.date) + '</td><td>Tol</td><td>' + (t.driver_id || '-') + ' / ' + (t.vehicle_id || '-') + '</td><td>-' + formatCurrency(t.amount) + '</td></tr>';
+      printHtml += '<tr><td>' + esc(formatDateShort(t.date)) + '</td><td>Tol</td><td>' + esc(t.driver_id || '-') + ' / ' + esc(t.vehicle_id || '-') + '</td><td>-' + formatCurrency(t.amount) + '</td></tr>';
     });
     periodBbm.forEach(b => {
-      printHtml += '<tr><td>' + formatDateShort(b.tanggal) + '</td><td>BBM</td><td>' + (b.driver || '-') + ' / ' + (b.vehicle || '-') + '</td><td>-' + formatCurrency(b.amount) + '</td></tr>';
+      printHtml += '<tr><td>' + esc(formatDateShort(b.tanggal)) + '</td><td>BBM</td><td>' + esc(b.driver || '-') + ' / ' + esc(b.vehicle || '-') + '</td><td>-' + formatCurrency(b.amount) + '</td></tr>';
     });
   }
   printHtml += '</tbody>';
@@ -1272,17 +1303,14 @@ function printFlazzA4() {
     printHtml += '<tr><td colspan="8" class="text-center">Tidak ada data</td></tr>';
   } else {
     periodRecons.forEach(r => {
-      printHtml += '<tr><td>' + formatDateShort(r.date) + '</td><td>' + formatCurrency(r.opening_balance) + '</td><td>+' + formatCurrency(r.total_topup) + '</td><td>-' + formatCurrency(r.total_bbm_flazz + r.total_tol) + '</td><td>' + formatCurrency(r.flazz_balance) + '</td><td>' + formatCurrency(r.actual_balance) + '</td><td>' + formatCurrency(r.difference) + '</td><td>' + r.reconciliation_status + '</td></tr>';
+      printHtml += '<tr><td>' + esc(formatDateShort(r.date)) + '</td><td>' + formatCurrency(r.opening_balance) + '</td><td>+' + formatCurrency(r.total_topup) + '</td><td>-' + formatCurrency(r.total_bbm_flazz + r.total_tol) + '</td><td>' + formatCurrency(r.flazz_balance) + '</td><td>' + formatCurrency(r.actual_balance) + '</td><td>' + formatCurrency(r.difference) + '</td><td>' + esc(r.reconciliation_status) + '</td></tr>';
     });
   }
   printHtml += '</tbody></table>';
 
-  printHtml += '<div class="footer">Dicetak pada ' + new Date().toLocaleString('id-ID') + ' | Sistem Monitoring BBM</div>';
-  printHtml += '<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<\/script>';
+  printHtml += '<div class="footer">Dicetak pada ' + esc(new Date().toLocaleString('id-ID')) + ' | Sistem Monitoring BBM</div>';
   printHtml += '</body></html>';
 
-  let printWindow = window.open('', '_blank', 'width=800,height=600');
-  printWindow.document.write(printHtml);
-  printWindow.document.close();
+  openPrintWindowFor(printHtml);
 }
 </script>

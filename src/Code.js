@@ -3,6 +3,14 @@ function doGet(e) {
     .evaluate()
     .setTitle('Laporan BBM & Operasional Harian')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .addMetaTag('Content-Security-Policy',
+      "default-src 'self' https: data: blob:; " +
+      "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
+      "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; " +
+      "font-src 'self' data: https://fonts.gstatic.com; " +
+      "img-src 'self' data: blob: https://drive.google.com https://lh3.googleusercontent.com https:; " +
+      "connect-src 'self' https:; " +
+      "frame-src https://drive.google.com;")
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 

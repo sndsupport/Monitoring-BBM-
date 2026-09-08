@@ -1,4 +1,19 @@
 <script>
+function esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+function escUrl(v) {
+  var s = esc(v);
+  if (/^(https:\/\/drive\.google\.com|https:\/\/lh3\.googleusercontent\.com|data:image\/)/.test(s)) return s;
+  if (/^https:\/\//.test(s)) return s;
+  return '';
+}
+
 function bbmToken() {
   return localStorage.getItem('bbm_token') || '';
 }
@@ -130,7 +145,7 @@ function jalurPopulateEtollOptions(selectEl, selectedId) {
     var label = (c.card_name || '') + (c.card_number ? ' (' + c.card_number + ')' : '') +
       (c.card_role === 'UTAMA' ? ' [UTAMA]' : '');
     var sel = selectedId && String(c.id) === String(selectedId) ? ' selected' : '';
-    html += '<option value="' + String(c.id) + '" data-name="' + String(c.card_name || '') + '"' + sel + '>' + label + '</option>';
+    html += '<option value="' + esc(String(c.id)) + '" data-name="' + esc(String(c.card_name || '')) + '"' + sel + '>' + esc(label) + '</option>';
   });
   selectEl.innerHTML = html;
 }
@@ -166,7 +181,7 @@ function jalurRenderVehicleOptions(selectEl, selected) {
   vehicles.forEach(function(v) {
     if (cabang && v.cabang !== cabang) return;
     const sel = v.vehicle_id === selected ? ' selected' : '';
-    html += '<option value="' + v.vehicle_id + '"' + sel + '>' + v.plat_nomor + ' - ' + v.nama + ' (' + v.jenis + ')</option>';
+    html += '<option value="' + esc(v.vehicle_id) + '"' + sel + '>' + esc(v.plat_nomor) + ' - ' + esc(v.nama) + ' (' + esc(v.jenis) + ')</option>';
   });
   selectEl.innerHTML = html;
 }
@@ -292,11 +307,11 @@ function jalurShowListing() {
         const rows = res.list.map(function(it) {
           const icon = it.jenis_kendaraan === 'Motor' ? 'bi-bicycle' : 'bi-truck';
           return '<tr>' +
-            '<td>' + it.tanggal + '</td>' +
-            '<td><i class="bi ' + icon + ' me-2 text-primary"></i>' + it.plat_nomor + ' <span class="text-muted small">' + it.nama_kendaraan + '</span></td>' +
-            '<td>' + it.nama_driver + '</td>' +
-            '<td>' + it.rute_tujuan + '</td>' +
-            '<td>' + (it.flazz_card_name || '-') + '</td>' +
+            '<td>' + esc(it.tanggal) + '</td>' +
+            '<td><i class="bi ' + icon + ' me-2 text-primary"></i>' + esc(it.plat_nomor) + ' <span class="text-muted small">' + esc(it.nama_kendaraan) + '</span></td>' +
+            '<td>' + esc(it.nama_driver) + '</td>' +
+            '<td>' + esc(it.rute_tujuan) + '</td>' +
+            '<td>' + esc(it.flazz_card_name || '-') + '</td>' +
             '<td>' + jalurPajakBadge(it.status_pajak, it.sisa_hari_pajak) + '</td>' +
             '<td class="text-end"><button class="btn btn-sm btn-outline-primary me-1" title="Edit Jadwal" aria-label="Edit jadwal" onclick="jalurEdit(\'' + it.id + '\')"><i class="bi bi-pencil"></i></button>' +
             '<button class="btn btn-sm btn-outline-danger" title="Hapus Jadwal" aria-label="Hapus jadwal" onclick="jalurDelete(\'' + it.id + '\')"><i class="bi bi-trash"></i></button></td>' +
@@ -352,11 +367,11 @@ function jalurShowSummary() {
         const rows = res.list.map(function(it) {
           const icon = it.jenis_kendaraan === 'Motor' ? 'bi-bicycle' : 'bi-truck';
           return '<tr>' +
-            '<td><i class="bi ' + icon + ' me-2 text-primary"></i>' + it.plat_nomor + ' <span class="text-muted small">' + it.nama_kendaraan + '</span></td>' +
-            '<td>' + it.nama_driver + '</td>' +
-            '<td>' + (it.nama_driver2 || '-') + '</td>' +
-            '<td>' + it.rute_tujuan + '</td>' +
-            '<td>' + (it.flazz_card_name || '-') + '</td>' +
+            '<td><i class="bi ' + icon + ' me-2 text-primary"></i>' + esc(it.plat_nomor) + ' <span class="text-muted small">' + esc(it.nama_kendaraan) + '</span></td>' +
+            '<td>' + esc(it.nama_driver) + '</td>' +
+            '<td>' + esc(it.nama_driver2 || '-') + '</td>' +
+            '<td>' + esc(it.rute_tujuan) + '</td>' +
+            '<td>' + esc(it.flazz_card_name || '-') + '</td>' +
             '<td>' + jalurPajakBadge(it.status_pajak, it.sisa_hari_pajak, 'Pajak') + '</td>' +
             '<td>' + jalurPajakBadge(it.status_pajak_5, it.sisa_hari_pajak_5, 'Pajak 5 Tahun') + '</td>' +
             '<td>' + (it.jenis_kendaraan === 'Mobil' ? jalurPajakBadge(it.status_kir, it.sisa_hari_kir, 'KIR') : '<span class="badge bg-light text-muted fw-normal border">N/A</span>') + '</td>' +
@@ -443,11 +458,11 @@ function jalurSave() {
 
 function jalurPajakBadge(status, days, label) {
   label = label || 'Pajak';
-  if (status === 'TIDAK_ADA') return '<span class="badge bg-secondary">' + label + ' -</span>';
-  if (status === 'LEWAT') return '<span class="badge bg-dark">' + label + ' lewat ' + Math.abs(days) + ' hari</span>';
-  if (status === 'KRITIS') return '<span class="badge bg-danger">' + label + ' habis dalam ' + days + ' hari</span>';
-  if (status === 'WASPADA') return '<span class="badge bg-warning text-dark">' + label + ' habis dalam ' + days + ' hari</span>';
-  return '<span class="badge bg-success">' + label + ' habis dalam ' + days + ' hari</span>';
+  if (status === 'TIDAK_ADA') return '<span class="badge bg-secondary">' + esc(label) + ' -</span>';
+  if (status === 'LEWAT') return '<span class="badge bg-dark">' + esc(label) + ' lewat ' + esc(Math.abs(days)) + ' hari</span>';
+  if (status === 'KRITIS') return '<span class="badge bg-danger">' + esc(label) + ' habis dalam ' + esc(days) + ' hari</span>';
+  if (status === 'WASPADA') return '<span class="badge bg-warning text-dark">' + esc(label) + ' habis dalam ' + esc(days) + ' hari</span>';
+  return '<span class="badge bg-success">' + esc(label) + ' habis dalam ' + esc(days) + ' hari</span>';
 }
 
 function jalurEdit(id) {

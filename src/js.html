@@ -194,10 +194,10 @@
 
         userRole = data.role;
         let displayRole = userRole === 'PIC CABANG' ? 'Admin' : userRole;
-        var userSummary = data.user + ' (' + displayRole + ' - ' + data.cabang + ')';
+        var userSummary = esc(data.user) + ' (' + displayRole + ' - ' + esc(data.cabang) + ')';
         document.getElementById('user-info').innerHTML = userSummary;
         var sidebarUserInfo = document.getElementById('sidebar-user-info');
-        if (sidebarUserInfo) sidebarUserInfo.innerHTML = '<strong>' + data.user + '</strong><br><span class="text-muted" style="font-size: 0.85rem;">' + displayRole + ' &middot; ' + data.cabang + '</span>';
+        if (sidebarUserInfo) sidebarUserInfo.innerHTML = '<strong>' + esc(data.user) + '</strong><br><span class="text-muted" style="font-size: 0.85rem;">' + esc(displayRole) + ' &middot; ' + esc(data.cabang) + '</span>';
 
         if (userRole === 'SUPERADMIN' || userRole === 'PIC CABANG') {
           document.getElementById('nav-master').classList.remove('d-none');
@@ -239,7 +239,7 @@
           if(roleAlert) {
              let displayRole = userRole === 'PIC CABANG' ? 'Admin' : userRole;
              roleAlert.className = 'alert alert-info text-center';
-             roleAlert.innerHTML = '<small><i class="bi bi-info-circle me-1"></i> Anda login sebagai ' + displayRole + '. Warehouse: ' + data.cabang + '</small>';
+             roleAlert.innerHTML = '<small><i class="bi bi-info-circle me-1"></i> Anda login sebagai ' + esc(displayRole) + '. Warehouse: ' + esc(data.cabang) + '</small>';
           }
         }
 
@@ -378,7 +378,7 @@
     google.script.run
       .withSuccessHandler(function(settings) {
         if (settings.logo_url) {
-          var logoHtml = '<img src="' + settings.logo_url + '" alt="Logo" style="max-height: 100px; max-width: 200px;">';
+          var logoHtml = '<img src="' + escUrl(settings.logo_url) + '" alt="Logo" style="max-height: 100px; max-width: 200px;">';
           var loginLogo = document.getElementById('login-logo');
           if (loginLogo) loginLogo.innerHTML = logoHtml;
         }
@@ -1108,14 +1108,14 @@
 
       let tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${row.periode}</td>
-        <td>${row.cabang}</td>
-        <td>${row.supir}</td>
-        <td>${row.vehicle}</td>
-        <td>${row.total_km.toLocaleString('id-ID')} KM</td>
-        <td>${row.total_beli.toLocaleString('id-ID')} L</td>
-        <td>${row.total_konsumsi.toLocaleString('id-ID')} L</td>
-        <td>${row.efisiensi} KM/L</td>
+        <td>${esc(row.periode)}</td>
+        <td>${esc(row.cabang)}</td>
+        <td>${esc(row.supir)}</td>
+        <td>${esc(row.vehicle)}</td>
+        <td>${esc(row.total_km.toLocaleString('id-ID'))} KM</td>
+        <td>${esc(row.total_beli.toLocaleString('id-ID'))} L</td>
+        <td>${esc(row.total_konsumsi.toLocaleString('id-ID'))} L</td>
+        <td>${esc(row.efisiensi)} KM/L</td>
         <td>${efisiensiBadge}</td>
       `;
       tbody.appendChild(tr);
@@ -1132,7 +1132,7 @@
       else if (hour >= 11 && hour < 15) greet = 'Selamat Siang';
       else if (hour >= 15 && hour < 18) greet = 'Selamat Sore';
       let name = (userInfo && userInfo.user) ? userInfo.user : '';
-      greetEl.innerHTML = greet + (name ? ', ' + name : '') + '!';
+      greetEl.innerHTML = greet + (name ? ', ' + esc(name) : '') + '!';
     }
     if (greetSubEl) {
       let opt = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
@@ -1192,14 +1192,14 @@
         } else {
           items.forEach(row => {
             let imgHtml = '';
-            if (row.foto_odo_awal) imgHtml = "<img src='" + (row.foto_odo_awal_thumb || row.foto_odo_awal) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
-            else if (row.foto_odo_akhir) imgHtml = "<img src='" + (row.foto_odo_akhir_thumb || row.foto_odo_akhir) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
-            else if (row.foto_struk_bbm) imgHtml = "<img src='" + (row.foto_struk_bbm_thumb || row.foto_struk_bbm) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
-            else if (row.foto_struk_toll) imgHtml = "<img src='" + (row.foto_struk_toll_thumb || row.foto_struk_toll) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
-            else if (row.foto_indikator) imgHtml = "<img src='" + (row.foto_indikator_thumb || row.foto_indikator) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
+            if (row.foto_odo_awal) imgHtml = "<img src='" + escUrl(row.foto_odo_awal_thumb || row.foto_odo_awal) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
+            else if (row.foto_odo_akhir) imgHtml = "<img src='" + escUrl(row.foto_odo_akhir_thumb || row.foto_odo_akhir) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
+            else if (row.foto_struk_bbm) imgHtml = "<img src='" + escUrl(row.foto_struk_bbm_thumb || row.foto_struk_bbm) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
+            else if (row.foto_struk_toll) imgHtml = "<img src='" + escUrl(row.foto_struk_toll_thumb || row.foto_struk_toll) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
+            else if (row.foto_indikator) imgHtml = "<img src='" + escUrl(row.foto_indikator_thumb || row.foto_indikator) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
             let link = row.foto_odo_awal || row.foto_odo_akhir || row.foto_struk_bbm || row.foto_struk_toll || row.foto_indikator;
             html += "<div class='col-6 col-md-2'>" +
-              "<a href='" + link + "' target='_blank' class='text-decoration-none'>" +
+              "<a href='" + escUrl(link) + "' target='_blank' class='text-decoration-none'>" +
                 "<div class='card border-0 shadow-sm h-100'>" +
                   imgHtml +
                   "<div class='card-body py-1 px-2 small text-truncate'>" + escapeAttr(row.tanggal) + "</div>" +
@@ -1273,6 +1273,12 @@
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
+  function escUrl(v) {
+    var s = esc(v);
+    if (/^(https:\/\/drive\.google\.com|https:\/\/lh3\.googleusercontent\.com|data:image\/)/.test(s)) return s;
+    if (/^https:\/\//.test(s)) return s;
+    return '';
+  }
 
   function renderMonthlySummary(monthly) {
     let cont = document.getElementById('ringkasan-bulan-ini');
@@ -1290,9 +1296,9 @@
         '<div class="col-6 col-md-3 mb-2">' +
           '<div class="border rounded p-2 bg-light">' +
             '<div class="text-muted small">' + esc(m.cabang) + '</div>' +
-            '<div class="fw-bold">' + m.total_transaksi + ' transaksi</div>' +
-            '<div class="small">' + (m.total_liter || 0) + ' L BBM</div>' +
-            '<div class="small">Rp ' + biaya.toLocaleString('id-ID') + ' + tol ' + toll.toLocaleString('id-ID') + '</div>' +
+            '<div class="fw-bold">' + esc(m.total_transaksi) + ' transaksi</div>' +
+            '<div class="small">' + esc(m.total_liter || 0) + ' L BBM</div>' +
+            '<div class="small">Rp ' + esc(biaya.toLocaleString('id-ID')) + ' + tol ' + esc(toll.toLocaleString('id-ID')) + '</div>' +
           '</div>' +
         '</div>');
     });
@@ -1337,13 +1343,13 @@
     pageData.forEach(row => {
       let tr = document.createElement('tr');
       tr.innerHTML = 
-        "<td class='text-nowrap'>" + row.tanggal + "</td>" +
-        "<td class='text-nowrap'>" + row.cabang + "</td>" +
-        "<td class='text-nowrap'>" + row.supir + "</td>" +
-        "<td class='text-nowrap'>" + row.vehicle + odoWarningBadgeHtml(row.warning) + "</td>" +
-        "<td class='text-center text-nowrap'>" + row.km_tempuh + " KM" + kmEstBadge(row) + "</td>" +
-        "<td class='text-center text-nowrap'>" + (row.isi_bbm > 0 ? row.isi_bbm + " L" : "-") + "</td>" +
-        "<td class='text-center'>" + (row.status_efisiensi === 'Data Belum Cukup' ? efisiensiBadge(row.status_efisiensi) : (row.efisiensi ? row.efisiensi + " KM/L" + (row.efisiensi_label ? " <small class='text-muted'>(" + row.efisiensi_label + ")</small>" : "") + efisiensiBadge(row.status_efisiensi) : "-")) + "</td>" +
+        "<td class='text-nowrap'>" + esc(row.tanggal) + "</td>" +
+        "<td class='text-nowrap'>" + esc(row.cabang) + "</td>" +
+        "<td class='text-nowrap'>" + esc(row.supir) + "</td>" +
+        "<td class='text-nowrap'>" + esc(row.vehicle) + odoWarningBadgeHtml(row.warning) + "</td>" +
+        "<td class='text-center text-nowrap'>" + esc(row.km_tempuh) + " KM" + kmEstBadge(row) + "</td>" +
+        "<td class='text-center text-nowrap'>" + (row.isi_bbm > 0 ? esc(row.isi_bbm) + " L" : "-") + "</td>" +
+        "<td class='text-center'>" + (row.status_efisiensi === 'Data Belum Cukup' ? efisiensiBadge(row.status_efisiensi) : (row.efisiensi ? esc(row.efisiensi) + " KM/L" + (row.efisiensi_label ? " <small class='text-muted'>(" + esc(row.efisiensi_label) + ")</small>" : "") + efisiensiBadge(row.status_efisiensi) : "-")) + "</td>" +
         "<td class='text-end text-nowrap'>" +
           "<button class='btn btn-sm btn-outline-primary' title='Edit Laporan' aria-label='Edit laporan' onclick='editDaily(" + JSON.stringify(row.transaction_id) + ")'><i class='bi bi-pencil'></i></button> " +
           "<button class='btn btn-sm btn-outline-danger' title='Hapus Laporan' aria-label='Hapus laporan' onclick='deleteDaily(" + JSON.stringify(row.transaction_id) + ")'><i class='bi bi-trash'></i></button>" +
@@ -1357,34 +1363,34 @@
       card.innerHTML = 
         "<div class='card-header bg-light'>" +
           "<div class='d-flex justify-content-between align-items-center'>" +
-            "<div><i class='bi bi-calendar me-1'></i> " + row.tanggal + "</div>" +
-            "<small class='text-muted'>" + row.cabang + "</small>" +
+            "<div><i class='bi bi-calendar me-1'></i> " + esc(row.tanggal) + "</div>" +
+            "<small class='text-muted'>" + esc(row.cabang) + "</small>" +
           "</div>" +
         "</div>" +
         "<div class='card-body'>" +
-          "<div class='mb-2'><strong>" + row.vehicle + "</strong></div>" +
+          "<div class='mb-2'><strong>" + esc(row.vehicle) + "</strong></div>" +
           odoWarningStripHtml(row.warning) +
-          "<div class='mb-2 text-muted'><i class='bi bi-person me-1'></i> " + row.supir + "</div>" +
+          "<div class='mb-2 text-muted'><i class='bi bi-person me-1'></i> " + esc(row.supir) + "</div>" +
           "<div class='row g-2 mb-2'>" +
             "<div class='col-6'>" +
               "<div class='stats-box'>" +
                 "<div class='stats-label'>KM Tempuh</div>" +
-                "<div class='stats-value'>" + row.km_tempuh + " KM" + kmEstBadge(row) + "</div>" +
+                "<div class='stats-value'>" + esc(row.km_tempuh) + " KM" + kmEstBadge(row) + "</div>" +
               "</div>" +
             "</div>" +
             "<div class='col-6'>" +
               "<div class='stats-box'>" +
                 "<div class='stats-label'>Isi BBM</div>" +
-                "<div class='stats-value'>" + (row.isi_bbm > 0 ? row.isi_bbm + " L" : "-") + "</div>" +
+                "<div class='stats-value'>" + (row.isi_bbm > 0 ? esc(row.isi_bbm) + " L" : "-") + "</div>" +
               "</div>" +
             "</div>" +
           "</div>" +
           "<div class='d-flex justify-content-between align-items-center'>" +
-            "<small><i class='bi bi-fuel-pump me-1'></i> " + (row.status_efisiensi === 'Data Belum Cukup' ? efisiensiBadge(row.status_efisiensi) : (row.efisiensi ? row.efisiensi + " KM/L" + (row.efisiensi_label ? " <small class='text-muted'>(" + row.efisiensi_label + ")</small>" : "") + efisiensiBadge(row.status_efisiensi) : "-")) + "</small>" +
+            "<small><i class='bi bi-fuel-pump me-1'></i> " + (row.status_efisiensi === 'Data Belum Cukup' ? efisiensiBadge(row.status_efisiensi) : (row.efisiensi ? esc(row.efisiensi) + " KM/L" + (row.efisiensi_label ? " <small class='text-muted'>(" + esc(row.efisiensi_label) + ")</small>" : "") + efisiensiBadge(row.status_efisiensi) : "-")) + "</small>" +
           "</div>" +
           "<div class='d-flex justify-content-end gap-2 mt-2'>" +
-            "<button class='btn btn-sm btn-outline-primary' onclick='editDaily(\"" + row.transaction_id + "\")'><i class='bi bi-pencil'></i> Edit</button> " +
-            "<button class='btn btn-sm btn-outline-danger' onclick='deleteDaily(\"" + row.transaction_id + "\")'><i class='bi bi-trash'></i> Hapus</button>" +
+            "<button class='btn btn-sm btn-outline-primary' onclick='editDaily(" + JSON.stringify(row.transaction_id) + ")'><i class='bi bi-pencil'></i> Edit</button> " +
+            "<button class='btn btn-sm btn-outline-danger' onclick='deleteDaily(" + JSON.stringify(row.transaction_id) + ")'><i class='bi bi-trash'></i> Hapus</button>" +
           "</div>" +
         "</div>";
       cardsContainer.appendChild(card);
@@ -1459,8 +1465,8 @@
         "<div class='card h-100 shadow-sm'>" +
           "<div class='card-header bg-light'>" +
             "<div class='d-flex justify-content-between align-items-center'>" +
-              "<div><i class='bi bi-calendar me-1'></i> " + row.tanggal + "</div>" +
-              "<small class='fw-bold text-truncate' style='max-width: 130px;' title='" + escapeAttr(row.supir) + "'>" + row.supir + "</small>" +
+              "<div><i class='bi bi-calendar me-1'></i> " + esc(row.tanggal) + "</div>" +
+              "<small class='fw-bold text-truncate' style='max-width: 130px;' title='" + esc(row.supir) + "'>" + esc(row.supir) + "</small>" +
             "</div>" +
           "</div>" +
           "<div class='card-body'>" +
@@ -1469,31 +1475,31 @@
       if (filterType === 'all' || filterType === 'odo_awal') {
         html += "<div class='" + (filterType === 'all' ? 'col-6' : 'col-12') + " text-center'>" +
                   "<small class='d-block mb-1 text-muted'>KM Awal</small>" +
-                  (row.foto_odo_awal ? "<a href='" + row.foto_odo_awal + "' target='_blank'><img src='" + (row.foto_odo_awal_thumb || row.foto_odo_awal) + "' class='img-fluid rounded shadow-sm border' style='aspect-ratio:4/3; object-fit:cover;' loading='lazy'></a>" : "<span class='text-muted small'>-</span>") +
+                  (row.foto_odo_awal ? "<a href='" + escUrl(row.foto_odo_awal) + "' target='_blank'><img src='" + escUrl(row.foto_odo_awal_thumb || row.foto_odo_awal) + "' class='img-fluid rounded shadow-sm border' style='aspect-ratio:4/3; object-fit:cover;' loading='lazy'></a>" : "<span class='text-muted small'>-</span>") +
                 "</div>";
       }
       if (filterType === 'all' || filterType === 'odo_akhir') {
         html += "<div class='" + (filterType === 'all' ? 'col-6' : 'col-12') + " text-center'>" +
                   "<small class='d-block mb-1 text-muted'>KM Akhir</small>" +
-                  (row.foto_odo_akhir ? "<a href='" + row.foto_odo_akhir + "' target='_blank'><img src='" + (row.foto_odo_akhir_thumb || row.foto_odo_akhir) + "' class='img-fluid rounded shadow-sm border' style='aspect-ratio:4/3; object-fit:cover;' loading='lazy'></a>" : "<span class='text-muted small'>-</span>") +
+                  (row.foto_odo_akhir ? "<a href='" + escUrl(row.foto_odo_akhir) + "' target='_blank'><img src='" + escUrl(row.foto_odo_akhir_thumb || row.foto_odo_akhir) + "' class='img-fluid rounded shadow-sm border' style='aspect-ratio:4/3; object-fit:cover;' loading='lazy'></a>" : "<span class='text-muted small'>-</span>") +
                 "</div>";
       }
       if (filterType === 'all' || filterType === 'struk_bbm') {
         html += "<div class='" + (filterType === 'all' ? 'col-4 mt-2' : 'col-12') + " text-center'>" +
                   "<small class='d-block mb-1 text-muted'>Struk BBM</small>" +
-                  (row.foto_struk_bbm ? "<a href='" + row.foto_struk_bbm + "' target='_blank'><img src='" + (row.foto_struk_bbm_thumb || row.foto_struk_bbm) + "' class='img-fluid rounded shadow-sm border' style='aspect-ratio:3/4; object-fit:cover;' loading='lazy'></a>" : "<span class='text-muted small'>-</span>") +
+                  (row.foto_struk_bbm ? "<a href='" + escUrl(row.foto_struk_bbm) + "' target='_blank'><img src='" + escUrl(row.foto_struk_bbm_thumb || row.foto_struk_bbm) + "' class='img-fluid rounded shadow-sm border' style='aspect-ratio:3/4; object-fit:cover;' loading='lazy'></a>" : "<span class='text-muted small'>-</span>") +
                 "</div>";
       }
       if (filterType === 'all' || filterType === 'struk_toll') {
         html += "<div class='" + (filterType === 'all' ? 'col-4 mt-2' : 'col-12') + " text-center'>" +
                   "<small class='d-block mb-1 text-muted'>Struk Tol</small>" +
-                  (row.foto_struk_toll ? "<a href='" + row.foto_struk_toll + "' target='_blank'><img src='" + (row.foto_struk_toll_thumb || row.foto_struk_toll) + "' class='img-fluid rounded shadow-sm border' style='aspect-ratio:3/4; object-fit:cover;' loading='lazy'></a>" : "<span class='text-muted small'>-</span>") +
+                  (row.foto_struk_toll ? "<a href='" + escUrl(row.foto_struk_toll) + "' target='_blank'><img src='" + escUrl(row.foto_struk_toll_thumb || row.foto_struk_toll) + "' class='img-fluid rounded shadow-sm border' style='aspect-ratio:3/4; object-fit:cover;' loading='lazy'></a>" : "<span class='text-muted small'>-</span>") +
                 "</div>";
       }
       if (filterType === 'all' || filterType === 'indikator') {
         html += "<div class='" + (filterType === 'all' ? 'col-4 mt-2' : 'col-12') + " text-center'>" +
                   "<small class='d-block mb-1 text-muted'>Indikator BBM</small>" +
-                  (row.foto_indikator ? "<a href='" + row.foto_indikator + "' target='_blank'><img src='" + (row.foto_indikator_thumb || row.foto_indikator) + "' class='img-fluid rounded shadow-sm border' style='aspect-ratio:4/3; object-fit:cover;' loading='lazy'></a>" : "<span class='text-muted small'>-</span>") +
+                  (row.foto_indikator ? "<a href='" + escUrl(row.foto_indikator) + "' target='_blank'><img src='" + escUrl(row.foto_indikator_thumb || row.foto_indikator) + "' class='img-fluid rounded shadow-sm border' style='aspect-ratio:4/3; object-fit:cover;' loading='lazy'></a>" : "<span class='text-muted small'>-</span>") +
                 "</div>";
       }
       
@@ -1562,7 +1568,7 @@
     let flazz = document.getElementById('ed_flazz_card_id');
     if(flazz){
       let cards = (window.masterData && window.masterData.flazzCards) ? window.masterData.flazzCards : [];
-      flazz.innerHTML = '<option value="">-- Pilih Kartu --</option>' + cards.map(c=>'<option value="'+c.id+'">'+c.card_number + (c.driver_id ? ' [' + c.driver_id + ']' : '') + '</option>').join('');
+      flazz.innerHTML = '<option value="">-- Pilih Kartu --</option>' + cards.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.card_number) + (c.driver_id ? ' [' + esc(c.driver_id) + ']' : '') + '</option>').join('');
       flazz.value = row.flazz_card_id || '';
       // Autofill kartu dari supir bila transaksi ini ber-Flazz dan kartu belum terpilih
       if (metode && metode.value === 'FLAZZ' && !flazz.value) {
@@ -1664,7 +1670,7 @@
     if (status === 'Di bawah standar') warna = 'danger';
     else if (status === 'Di atas standar') warna = 'info';
     else if (status === 'Data Belum Cukup') warna = 'secondary';
-    return " <span class='badge bg-" + warna + "'>" + status + "</span>";
+    return " <span class='badge bg-" + warna + "'>" + esc(status) + "</span>";
   }
 
   function escapeAttr(str) {
@@ -1689,9 +1695,9 @@
   function fotoThumbHtml(url, thumb, label) {
     if (!url) return "<span class='text-muted small'>-</span>";
     const inner = thumb
-      ? "<img src='" + thumb + "' alt='" + label + "' loading='lazy' width='64' height='48' class='rounded border' style='object-fit:cover'>"
-      : "<span class='badge bg-secondary'>" + label + "</span>";
-    return "<a href='" + url + "' target='_blank' title='Lihat " + label + "'>" + inner + "</a>";
+      ? "<img src='" + escUrl(thumb) + "' alt='" + esc(label) + "' loading='lazy' width='64' height='48' class='rounded border' style='object-fit:cover'>"
+      : "<span class='badge bg-secondary'>" + esc(label) + "</span>";
+    return "<a href='" + escUrl(url) + "' target='_blank' title='Lihat " + esc(label) + "'>" + inner + "</a>";
   }
 
   function resetFilters() {
@@ -2176,17 +2182,17 @@
             '<i class="bi ' + (v.jenis === 'Motor' ? 'bi-bicycle' : 'bi-car-front-fill') + ' fs-5"></i>' +
           '</div>' +
           '<div>' +
-            '<div class="fw-bold mb-1 fs-6">' + v.plat_nomor + '</div>' +
+            '<div class="fw-bold mb-1 fs-6">' + esc(v.plat_nomor) + '</div>' +
             '<div class="d-flex align-items-center small text-muted flex-wrap">' +
-              '<span class="badge bg-secondary me-2">' + v.nama + '</span>' +
-              '<span class="me-2">' + info + '</span>' +
-              '<span class="badge bg-info text-dark">' + indLabel + '</span>' +
+              '<span class="badge bg-secondary me-2">' + esc(v.nama) + '</span>' +
+              '<span class="me-2">' + esc(info) + '</span>' +
+              '<span class="badge bg-info text-dark">' + esc(indLabel) + '</span>' +
             '</div>' +
           '</div>' +
         '</div>' +
         '<div>' +
-          '<button class="btn btn-sm btn-outline-primary me-2" aria-label="Edit kendaraan ' + v.plat_nomor + '" onclick="editKendaraan(\'' + v.vehicle_id + '\')"><i class="bi bi-pencil"></i></button>' +
-          '<button class="btn btn-sm btn-outline-danger" aria-label="Hapus kendaraan ' + v.plat_nomor + '" onclick="deleteKendaraan(\'' + v.vehicle_id + '\')"><i class="bi bi-trash"></i></button>' +
+          '<button class="btn btn-sm btn-outline-primary me-2" aria-label="Edit kendaraan ' + esc(v.plat_nomor) + '" onclick="editKendaraan(\'' + v.vehicle_id + '\')"><i class="bi bi-pencil"></i></button>' +
+          '<button class="btn btn-sm btn-outline-danger" aria-label="Hapus kendaraan ' + esc(v.plat_nomor) + '" onclick="deleteKendaraan(\'' + v.vehicle_id + '\')"><i class="bi bi-trash"></i></button>' +
         '</div>' +
       '</div>';
     }).join('');
@@ -2206,16 +2212,16 @@
             '<i class="bi bi-geo-alt-fill fs-5"></i>' +
           '</div>' +
           '<div>' +
-            '<div class="fw-bold mb-1 fs-6">' + c.nama + '</div>' +
+            '<div class="fw-bold mb-1 fs-6">' + esc(c.nama) + '</div>' +
             '<div class="d-flex align-items-center small text-muted">' +
-              '<span class="badge bg-secondary me-2">' + c.kode + '</span>' +
-              (c.lokasi ? '<span><i class="bi bi-geo me-1"></i>' + c.lokasi + '</span>' : '') +
+              '<span class="badge bg-secondary me-2">' + esc(c.kode) + '</span>' +
+              (c.lokasi ? '<span><i class="bi bi-geo me-1"></i>' + esc(c.lokasi) + '</span>' : '') +
             '</div>' +
           '</div>' +
         '</div>' +
         '<div>' +
-      '<button class="btn btn-sm btn-outline-primary me-2" aria-label="Edit cabang ' + c.nama + '" onclick="editCabang(\'' + c.kode + '\')"><i class="bi bi-pencil"></i></button>' +
-      '<button class="btn btn-sm btn-outline-danger" aria-label="Hapus cabang ' + c.nama + '" onclick="deleteCabang(\'' + c.kode + '\')"><i class="bi bi-trash"></i></button>' +
+      '<button class="btn btn-sm btn-outline-primary me-2" aria-label="Edit cabang ' + esc(c.nama) + '" onclick="editCabang(\'' + c.kode + '\')"><i class="bi bi-pencil"></i></button>' +
+      '<button class="btn btn-sm btn-outline-danger" aria-label="Hapus cabang ' + esc(c.nama) + '" onclick="deleteCabang(\'' + c.kode + '\')"><i class="bi bi-trash"></i></button>' +
     '</div>' +
       '</div>'
     ).join('');
@@ -2231,12 +2237,12 @@
     container.innerHTML = drivers.map(d =>
       '<div class="list-group-item d-flex justify-content-between align-items-center">' +
         '<div>' +
-          '<div class="fw-bold">' + d.nama + '</div>' +
-          '<small class="text-muted">' + d.id + ' â€¢ ' + d.cabang + '</small>' +
+          '<div class="fw-bold">' + esc(d.nama) + '</div>' +
+          '<small class="text-muted">' + esc(d.id) + ' â€¢ ' + esc(d.cabang) + '</small>' +
         '</div>' +
         '<div>' +
-          '<button class="btn btn-sm btn-outline-primary me-2" aria-label="Edit supir ' + d.nama + '" onclick="editSupir(\'' + d.id + '\')"><i class="bi bi-pencil"></i></button>' +
-          '<button class="btn btn-sm btn-outline-danger" aria-label="Hapus supir ' + d.nama + '" onclick="deleteSupir(\'' + d.id + '\')"><i class="bi bi-trash"></i></button>' +
+          '<button class="btn btn-sm btn-outline-primary me-2" aria-label="Edit supir ' + esc(d.nama) + '" onclick="editSupir(\'' + d.id + '\')"><i class="bi bi-pencil"></i></button>' +
+          '<button class="btn btn-sm btn-outline-danger" aria-label="Hapus supir ' + esc(d.nama) + '" onclick="deleteSupir(\'' + d.id + '\')"><i class="bi bi-trash"></i></button>' +
         '</div>' +
       '</div>'
     ).join('');
@@ -2252,12 +2258,12 @@
     container.innerHTML = bbmList.map(b =>
       '<div class="list-group-item d-flex justify-content-between align-items-center">' +
         '<div>' +
-          '<div class="fw-bold">' + b.jenis + '</div>' +
-          '<small class="text-muted">Rp ' + parseInt(b.harga).toLocaleString('id-ID') + '/L</small>' +
+          '<div class="fw-bold">' + esc(b.jenis) + '</div>' +
+          '<small class="text-muted">Rp ' + esc(parseInt(b.harga).toLocaleString('id-ID')) + '/L</small>' +
         '</div>' +
         '<div>' +
-          '<button class="btn btn-sm btn-outline-primary me-2" aria-label="Edit BBM ' + b.jenis + '" onclick="editBBM(\'' + b.id + '\')"><i class="bi bi-pencil"></i></button>' +
-          '<button class="btn btn-sm btn-outline-danger" aria-label="Hapus BBM ' + b.jenis + '" onclick="deleteBBM(\'' + b.id + '\')"><i class="bi bi-trash"></i></button>' +
+          '<button class="btn btn-sm btn-outline-primary me-2" aria-label="Edit BBM ' + esc(b.jenis) + '" onclick="editBBM(\'' + b.id + '\')"><i class="bi bi-pencil"></i></button>' +
+          '<button class="btn btn-sm btn-outline-danger" aria-label="Hapus BBM ' + esc(b.jenis) + '" onclick="deleteBBM(\'' + b.id + '\')"><i class="bi bi-trash"></i></button>' +
         '</div>' +
       '</div>'
     ).join('');

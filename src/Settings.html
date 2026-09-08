@@ -67,6 +67,21 @@
 </div>
 
 <script>
+function esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+function escUrl(v) {
+  var s = esc(v);
+  if (/^(https:\/\/drive\.google\.com|https:\/\/lh3\.googleusercontent\.com|data:image\/)/.test(s)) return s;
+  if (/^https:\/\//.test(s)) return s;
+  return '';
+}
+
 function bbmToken() {
   return localStorage.getItem('bbm_token') || '';
 }
@@ -78,7 +93,7 @@ function previewLogo(input) {
     var reader = new FileReader();
     reader.onload = function(e) {
       document.getElementById('settings-logo-preview').innerHTML = 
-        '<img src="' + e.target.result + '" alt="Logo Preview" style="max-height: 150px; max-width: 200px;">';
+        '<img src="' + escUrl(e.target.result) + '" alt="Logo Preview" style="max-height: 150px; max-width: 200px;">';
     };
     reader.readAsDataURL(input.files[0]);
   }
@@ -89,7 +104,7 @@ function loadSettings() {
     .withSuccessHandler(function(settings) {
       if (settings.logo_url) {
         document.getElementById('settings-logo-preview').innerHTML =
-          '<img src="' + settings.logo_url + '" alt="Current Logo" style="max-height: 150px; max-width: 200px;">';
+          '<img src="' + escUrl(settings.logo_url) + '" alt="Current Logo" style="max-height: 150px; max-width: 200px;">';
       }
       document.getElementById('settings-app-name').value = settings.app_name || '';
       document.getElementById('settings-company-name').value = settings.company_name || '';
