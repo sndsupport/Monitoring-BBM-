@@ -247,7 +247,8 @@
            selectCabang.innerHTML = '';
            if(selectCabangSupir) selectCabangSupir.innerHTML = '';
            
-           data.cabangList.forEach(c => {
+           var cabangFormOpts = cabangOptionsForRole(data.cabangList, data.cabang);
+           cabangFormOpts.forEach(c => {
              let opt = document.createElement('option');
              opt.value = c.kode;
              opt.text = c.nama;
@@ -436,6 +437,18 @@
   var __jalurRequestId = 0;
   var __masterRequestId = 0;
 
+  // Opsi cabang untuk form tambah/edit master (kendaraan/supir).
+  // SUPERADMIN melihat semua cabang; non-superadmin hanya cabang miliknya.
+  // Fallback: jika kode cabang user tidak ada di daftar, tetap tampilkan satu opsi
+  // agar form tetap bisa dipakai meski data cabang belum konsisten.
+  function cabangOptionsForRole(list, userCabang) {
+    if (userRole === 'SUPERADMIN') return list || [];
+    var mine = String(userCabang || '');
+    var mineOpts = (list || []).filter(function(c) { return String(c.kode) === mine; });
+    if (mineOpts.length) return mineOpts;
+    return [{ kode: mine, nama: mine }];
+  }
+
   // Isi <select> warehouse dari masterData.cabang (getCabangList), tanpa hardcode.
   function fillCabangSelect(sel) {
     if (!sel) return;
@@ -553,7 +566,11 @@
     let activeBtn = document.querySelector('.btn-nav[data-tab="' + tab + '"]');
     if (activeBtn) activeBtn.classList.add('active');
     
-    document.querySelectorAll('.menu-group.open').forEach(function(g) { g.classList.remove('open'); });
+    var activeGroup = activeTab ? activeTab.closest('.menu-group') : null;
+    document.querySelectorAll('.menu-group.open').forEach(function(g) {
+      if (g !== activeGroup) g.classList.remove('open');
+    });
+    if (activeGroup) activeGroup.classList.add('open');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
