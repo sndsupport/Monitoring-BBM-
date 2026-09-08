@@ -104,7 +104,10 @@ function jalurResolveDefaultCard(driverName) {
   if (!driver) return null;
   var cards = (window.masterData && window.masterData.flazzCards) || [];
   return cards.find(function(x) {
-    return String(x.default_driver_id || '') === String(driver.id) && String(x.status || '').toUpperCase() !== 'NONAKTIF';
+    var defName = String(driver.nama || '').trim();
+    var defFor = String(x.default_driver_id || '').trim();
+    var hit = defFor === defName || defFor === String(driver.id || '');
+    return hit && String(x.status || '').toUpperCase() !== 'NONAKTIF';
   }) || null;
 }
 
