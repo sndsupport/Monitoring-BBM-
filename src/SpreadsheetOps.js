@@ -419,7 +419,7 @@ function getPerformaSummary(role, userCabang) {
   if (!sheet) return [];
   if (role !== 'SUPERADMIN' && !userCabang) return [];
   
-  const data = sheet.getDataRange().getValues();
+  const data = readLastRows(sheet, 5000);
 
   let kendaraanMap = {};
   const kendaraanSheet = ss.getSheetByName('Kendaraan');
@@ -444,7 +444,7 @@ function getPerformaSummary(role, userCabang) {
   }
 
   let transaksiMap = {};
-  for (let i = 1; i < data.length; i++) {
+  for (let i = 0; i < data.length; i++) {
     const vid = data[i][6];
     if (!vid) continue;
     if (role !== 'SUPERADMIN' && data[i][5] !== userCabang) continue;
@@ -511,7 +511,7 @@ function getRecentTransactions(role, userCabang) {
   if (!sheet) return [];
   if (role !== 'SUPERADMIN' && !userCabang) return [];
   
-  const data = sheet.getDataRange().getValues();
+  const data = readLastRows(sheet, 2000);
 
   let kendaraanMap = {};
   const kendaraanSheet = ss.getSheetByName('Kendaraan');
@@ -536,7 +536,7 @@ function getRecentTransactions(role, userCabang) {
   }
 
   let transaksiMap = {};
-  for (let i = 1; i < data.length; i++) {
+  for (let i = 0; i < data.length; i++) {
     const vid = data[i][6]; // vehicle_id index 6
     if (!vid) continue;
     if (!transaksiMap[vid]) transaksiMap[vid] = [];
@@ -559,7 +559,7 @@ function getRecentTransactions(role, userCabang) {
   
   // We can just iterate the whole data and filter/sort later, or keep the existing reverse loop.
   // Actually, to display globally sorted by date, we should gather all relevant rows first.
-  let start = data.length > 200 ? data.length - 200 : 1;
+  let start = data.length > 200 ? data.length - 200 : 0;
   for (let i = data.length - 1; i >= start; i--) {
     let row = data[i];
     if (role !== 'SUPERADMIN' && row[5] !== userCabang) continue;

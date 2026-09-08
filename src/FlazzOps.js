@@ -957,15 +957,18 @@ function getFlazzDashboardData(userRole, cabangId) {
   function getSheetData(sheetName) {
     const sheet = ss.getSheetByName(sheetName);
     if (!sheet) return [];
-    const data = sheet.getDataRange().getValues();
-    if (data.length <= 1) return [];
-    const headers = data[0];
+    const lastCol = sheet.getLastColumn() || 0;
+    if (lastCol === 0) return [];
+    const hArr = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    const h = sheetHeaders(sheet);
+    const cols = hArr.map(function(nm) { return h[String(nm)] !== undefined ? h[String(nm)] : -1; });
+    const rows = readRowsCols(sheet, cols);
     let result = [];
-    for (let i = 1; i < data.length; i++) {
-      let row = data[i];
+    for (let i = 0; i < rows.length; i++) {
+      let row = rows[i];
       let obj = {};
-      for (let j = 0; j < headers.length; j++) {
-        obj[headers[j]] = (row[j] instanceof Date) ? row[j].toISOString() : row[j];
+      for (let j = 0; j < hArr.length; j++) {
+        obj[hArr[j]] = (row[j] instanceof Date) ? row[j].toISOString() : row[j];
       }
       result.push(obj);
     }
@@ -993,41 +996,36 @@ function getFlazzDashboardData(userRole, cabangId) {
   let bbmSheet = ss.getSheetByName('Penggunaan_BBM');
   let bbmFlazz = [];
   if (bbmSheet) {
-    const bbmData = bbmSheet.getDataRange().getValues();
-    if (bbmData.length > 1) {
-       // metode_pembayaran index 27 (0-indexed) = 27 ? Let's check headers in SpreadsheetOps: 
-       // transaction_id=0 ... metode_pembayaran is 27, flazz_card_id is 28.
-       // It's safer to map by header.
-       const headers = bbmData[0];
-       const trxIdx = headers.indexOf('transaction_id');
-       const metodeIdx = headers.indexOf('metode_pembayaran');
-       const cardIdx = headers.indexOf('flazz_card_id');
-       const tglIdx = headers.indexOf('tanggal');
-       const stampIdx = headers.indexOf('timestamp');
-       const bbmIdx = headers.indexOf('biaya_bbm');
-       const tollIdx = headers.indexOf('biaya_toll');
-       const evidenceIdx = headers.indexOf('foto_struk_bbm');
-       const tollEvidenceIdx = headers.indexOf('foto_struk_toll');
-       const driverIdx = headers.indexOf('nama_supir');
-       const vehicleIdx = headers.indexOf('plat_nomor');
+    const headers = bbmSheet.getRange(1, 1, 1, bbmSheet.getLastColumn()).getValues()[0];
+    const trxIdx = headers.indexOf('transaction_id');
+    const metodeIdx = headers.indexOf('metode_pembayaran');
+    const cardIdx = headers.indexOf('flazz_card_id');
+    const tglIdx = headers.indexOf('tanggal');
+    const stampIdx = headers.indexOf('timestamp');
+    const bbmIdx = headers.indexOf('biaya_bbm');
+    const tollIdx = headers.indexOf('biaya_toll');
+    const evidenceIdx = headers.indexOf('foto_struk_bbm');
+    const tollEvidenceIdx = headers.indexOf('foto_struk_toll');
+    const driverIdx = headers.indexOf('nama_supir');
+    const vehicleIdx = headers.indexOf('plat_nomor');
 
-       for (let i = 1; i < bbmData.length; i++) {
-         let row = bbmData[i];
-         if (metodeIdx > -1 && row[metodeIdx] === 'FLAZZ' && cardIds.includes(row[cardIdx])) {
-            bbmFlazz.push({
-               transaction_id: row[trxIdx],
-               tanggal: (row[tglIdx] instanceof Date) ? row[tglIdx].toISOString() : row[tglIdx],
-               timestamp: (stampIdx > -1 && row[stampIdx] instanceof Date) ? row[stampIdx].toISOString() : (stampIdx > -1 ? row[stampIdx] : ''),
-               card_id: row[cardIdx],
-               amount: parseFloat(row[bbmIdx]) || 0,
-               toll_amount: tollIdx > -1 ? (parseFloat(row[tollIdx]) || 0) : 0,
-               evidence: row[evidenceIdx],
-               toll_evidence: tollEvidenceIdx > -1 ? row[tollEvidenceIdx] : '',
-               driver: row[driverIdx],
-               vehicle: row[vehicleIdx]
-            });
-         }
-       }
+    const bbmData = readLastRows(bbmSheet, 5000);
+    for (let i = 0; i < bbmData.length; i++) {
+      let row = bbmData[i];
+      if (metodeIdx > -1 && row[metodeIdx] === 'FLAZZ' && cardIds.includes(row[cardIdx])) {
+        bbmFlazz.push({
+           transaction_id: row[trxIdx],
+           tanggal: (row[tglIdx] instanceof Date) ? row[tglIdx].toISOString() : row[tglIdx],
+           timestamp: (stampIdx > -1 && row[stampIdx] instanceof Date) ? row[stampIdx].toISOString() : (stampIdx > -1 ? row[stampIdx] : ''),
+           card_id: row[cardIdx],
+           amount: parseFloat(row[bbmIdx]) || 0,
+           toll_amount: tollIdx > -1 ? (parseFloat(row[tollIdx]) || 0) : 0,
+           evidence: row[evidenceIdx],
+           toll_evidence: tollEvidenceIdx > -1 ? row[tollEvidenceIdx] : '',
+           driver: row[driverIdx],
+           vehicle: row[vehicleIdx]
+        });
+      }
     }
   }
 
