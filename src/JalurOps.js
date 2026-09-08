@@ -4,13 +4,13 @@
  */
 
 function jalurSheet() {
-  return SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8').getSheetByName('Jalur_Pengiriman');
+  return getDB().getSheetByName('Jalur_Pengiriman');
 }
 
 // Cek apakah kartu etoll sedang punya catatan DIBERIKAN (masih dipakai)
 function flazzCardHasGiveren(cardId) {
   try {
-    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const ss = getDB();
     const s = ss.getSheetByName('Flazz_Usage');
     if (!s || s.getLastRow() <= 1 || !cardId) return false;
     const data = s.getDataRange().getValues();
@@ -50,7 +50,7 @@ function getJalurCabangFor(userInfo) {
 }
 
 function jalurDriverNameById(driverId) {
-  const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+  const ss = getDB();
   const s = ss.getSheetByName('Supir');
   if (!s) return '';
   const data = s.getDataRange().getValues();
@@ -61,7 +61,7 @@ function jalurDriverNameById(driverId) {
 }
 
 function jalurVehicleById(vehicleId) {
-  const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+  const ss = getDB();
   const s = ss.getSheetByName('Kendaraan');
   if (!s) return null;
   const data = s.getDataRange().getValues();
@@ -88,7 +88,7 @@ function jalurComputePajak(tanggalPajakStr) {
   
   let dStr = String(tanggalPajakStr);
   if (tanggalPajakStr instanceof Date) {
-    const tz = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8').getSpreadsheetTimeZone();
+    const tz = getDB().getSpreadsheetTimeZone();
     dStr = Utilities.formatDate(tanggalPajakStr, tz, 'yyyy-MM-dd');
   } else {
     dStr = dStr.slice(0, 10);
@@ -270,7 +270,7 @@ function getJalurByTanggal(tanggal, userInfo, opts) {
       if (iTanggal !== undefined) {
         let rowTgl = row[iTanggal];
         if (rowTgl instanceof Date) {
-          const tz = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8').getSpreadsheetTimeZone();
+          const tz = getDB().getSpreadsheetTimeZone();
           rowTgl = Utilities.formatDate(rowTgl, tz, 'yyyy-MM-dd');
         } else {
           rowTgl = String(rowTgl).substring(0, 10);
@@ -327,7 +327,7 @@ function getJalurByTanggal(tanggal, userInfo, opts) {
     let createdBy = list.length > 0 ? list[0].created_by : '';
     if (createdBy) {
       try {
-        const sheetPengguna = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8').getSheetByName('Pengguna');
+        const sheetPengguna = getDB().getSheetByName('Pengguna');
         if (sheetPengguna) {
           const pData = sheetPengguna.getDataRange().getValues();
           const pIdx = jalurColIdx(sheetPengguna);

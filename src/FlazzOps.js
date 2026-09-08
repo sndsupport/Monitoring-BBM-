@@ -60,7 +60,7 @@ function findFlazzCardRow(sheet, cardId) {
 
 // Helper: Membaca saldo kartu Flazz (return 0 bila tidak ditemukan)
 function getCardBalance(cardId) {
-  const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+  const ss = getDB();
   const sheet = ss.getSheetByName('Flazz_Card');
   if (!sheet) return 0;
   const found = findFlazzCardRow(sheet, cardId);
@@ -70,7 +70,7 @@ function getCardBalance(cardId) {
 
 // Helper: Menulis saldo kartu Flazz + updated_at
 function setCardBalance(cardId, newBalance) {
-  const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+  const ss = getDB();
   const sheet = ss.getSheetByName('Flazz_Card');
   if (!sheet) return;
   const found = findFlazzCardRow(sheet, cardId);
@@ -92,7 +92,7 @@ function assertFlazzAccess(userInfo, branchId) {
 // Backfill nama kartu ke semua jalur pengiriman yang memakai kartu etoll ini.
 function backfillFlazzCardName(cardId, cardName) {
   try {
-    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const ss = getDB();
     const sheet = ss.getSheetByName('Jalur_Pengiriman');
     if (!sheet) return;
     const data = sheet.getDataRange().getValues();
@@ -113,7 +113,7 @@ function backfillFlazzCardName(cardId, cardName) {
 
 // Ambil branch dari sebuah kartu ('' bila kartu tidak ditemukan / kolom kosong)
 function flazzCardBranch(cardId) {
-  const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+  const ss = getDB();
   const sheet = ss.getSheetByName('Flazz_Card');
   if (!sheet) return '';
   const found = findFlazzCardRow(sheet, cardId);
@@ -123,7 +123,7 @@ function flazzCardBranch(cardId) {
 
 // Helper: Mendapatkan semua kartu Flazz
 function getFlazzCards(userRole, cabangId) {
-  const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+  const ss = getDB();
   const sheet = ss.getSheetByName('Flazz_Card');
   if (!sheet) return [];
 
@@ -156,7 +156,7 @@ function getFlazzCards(userRole, cabangId) {
 function saveFlazzCard(cardData, userInfo) {
   try {
     assertFlazzAccess(userInfo, cardData.branch_id);
-    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const ss = getDB();
     const sheet = ss.getSheetByName('Flazz_Card');
     if (!sheet) throw new Error('Sheet Flazz_Card tidak ditemukan.');
 
@@ -226,7 +226,7 @@ function saveFlazzCard(cardData, userInfo) {
 
 // Catat pengeluaran Flazz (BBM)
 function recordFlazzExpense(cardId, type, amount, evidenceUrl, dateStr) {
-  const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+  const ss = getDB();
   const cardSheet = ss.getSheetByName('Flazz_Card');
   if (!cardSheet) return;
 
@@ -249,7 +249,7 @@ function saveFlazzTopUp(payload) {
 
 function saveFlazzTopUpUnlocked(payload) {
   try {
-    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const ss = getDB();
     const sheet = ss.getSheetByName('Flazz_TopUp');
     const cardSheet = ss.getSheetByName('Flazz_Card');
     if (!sheet || !cardSheet) throw new Error('Sheet Flazz tidak lengkap.');
@@ -300,7 +300,7 @@ function editFlazzTopUp(payload, userInfo) {
 
 function editFlazzTopUpUnlocked(payload, userInfo) {
   try {
-    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const ss = getDB();
     const sheet = ss.getSheetByName('Flazz_TopUp');
     if (!sheet) throw new Error('Sheet Flazz_TopUp tidak ditemukan.');
 
@@ -357,7 +357,7 @@ function deleteFlazzTopUp(id, userInfo) {
 
 function deleteFlazzTopUpUnlocked(id, userInfo) {
   try {
-    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const ss = getDB();
     const sheet = ss.getSheetByName('Flazz_TopUp');
     if (!sheet) throw new Error('Sheet Flazz_TopUp tidak ditemukan.');
 
@@ -403,7 +403,7 @@ function saveFlazzTol(payload) {
 
 function saveFlazzTolUnlocked(payload) {
   try {
-    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const ss = getDB();
     const sheet = ss.getSheetByName('Flazz_Tol');
     const cardSheet = ss.getSheetByName('Flazz_Card');
     if (!sheet || !cardSheet) throw new Error('Sheet Flazz tidak lengkap.');
@@ -460,7 +460,7 @@ function editFlazzTol(payload, userInfo) {
 
 function editFlazzTolUnlocked(payload, userInfo) {
   try {
-    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const ss = getDB();
     const sheet = ss.getSheetByName('Flazz_Tol');
     if (!sheet) throw new Error('Sheet Flazz_Tol tidak ditemukan.');
 
@@ -516,7 +516,7 @@ function deleteFlazzTol(id, userInfo) {
 
 function deleteFlazzTolUnlocked(id, userInfo) {
   try {
-    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const ss = getDB();
     const sheet = ss.getSheetByName('Flazz_Tol');
     if (!sheet) throw new Error('Sheet Flazz_Tol tidak ditemukan.');
 
@@ -633,7 +633,7 @@ function computeFlazzLedger(cardId, ss, sinceTime) {
 // utk tipe Bar juga KM aktual >0) pada periode kartu (timestamp > sinceDate).
 // sinceDate null → semua baris dianggap dalam periode (konsisten dengan ledger).
 function hasCompliantFlazzLaporan(cardId, sinceDate, ss) {
-  if (!ss) ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+  if (!ss) ss = getDB();
   const since = sinceDate ? new Date(sinceDate).getTime() : null;
 
   const kendSheet = ss.getSheetByName('Kendaraan');
@@ -691,7 +691,7 @@ function hasCompliantFlazzLaporan(cardId, sinceDate, ss) {
 // Endpoint untuk frontend: apa kartu boleh direkonsiliasi?
 function checkReconGate(cardId) {
   try {
-    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const ss = getDB();
     const usageSheet = ss.getSheetByName('Flazz_Usage');
     let sinceDate = null;
     if (usageSheet) {
@@ -731,7 +731,7 @@ function saveFlazzRecon(payload) {
 
 function saveFlazzReconUnlocked(payload) {
   try {
-    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const ss = getDB();
     const sheet = ss.getSheetByName('Flazz_Reconciliation');
     const cardSheet = ss.getSheetByName('Flazz_Card');
     if (!sheet || !cardSheet) throw new Error('Sheet Flazz tidak lengkap.');
@@ -854,7 +854,7 @@ function saveFlazzUsage(payload) {
 
 function saveFlazzUsageUnlocked(payload) {
   try {
-    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const ss = getDB();
     const sheet = ss.getSheetByName('Flazz_Usage');
     const cardSheet = ss.getSheetByName('Flazz_Card');
     if (!sheet || !cardSheet) throw new Error('Sheet Flazz tidak lengkap.');
@@ -906,7 +906,7 @@ function saveFlazzUsageUnlocked(payload) {
 // Dipakai saat edit/hapus Jalur Pengiriman agar kartu tidak menggantung.
 function returnFlazzUsage(cardId) {
   try {
-    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const ss = getDB();
     const usageSheet = ss.getSheetByName('Flazz_Usage');
     const cardSheet = ss.getSheetByName('Flazz_Card');
     if (!usageSheet || !cardSheet) return { success: false, msg: 'Sheet Flazz tidak lengkap.' };
@@ -952,7 +952,7 @@ function returnFlazzUsage(cardId) {
 }
 
 function getFlazzDashboardData(userRole, cabangId) {
-  const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+  const ss = getDB();
   
   function getSheetData(sheetName) {
     const sheet = ss.getSheetByName(sheetName);
@@ -1074,7 +1074,7 @@ function deleteFlazzCard(cardId, userInfo) {
 
 function deleteFlazzCardUnlocked(cardId, userInfo) {
   try {
-    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const ss = getDB();
     const sheet = ss.getSheetByName('Flazz_Card');
     if (!sheet) throw new Error('Sheet Flazz_Card tidak ditemukan.');
 
@@ -1101,7 +1101,7 @@ function deleteFlazzCardUnlocked(cardId, userInfo) {
 
 function activateFlazzCard(id, userInfo) {
   try {
-    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const ss = getDB();
     const sheet = ss.getSheetByName('Flazz_Card');
     if (!sheet) throw new Error('Sheet Flazz_Card tidak ditemukan.');
 
@@ -1131,7 +1131,7 @@ function deleteFlazzBBM(transactionId, mode, userInfo) {
 
 function deleteFlazzBBMUnlocked(transactionId, mode, userInfo) {
   try {
-    const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+    const ss = getDB();
     const sheet = ss.getSheetByName('Penggunaan_BBM');
     if (!sheet) throw new Error('Sheet Penggunaan_BBM tidak ditemukan.');
 

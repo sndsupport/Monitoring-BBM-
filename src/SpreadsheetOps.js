@@ -1,6 +1,6 @@
 // Helper untuk mendapatkan Spreadsheet yang digunakan
 function getDB() {
-  return SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
+  return SpreadsheetApp.openById(spreadsheetId());
 }
 
 function authenticateUser(username, password) {
