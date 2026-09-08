@@ -242,6 +242,12 @@ function recordFlazzExpense(cardId, type, amount, evidenceUrl, dateStr) {
 
 // Top Up Flazz
 function saveFlazzTopUp(payload) {
+  return withLock('flazz-topup', function() {
+    return saveFlazzTopUpUnlocked(payload);
+  });
+}
+
+function saveFlazzTopUpUnlocked(payload) {
   try {
     const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
     const sheet = ss.getSheetByName('Flazz_TopUp');
@@ -287,6 +293,12 @@ function saveFlazzTopUp(payload) {
 
 // Edit Top Up Flazz (sesuaikan saldo dengan selisih nominal)
 function editFlazzTopUp(payload, userInfo) {
+  return withLock('flazz-edit-topup', function() {
+    return editFlazzTopUpUnlocked(payload, userInfo);
+  });
+}
+
+function editFlazzTopUpUnlocked(payload, userInfo) {
   try {
     const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
     const sheet = ss.getSheetByName('Flazz_TopUp');
@@ -338,6 +350,12 @@ function editFlazzTopUp(payload, userInfo) {
 
 // Hapus (soft) Top Up Flazz — tandai is_deleted dan kembalikan saldo
 function deleteFlazzTopUp(id, userInfo) {
+  return withLock('flazz-del-topup', function() {
+    return deleteFlazzTopUpUnlocked(id, userInfo);
+  });
+}
+
+function deleteFlazzTopUpUnlocked(id, userInfo) {
   try {
     const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
     const sheet = ss.getSheetByName('Flazz_TopUp');
@@ -378,6 +396,12 @@ function deleteFlazzTopUp(id, userInfo) {
 
 // Catat Tol Flazz
 function saveFlazzTol(payload) {
+  return withLock('flazz-tol', function() {
+    return saveFlazzTolUnlocked(payload);
+  });
+}
+
+function saveFlazzTolUnlocked(payload) {
   try {
     const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
     const sheet = ss.getSheetByName('Flazz_Tol');
@@ -429,6 +453,12 @@ function saveFlazzTol(payload) {
 
 // Edit Tol Flazz (sesuaikan saldo dengan selisih nominal, tanda terbalik karena mengurangi saldo)
 function editFlazzTol(payload, userInfo) {
+  return withLock('flazz-edit-tol', function() {
+    return editFlazzTolUnlocked(payload, userInfo);
+  });
+}
+
+function editFlazzTolUnlocked(payload, userInfo) {
   try {
     const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
     const sheet = ss.getSheetByName('Flazz_Tol');
@@ -479,6 +509,12 @@ function editFlazzTol(payload, userInfo) {
 
 // Hapus (soft) Tol Flazz — tandai is_deleted dan kembalikan saldo
 function deleteFlazzTol(id, userInfo) {
+  return withLock('flazz-del-tol', function() {
+    return deleteFlazzTolUnlocked(id, userInfo);
+  });
+}
+
+function deleteFlazzTolUnlocked(id, userInfo) {
   try {
     const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
     const sheet = ss.getSheetByName('Flazz_Tol');
@@ -688,6 +724,12 @@ function checkReconGate(cardId) {
 
 // Rekonsiliasi Flazz (Return & Closing)
 function saveFlazzRecon(payload) {
+  return withLock('flazz-recon', function() {
+    return saveFlazzReconUnlocked(payload);
+  });
+}
+
+function saveFlazzReconUnlocked(payload) {
   try {
     const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
     const sheet = ss.getSheetByName('Flazz_Reconciliation');
@@ -805,6 +847,12 @@ function saveFlazzRecon(payload) {
 
 // Assign/Usage Flazz (Berikan ke Supir)
 function saveFlazzUsage(payload) {
+  return withLock('flazz-usage', function() {
+    return saveFlazzUsageUnlocked(payload);
+  });
+}
+
+function saveFlazzUsageUnlocked(payload) {
   try {
     const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
     const sheet = ss.getSheetByName('Flazz_Usage');
@@ -1019,6 +1067,12 @@ function getFlazzDashboardData(userRole, cabangId) {
 }
 // Nonaktifkan Kartu Flazz (soft-delete, tidak menghapus baris)
 function deleteFlazzCard(cardId, userInfo) {
+  return withLock('flazz-del-card', function() {
+    return deleteFlazzCardUnlocked(cardId, userInfo);
+  });
+}
+
+function deleteFlazzCardUnlocked(cardId, userInfo) {
   try {
     const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
     const sheet = ss.getSheetByName('Flazz_Card');
@@ -1070,6 +1124,12 @@ function activateFlazzCard(id, userInfo) {
 // mode 'full'   : hapus baris total + kembalikan saldo
 // mode 'detach' : kosongkan metode_pembayaran & flazz_card_id, baris tetap, kembalikan saldo
 function deleteFlazzBBM(transactionId, mode, userInfo) {
+  return withLock('flazz-del-bbm', function() {
+    return deleteFlazzBBMUnlocked(transactionId, mode, userInfo);
+  });
+}
+
+function deleteFlazzBBMUnlocked(transactionId, mode, userInfo) {
   try {
     const ss = SpreadsheetApp.openById('1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8');
     const sheet = ss.getSheetByName('Penggunaan_BBM');

@@ -100,6 +100,12 @@ function getActiveVehicles(role, userCabang) {
 }
 
 function saveTransactionEndOfDay(payload) {
+  return withLock('daily-save', function() {
+    return saveTransactionEndOfDayUnlocked(payload);
+  });
+}
+
+function saveTransactionEndOfDayUnlocked(payload) {
   const ss = getDB();
   const sheet = ss.getSheetByName('Penggunaan_BBM');
   if (!sheet) return { success: false, error: 'Sheet tidak ditemukan.' };
@@ -658,6 +664,12 @@ function getRecentTransactions(role, userCabang) {
 }
 
 function editDailyTransaction(payload, userInfo) {
+  return withLock('daily-edit', function() {
+    return editDailyTransactionUnlocked(payload, userInfo);
+  });
+}
+
+function editDailyTransactionUnlocked(payload, userInfo) {
   try {
     const ss = getDB();
     const sheet = ss.getSheetByName('Penggunaan_BBM');
@@ -790,6 +802,12 @@ function editDailyTransaction(payload, userInfo) {
 }
 
 function deleteDailyTransaction(transactionId, userInfo) {
+  return withLock('daily-delete', function() {
+    return deleteDailyTransactionUnlocked(transactionId, userInfo);
+  });
+}
+
+function deleteDailyTransactionUnlocked(transactionId, userInfo) {
   try {
     const ss = getDB();
     const sheet = ss.getSheetByName('Penggunaan_BBM');
