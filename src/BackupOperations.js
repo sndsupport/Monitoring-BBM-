@@ -1,10 +1,15 @@
 // ==========================================
-// BACKUP HARIAN — spreadsheet (4 data sheets)
+// BACKUP HARIAN — spreadsheet (semua sheet database)
 // Naming: Monitoring_BBM_backup_<YYYY-MM-DD> (_v2/_v3 jika bentrok)
 // Hasil dicache prefix 'backup:' TTL 300.
 // ==========================================
 
-var BACKUP_SHEETS = ['SESSION', 'PENGENDARA', 'Supir', 'Flazz_Card'];
+// Nama sheet diambil dari DATABASE_SHEETS (DatabaseSetup.js) saat runtime,
+// agar tidak bergantung pada urutan muat file di Apps Script (file dimuat
+// sesuai urutan alfabet — BackupOperations.js lebih dulu dari DatabaseSetup.js).
+function getBackupSheets() {
+  return (typeof DATABASE_SHEETS !== 'undefined' && DATABASE_SHEETS) ? DATABASE_SHEETS.slice() : [];
+}
 
 function setupBackupTrigger() {
   var triggers = ScriptApp.getProjectTriggers().filter(function(t) {
@@ -34,7 +39,8 @@ function performBackup(ssId, label) {
 
   var copy = SpreadsheetApp.create(name);
   var copied = 0;
-  BACKUP_SHEETS.forEach(function(sheetName) {
+  var list = getBackupSheets();
+  list.forEach(function(sheetName) {
     var src = ss.getSheetByName(sheetName);
     if (!src) return;
     try {
@@ -54,7 +60,8 @@ function performBackup(ssId, label) {
     backupFolderUrl: backupRoot.getUrl(),
     name: name,
     collided: name !== label,
-    sheetsCopied: copied
+    sheetsCopied: copied,
+    expectedSheets: list.length
   };
 }
 
@@ -79,8 +86,8 @@ function runDailyBackup() {
       backupFolderUrl: result.backupFolderUrl,
       spreadsheetCopyId: result.spreadsheetCopyId
     };
-    if (result.sheetsCopied < BACKUP_SHEETS.length) {
-      out.msg = 'Backup parsial: ' + result.sheetsCopied + ' dari ' + BACKUP_SHEETS.length + ' sheet ter-copy.';
+    if (result.sheetsCopied < result.expectedSheets) {
+      out.msg = 'Backup parsial: ' + result.sheetsCopied + ' dari ' + result.expectedSheets + ' sheet ter-copy.';
       Logger.log(out.msg);
     }
     return out;

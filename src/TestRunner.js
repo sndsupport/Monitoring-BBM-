@@ -53,8 +53,21 @@ function __runAuthTests() {
   ]);
 }
 
+function __runBackupSheetTests() {
+  var list = getBackupSheets();
+  var stale = list.filter(function(n) { return DATABASE_SHEETS.indexOf(n) === -1; });
+  var missing = DATABASE_SHEETS.filter(function(n) { return list.indexOf(n) === -1; });
+  var dupes = list.filter(function(n, i) { return list.indexOf(n) !== i; });
+  return __summarize([
+    __expectEqual(stale, [], 'getBackupSheets() tidak berisi sheet di luar skema (bekas SESSION/PENGENDARA)'),
+    __expectEqual(missing, [], 'seluruh sheet database (DATABASE_SHEETS) tercakup di backup'),
+    __expectEqual(dupes, [], 'getBackupSheets() tidak mengandung duplikat')
+  ]);
+}
+
 function __runAllTests() {
   var r = __runAuthTests();
+  r = __runBackupSheetTests();
   Logger.log('==== ALL TESTS DONE ====');
   return r;
 }

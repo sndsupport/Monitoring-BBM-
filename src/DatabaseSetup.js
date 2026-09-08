@@ -1,14 +1,29 @@
-function setupDatabase() {
-  const ss = getDB();
-  
-  if (!ss) {
-    Logger.log('Spreadsheet tidak ditemukan!');
-    return;
-  }
-  Logger.log('Menggunakan spreadsheet terikat: ' + ss.getUrl());
+// ==========================================
+// SKEMA DATABASE — single source of truth (jangan duplikasikan di file lain)
+// ==========================================
+var DATABASE_SHEETS = [
+  'Cabang',
+  'Supir',
+  'BBM',
+  'Pengguna',
+  'Kendaraan',
+  'Penggunaan_BBM',
+  'Pengisian_BBM',
+  'Foto_Evidence',
+  'Audit_Log',
+  'Konfigurasi',
+  'Dashboard',
+  'Pengaturan',
+  'Flazz_Card',
+  'Flazz_Usage',
+  'Flazz_TopUp',
+  'Flazz_Tol',
+  'Flazz_Reconciliation',
+  'Jalur_Pengiriman'
+];
 
-  const sheets = [
-    { name: 'Cabang', headers: ['kode_cabang', 'nama_cabang', 'lokasi', 'status'] },
+var DATABASE_SCHEMA = [
+  { name: 'Cabang', headers: ['kode_cabang', 'nama_cabang', 'lokasi', 'status'] },
     { name: 'Supir', headers: ['supir_id', 'nama_supir', 'kode_cabang', 'status'] },
     { name: 'BBM', headers: ['bbm_id', 'jenis_bbm', 'harga_per_liter', 'kode_cabang', 'status'] },
     { name: 'Pengguna', headers: ['user_id', 'username', 'password', 'nama', 'role', 'kode_cabang', 'status', 'email'] },
@@ -27,9 +42,18 @@ function setupDatabase() {
     { name: 'Flazz_Tol', headers: ['id', 'date', 'card_id', 'driver_id', 'vehicle_id', 'amount', 'evidence_url', 'notes', 'created_by', 'created_at', 'is_deleted'] },
     { name: 'Flazz_Reconciliation', headers: ['id', 'date', 'card_id', 'driver_id', 'vehicle_id', 'opening_balance', 'total_topup', 'total_bbm_flazz', 'total_tol', 'total_expense', 'flazz_balance', 'actual_balance', 'difference', 'reconciliation_status', 'notes', 'reconciled_by', 'reconciled_at'] },
     { name: 'Jalur_Pengiriman', headers: ['id', 'tanggal', 'driver_id', 'nama_driver', 'driver2_id', 'nama_driver2', 'vehicle_id', 'plat_nomor', 'nama_kendaraan', 'jenis_kendaraan', 'rute_tujuan', 'kode_cabang', 'flazz_card_id', 'flazz_card_name', 'created_by', 'created_at', 'updated_at', 'is_deleted'] }
-  ];
+];
 
-  sheets.forEach(sheetInfo => {
+function setupDatabase() {
+  const ss = getDB();
+
+  if (!ss) {
+    Logger.log('Spreadsheet tidak ditemukan!');
+    return;
+  }
+  Logger.log('Menggunakan spreadsheet terikat: ' + ss.getUrl());
+
+  DATABASE_SCHEMA.forEach(sheetInfo => {
     let sheet = ss.getSheetByName(sheetInfo.name);
     if (!sheet) {
       sheet = ss.insertSheet(sheetInfo.name);

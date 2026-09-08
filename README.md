@@ -13,8 +13,9 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 
 ### Mobile-First Responsive Design
 - Bottom navigation bar (mobile) / **sidebar** (desktop).
-- **Navigasi terkelompok per fungsi:** sidebar desktop disusun berdasarkan alur proses operasional: **Dashboard** (posisi teratas) → **JALUR PENGIRIMAN** (Buat Jadwal, Daftar Jadwal, Summary) → **OPERASIONAL KENDARAAN** (Input Laporan, History, Galeri, Performa) → **KARTU FLAZZ** (Top Up, Rekonsiliasi, List, Riwayat) → **ADMIN** (Master, Pengaturan). Urutan ini mencerminkan alur kerja harian: jadwal → input → monitoring.
-- **Sub-menu tetap terbuka antar menu:** pada sidebar desktop, grup menu yang sedang aktif tidak tertutup otomatis saat berpindah antar item dalam grup yang sama (mis. tetap di grup JALUR PENGIRIMAN saat pindah Buat Jadwal → Daftar Jadwal); grup tertutup hanya saat berpindah ke menu dari grup lain.
+- **Navigasi terkelompok per fungsi (sidebar desktop):** sidebar disusun berdasarkan alur proses operasional: **Dashboard** (posisi teratas) → **JALUR PENGIRIMAN** (Buat Jalur, Daftar Jalur, Summary Pengiriman) → **LAPORAN OPERASIONAL KENDARAAN** (Input Laporan, History Laporan, Galeri Foto, Performa Kendaraan) → **KARTU FLAZZ** (Top Up, Rekonsiliasi, List Flazz & Saldo, Riwayat Transaksi) → **ADMIN** (Data Master, Pengaturan). Urutan ini mencerminkan alur kerja harian: jadwal → input → monitoring.
+- **Sub-menu tetap terbuka antar menu:** pada sidebar desktop, grup menu yang sedang aktif tidak tertutup otomatis saat berpindah antar item dalam grup yang sama (mis. tetap di grup JALUR PENGIRIMAN saat pindah Buat Jalur → Daftar Jalur); grup tertutup hanya saat berpindah ke menu dari grup lain.
+- **Bottom navigation (mobile):** bar bawah berisi tombol **Dashboard** (langsung) serta tombol *drawer* **Jalur**, **Input**, **History**, dan **Flazz** yang membuka sub-menu di atas bar. Grup *drawer* sedikit berbeda dari sidebar desktop: **Input** berisi *Input Laporan* + *Performa Kendaraan*, sedangkan **History** berisi *History Laporan* + *Galeri Foto*. Tombol **Master** & **Pengaturan** tampil di bar bawah sesuai peran.
 - Card-based form input bergaya modern dengan preview foto dan layout 2-kolom dinamis di perangkat Desktop/PC.
 - Dashboard tampilan cards (mobile) atau table (desktop).
 - Toast notification untuk semua aksi (bukan alert).
@@ -22,11 +23,11 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 ### Dashboard Umum (Halaman Landing)
 - Setelah login, aplikasi langsung masuk ke **Dashboard Umum** (menggantikan Dashboard Flazz sebagai landing page).
 - **Greeting dinamis:** sapaan berdasarkan waktu (Selamat Pagi/Siang/Sore/Malam) beserta nama pengguna dan tanggal hari itu.
-- **Akses Cepat (Quick Access):** tombol-tombol pintasan ke halaman utama (Input Laporan, History, Buat Jadwal, Galeri, Top Up, Rekonsiliasi, Performa, dan menu admin sesuai peran).
-- **Smart Warning (Peringatan Cerdas):** Banner peringatan otomatis berwarna kuning akan muncul jika terdapat kartu Flazz yang masih berstatus "Sedang Digunakan", untuk mengingatkan admin melakukan rekonsiliasi. Peringatan akan hilang setelah semua kartu beres direkonsiliasi.
-- **Galeri Foto Terbaru:** strip foto operasional terbaru dengan tautan "Lihat Semua" ke halaman Galeri.
-- **Status Kartu Etoll:** ringkasan Total Kartu Aktif, Total Saldo, Top Up Terakhir, dan tabel status kartu saat ini (nomor, tipe, driver/kendaraan, saldo, status).
-- History Laporan dipisah menjadi halaman sendiri (menu `History Laporan` di grup LISTING).
+- **Akses Cepat (Quick Access):** tombol-tombol pintasan ke halaman utama (Input Laporan, History Laporan, Buat Jalur, Daftar Jalur, Galeri Foto, Top Up Flazz, Rekonsiliasi Flazz, Performa Kendaraan, serta Data Master & Pengaturan sesuai peran).
+- **Smart Warning (Peringatan Cerdas):** Banner peringatan otomatis berwarna kuning akan muncul jika terdapat kartu Flazz yang masih berstatus **SEDANG_DIGUNAKAN**, untuk mengingatkan admin melakukan rekonsiliasi (dengan tautan langsung ke menu Rekonsiliasi). Peringatan akan hilang setelah semua kartu beres direkonsiliasi.
+- **Galeri Foto Terbaru:** strip foto operasional terbaru (maks. 6 foto) dengan tautan "Lihat Semua" ke halaman Galeri Foto.
+- **Status Kartu Etoll:** tiga kartu ringkasan (**Total Kartu Aktif**, **Total Saldo Seluruh Kartu**, **Top Up Terakhir**) plus tabel status kartu saat ini (nomor, tipe, driver/kendaraan, saldo, status) dengan tombol *Refresh*.
+- History Laporan menjadi halaman sendiri (menu `History Laporan` di grup **LAPORAN OPERASIONAL KENDARAAN**).
 
 ### Auto-Calculate BBM & Efisiensi Pintar
 - Menghitung jarak tempuh otomatis (KM Akhir - KM Awal).
@@ -41,10 +42,10 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
   - Pada formulir *Input Laporan*, penampilan field level BBM menyesuaikan jenis indikator:
     - **Digital Bar:** input angka **Bar Bensin Awal/Akhir** (maksimal sesuai `jumlah_bar`).
     - **ANALOG_JARUM:** diganti **slider Level Bensin 0-100%** (E=0, F=100) untuk merekam posisi jarum saat berangkat (`bar_awal`) dan pulang (`bar_akhir`); server menghitung konsumsi dengan skala `jumlah_bar = 100`.
-    - **TIDAK_ADA:** field level disembunyikan sepenuhnya; konsumsi BBM hanya dari liter beli.
+    - **TIDAK_ADA / DIGITAL_ANGKA / LAINNYA:** field level BBM disembunyikan sepenuhnya; konsumsi BBM hanya dari liter beli.
   - **Cabang transaksi mengikuti kendaraan:** saat laporan BBM disimpan, kode cabang transaksi diambil dari cabang **kendaraan** (bukan cabang user), sehingga SUPERADMIN/PIC yang memasukkan laporan kendaraan lintas cabang tetap tercatat pada cabang yang benar.
 - **Supir:** Nama, cabang, dan relasi kendaraan default.
-- **BBM:** Jenis, harga per liter. **Harga dapat di-override per cabang** — baris dengan `kode_cabang` terisi berhak atas harga yang lebih spesifik dari harga global (kosong = global). Formulir input laporan otomatis memakai daftar jenis & harga sesuai cabang pengguna/transaksi via `getBBMForCabang`.
+- **BBM:** Jenis, harga per liter. **Harga dapat di-override per cabang** — baris dengan `kode_cabang` terisi berhak atas harga yang lebih spesifik dari harga global (kosong = global). Formulir input laporan otomatis memakai daftar jenis & harga sesuai cabang pengguna/transaksi via `getActiveBBMForCabang`.
 - **Manajemen Lengkap (CRUD):** Tambah, Edit, dan Hapus (Delete) dengan Bootstrap Modals interaktif untuk semua kategori.
 
 ### Kartu & Transaksi Flazz
@@ -59,18 +60,19 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - **Validasi:** nomor kartu unik, nominal top-up/tol > 0, saldo tidak boleh negatif, dan nama kartu wajib untuk kartu `UTAMA`.
 - **Sinkronisasi Nama Kartu ke Jalur:** saat nama kartu etoll diubah, nama baru otomatis diterapkan (**backfill**) ke seluruh baris `Jalur_Pengiriman` yang memakai kartu tersebut, sehingga nama kartu tetap konsisten di semua riwayat — memudahkan request top-up saldo ke finance.
 - **Pre-fill formulir laporan:** form *Input Laporan* otomatis terisi tanggal hari ini serta data laporan harian terakhir (kendaraan, supir, bar BBM, biaya/liter, metode bayar, dll.).
-- **Performa:** Data dimuat sekali lalu di-cache di sisi client agar perpindahan tab menu Flazz cepat, dan otomatis di-refresh setelah aksi simpan/hapus.
+- **Performa Kendaraan:** efisiensi BBM (KM/Liter) dihitung per kendaraan dalam **jendela bergulir 7 transaksi terakhir**, ditampilkan per periode dengan penilaian terhadap standar (`Di bawah standar` / `Sesuai standar` / `Di atas standar`). Data di-cache di sisi client agar perpindahan tab cepat dan otomatis di-refresh setelah aksi simpan/hapus.
 - **Limiter field Kapasitas Bar:** saat mengganti kendaraan pada formulir, nilai **Bar Bensin Awal/Akhir** diberi batas maksimal (max) sesuai `jumlah_bar` kendaraan agar tidak melebihi kapasitas.
-- **Daftar Jadwal difilter tanggal:** halaman Daftar Jadwal Pengiriman kini memiliki kartu filter tanggal + tombol *Tampilkan* untuk mempersempit listing (lihat juga menu Jalur Pengiriman).
+- **Daftar Jalur difilter tanggal:** halaman Daftar Jalur Pengiriman kini memiliki kartu filter tanggal + tombol *Tampilkan* untuk mempersempit listing (lihat juga menu Jalur Pengiriman).
 - **Loading state Edit Top-Up/Tol:** tombol simpan modal Edit Top-Up & Edit Tol menampilkan spinner + dinonaktifkan saat proses berjalan, lalu pulih kembali setelah selesai/gagal.
-- **Aksesibilitas (a11y):** tombol ikon (history, jadwal, kartu flazz, top-up/tol/hapus), tombol tutup modal, dan tombol lain diberi `aria-label` yang informatif untuk pembaca layar.
-- **List Flazz (Laporan Per Kartu):** menu **List Flazz** menampilkan ringkasan **Saldo Awal, Total Pengeluaran, dan Saldo Akhir** per kartu dengan filter **rentang tanggal (Dari Tanggal s/d Sampai Tanggal)** — default sama menampilkan hari ini bila kedua input kosong, dan bila salah satu kosong dianggap sama dengan yang lain. Klik kartu membuka **detail modal** (Top Up, Rincian Pengeluaran Tol+BBM, Rekonsiliasi Harian) yang seluruh tabelnya ikut difilter sesuai periode terpilih, lengkap dengan **Total Top Up Periode** dan **Total Pengeluaran Periode** di baris paling bawah. Tombol **Cetak A4** mencetak laporan finance per periode yang sama — header "Periode: awal s/d akhir", summary box per periode (Saldo Awal, Total Top Up, Pengeluaran BBM, Pengeluaran Tol, Total Pengeluaran, Saldo Akhir), serta tabel Top Up/Rincian/Rekonsiliasi yang difilter rentang dengan tfoot total. Margin cetak kiri-kanan diperlebar ke 0,5 cm agar muat lebih banyak kolom.
+- **Aksesibilitas (a11y):** tombol ikon (history, jalur, kartu flazz, top-up/tol/hapus), tombol tutup modal, dan tombol lain diberi `aria-label` yang informatif untuk pembaca layar.
+- **List Flazz (Laporan Per Kartu):** menu **List Flazz & Saldo** menampilkan ringkasan **Saldo Awal, Total Pengeluaran, dan Saldo Akhir** per kartu dengan filter **rentang tanggal (Dari Tanggal s/d Sampai Tanggal)** — default sama menampilkan hari ini bila kedua input kosong, dan bila salah satu kosong dianggap sama dengan yang lain. Klik kartu membuka **detail modal** (Top Up, Rincian Pengeluaran Tol+BBM, Rekonsiliasi Harian) yang seluruh tabelnya ikut difilter sesuai periode terpilih, lengkap dengan **Total Top Up Periode** dan **Total Pengeluaran Periode** di baris paling bawah. Tombol **Cetak A4** mencetak laporan finance per periode yang sama — header "Periode: awal s/d akhir", summary box per periode (Saldo Awal, Total Top Up, Pengeluaran BBM, Pengeluaran Tol, Total Pengeluaran, Saldo Akhir), serta tabel Top Up/Rincian/Rekonsiliasi yang difilter rentang dengan tfoot total. Margin cetak kiri-kanan diperlebar ke 0,5 cm agar muat lebih banyak kolom.
 - **Saldo Awal dari Rekonsiliasi:** pada listing dan laporan cetak, **Saldo Awal** memakai `opening_balance` dari record Rekonsiliasi pada tanggal tersebut (akurat terhadap selisih/saldo fisik), dengan fallback ke rumus `saldo_akhir + pengeluaran − topup` bila belum ada rekonsiliasi.
 - **Pengeluaran termasuk tol dari transaksi BBM:** total pengeluaran harian (kolom *Pengeluaran*, summary A4, dan rumus saldo awal fallback) menjumlahkan **biaya BBM + biaya tol** dari laporan `Penggunaan_BBM` ber-metode `FLAZZ` bersama pengeluaran Tol mandiri (`Flazz_Tol`) — konsisten dengan perhitungan ledger server, sehingga saldo awal tidak kekurangan nominal tol.
 - **Fallback saldo awal bila opening rekonsiliasi 0:** jika record Rekonsiliasi tanggal tersebut punya `opening_balance` **0** (mis. rekonsiliasi tanggal laporan dikerjakan belakangan sehingga usage yang direkam tidak relevan), listing & cetak memakai rumus fallback `saldo_akhir + pengeluaran − topup` alih-alih menampilkan 0 yang menyesatkan.
 - **Rekonsiliasi backend merekonstruksi saldo awal:** saat menyimpan Rekonsiliasi (`saveFlazzRecon`), bila `opening_balance` dari `Flazz_Usage` bernilai 0/kosong, saldo awal direkonstruksi dari ledger (`saldo kini + pengeluaran periode − topup periode`) agar tersimpan nilai yang bermakna, bukan 0.
 - **Pencocokan tanggal aman zona waktu:** seluruh filter tanggal (BBM, Tol, Top Up, Rekonsiliasi) di listing/print membandingkan tanggal dalam zona waktu lokal, sehingga transaksi yang dicatat pada tanggal tertentu tidak hilang karena pergeseran UTC.
 - **Gate Rekonsiliasi (Laporan Valid):** Rekonsiliasi Flazz diblokir selama belum ada minimal **1 laporan FLAZZ yang valid** pada periode kartu — syaratnya foto **KM Awal & KM Akhir** terisi (untuk kendaraan berindikator Digital Bar juga mensyaratkan KM aktual > 0; untuk jarum cukup foto). Pengeluaran BBM/tol **boleh 0** dan laporan tetap valid selama foto KM ada. Gate diterapkan **backend + frontend**: form menampilkan status hijau/merah dan menonaktifkan tombol simpan bila syarat belum terpenuhi, dan server menolak rekonsiliasi meski dipaksa via API.
+- **Tindakan pada Selisih (Adjust / Abai):** form Rekonsiliasi menyediakan pilihan **"Ubah saldo sistem mengikuti saldo fisik (Adjust)"** atau **"Abaikan selisih (Saldo sistem tetap)"**; saat status `SESUAI` tindakan otomatis **Abai**, saat ada selisih otomatis **Adjust**. Selisih ≤ Rp1 dianggap sesuai. Bila Adjust/SESUAI, saldo kartu diset ke saldo fisik; setelah rekonsiliasi kartu kembali `TERSEDIA` dan supir pemegang dipulihkan ke nilai default.
 
 ### Input KM & Laporan Cepat
 - Upload foto odometer awal dan akhir secara langsung di formulir Input Laporan.
@@ -88,14 +90,14 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - **Validasi & Kompresi Foto:** foto di-compress di sisi client (skala maks. 1280px, kualitas JPEG ~0.7) sebelum dikirim untuk menghemat storage dan mempercepat upload; server menolak file non-gambar (validasi MIME) sehingga ekstensi berbahaya tidak tersimpan.
 
 ### Jalur Pengiriman
-- **Autocomplete Driver:** field driver (Input Laporan & Buat Jadwal) berupa input teks dengan dropdown *autocomplete*; memilih driver otomatis memicu *pre-fill* untuk kendaraan (secara default), sementara data form lainnya otomatis menyesuaikan *history* terakhir supir tersebut.
+- **Autocomplete Driver:** field driver (Input Laporan & Buat Jalur) berupa input teks dengan dropdown *autocomplete*; memilih driver otomatis memicu *pre-fill* untuk **kendaraan** (kendaraan default) **dan kartu etoll default** miliknya, sementara data form lainnya otomatis menyesuaikan *history* terakhir supir tersebut.
 - **Dua Driver per Kendaraan:** Mendukung penugasan hingga 2 driver sekaligus (Driver 1 & Driver 2 opsional) untuk jalur/pengiriman jarak jauh, terutama untuk gudang pusat.
-- **Buat Jadwal:** form multi-baris untuk mencatat jadwal pengiriman harian — tanggal, driver 1, driver 2, kendaraan, dan rute tujuan. Satu tanggal bisa menampung banyak baris/entri sekaligus.
+- **Buat Jalur:** form multi-baris untuk mencatat jadwal pengiriman harian — tanggal, driver 1, driver 2, kendaraan, kartu etoll (opsional), dan rute tujuan. Satu tanggal bisa menampung banyak baris/entri sekaligus.
 - **Busy state & reset otomatis:** tombol **"Simpan Jadwal"** menampilkan **"Memproses..."** (spinner + dinonaktifkan) saat menyimpan, mencegah double-submit; setelah simpan berhasil, **tanggal pengiriman otomatis di-reset ke hari ini** agar siap mengisi jadwal baru.
-- **Daftar Jadwal & Manajemen:** halaman khusus `Daftar Jadwal Pengiriman` (tanpa filter tanggal) yang meload seluruh data *history* jadwal. Mendukung fitur **Edit & Hapus** baris jadwal (**hard delete**: baris benar-benar dihapus dari sheet, bukan sekadar ditandai).
+- **Daftar Jalur & Manajemen:** halaman `Daftar Jalur Pengiriman` dengan **filter rentang tanggal (Dari/Sampai) + filter cabang** (SUPERADMIN) dan tombol *Tampilkan*. Mendukung fitur **Edit & Hapus** baris jadwal (**hard delete**: baris benar-benar dihapus dari sheet, bukan sekadar ditandai).
 - **Summary per Tanggal (Read-only):** halaman *Summary* bersih tanpa tombol aksi (cocok untuk dokumentasi/laporan screenshot), dilengkapi dengan format *header* rapi (Jalur Pengiriman, Tanggal Pengiriman, Dibuat oleh [Nama Admin]).
-- **Screenshot Praktis:** tombol *Screenshot* merender tabel *summary* menjadi pratinjau gambar (menggunakan *html2canvas* lokal) yang bisa **disalin (Ctrl+C)** dan ditempel (Ctrl+V) langsung ke WhatsApp tanpa harus mengunduh file secara manual.
-- **Reminder Dokumen Lengkap:** Mengintegrasikan 3 data jatuh tempo dokumen dari master Kendaraan: **Pajak Tahunan**, **Pajak 5 Tahunan**, dan **KIR** (khusus mobil). *Listing summary* akan memunculkan *badge* status (aman/waspada/kritis/lewat) untuk setiap kendaraan yang bertugas.
+- **Screenshot Praktis:** tombol *Screenshot* merender tabel *summary* menjadi pratinjau gambar (menggunakan *html2canvas* lokal) yang bisa **disalin (Ctrl+C)** dan ditempel (Ctrl+V) langsung ke WhatsApp; tersedia pula tombol **bagi ke WA** yang menyusun ringkasan teks per baris (`wa.me`).
+- **Reminder Dokumen Lengkap:** Mengintegrasikan 3 data jatuh tempo dokumen dari master Kendaraan: **Pajak Tahunan**, **Pajak 5 Tahunan**, dan **KIR** (khusus mobil). Listing/summary memunculkan *badge* status (**TIDAK_ADA / LEWAT / KRITIS / WASPADA / AMAN**) untuk setiap kendaraan yang bertugas.
 
 ### Deteksi Level BBM (AI/Gemini)
 - Foto **indikator bensin analog** dianalisis otomatis dengan **Gemini API** untuk menentukan level BBM dan tingkat keyakinan (confidence), dengan status kesesuaian.
@@ -110,7 +112,7 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 
 ### Keamanan Sesi
 - **Login berbasis token server-side:** `doLogin` memvalidasi username+password, lalu menciptakan token sesi acak (12 jam, `SESSION_TTL_SECONDS`) yang disimpan di `CacheService` bersama identitas pengguna (`session:<token>`). Semua panggilan API dikirimkan parameter token; setiap endpoint memanggil `requireUser(token)` **di sisi server** untuk menentukan role/cabang — identitas tidak lagi dikirim/dipercaya dari client (`userInfo`).
-- **Password ter-hash:** password disimpan sebagai `SHA-256` dengan salt (`salt$hash`); password legacy plaintext otomatis di-migrasi saat login pertama (flag `must_change`).
+- **Password ter-hash:** password disimpan sebagai `SHA-256` dengan salt (`salt$hash`); password legacy plaintext otomatis di-migrasi saat login pertama (satu kali), lalu pengguna mendapat pengingat via toast (`must_change`). Pengubahan/reset password dilakukan **SUPERADMIN** lewat Data Master → Pengguna (Edit); tidak ada halaman ganti-password mandiri bagi pengguna sendiri.
 - **Akses publik aman:** Web App terdeploy sebagai `ANYONE_ANONYMOUS` aman karena seluruh fungsi butuh token sesi; satu-satunya fungsi tanpa token adalah `getAppSettings` yang hanya mengembalikan data non-sensitif. `USER_DEPLOYING` dipertahankan agar kode menulis spreadsheet & Drive milik deployer.
 - **Rate limiting & audit:** login dibatasi (5×/5 menit per username), deteksi Gemini 30×/24 jam per user, dan peristiwa login/logout/update akun tercatat ke sheet `Audit_Log`.
 - **Sesi berbasis localStorage:** token sesi disimpan di `localStorage` (`bbm_token`) bersama informasi tampilan (`bbm_user`); masa berlaku token 12 jam (`SESSION_TTL_SECONDS` di server, `SESSION_MAX_AGE_MS` di client). **Auto-logout idle 2 menit sudah dihapus** — aplikasi tidak lagi keluar otomatis saat tidak aktif; sesi berakhir sesuai TTL token (masa berlaku 12 jam dari login).
@@ -140,7 +142,7 @@ Setelah semua kode berada di Editor Apps Script:
 4. (Opsional) Jalankan **`seedDummyData`** untuk mengisi data percobaan.
 5. (Disarankan) Setelah database terbentuk: jalankan sekali **`initDriveFolders()`** dan **`fixPhotoPermissions()`** (membuat struktur folder foto per cabang di Drive & memperbaiki izin agar galeri tampil), isi kolom **`email`** pada akun SUPERADMIN di sheet `Pengguna` (dipakai laporan kesehatan harian), lalu jalankan **`setupDailyHealthTrigger()`** agar `dailyHealthReport` terkirim otomatis.
 
-> **Password legacy:** akun yang dibuat `seedDummyData` di versi lama (mis. `pic123`) masih tersimpan sebagai **plaintext legacy**. Saat user login pertama kali, sistem otomatis me-migrasinya ke hash dan menandai `must_change`; password tersebut wajib segera diganti lewat menu pengguna. Jalankan `migrateLegacyPasswords()` di editor untuk konversi massal tanpa menunggu login.
+> **Password legacy:** akun yang dibuat `seedDummyData` di versi lama (mis. `pic123`) masih tersimpan sebagai **plaintext legacy**. Saat user login pertama kali, sistem otomatis me-migrasinya ke hash dan menampilkan toast pengingat (`must_change`); pengguna disarankan meminta SUPERADMIN mengganti password-nya lewat Data Master → Pengguna (Edit). Jalankan `migrateLegacyPasswords()` di editor untuk konversi massal tanpa menunggu login.
 
 ### 4. Pengembangan & Deploy dengan clasp
 Proyek ini dikembangkan dan di-deploy menggunakan **clasp** dari folder `src`:
@@ -178,8 +180,10 @@ Ubah konstanta **Spreadsheet ID** di `DatabaseSetup.js` (dan `SpreadsheetOps.js`
 
 ## Akun Login (Saran Dummy)
 Setelah `seedDummyData()`:
-- **PIC Jakarta:** Username: `picjkt` | Password: `pic123` *(legacy — segera ganti)*
-- **PIC Bandung:** Username: `picbdg` | Password: `pic123` *(legacy — segera ganti)*
+- **PIC Jakarta:** Username: `picjkt` | Password: `pic123`
+- **PIC Bandung:** Username: `picbdg` | Password: `pic123`
+
+Both seeded via `seedDummyData` kini sudah tersimpan sebagai **hash SHA-256** (bukan plaintext legacy). Password tetap disarankan segera diganti oleh SUPERADMIN (Data Master → Pengguna → Edit).
 
 Akun SUPERADMIN dibuat terpisah lewat `createSuperadmin()` (bukan dari seed). Akun `admin`/`snd` tidak lagi eksis di kode maupun seed.
 
@@ -189,14 +193,14 @@ Akun SUPERADMIN dibuat terpisah lewat `createSuperadmin()` (bukan dari seed). Ak
 |------|-----------|
 | `Code.js` | Backend utama; wrapper API berbasis token, deteksi level BBM (Gemini), pre-fill formulir (`getLastLaporanPrefill`), dan `doGet` merender UI (tanpa meta CSP karena tidak didukung GAS). |
 | `AuditOps.js` | Pencatatan audit terpusat (login/logout, update akun, galat signifikan) ke sheet `Audit_Log`. |
-| `BackupOperations.js` | Backup harian otomatis: `runDailyBackup()` (salinan 4 sheet data: `SESSION`, `PENGENDARA`, `Supir`, `Flazz_Card`), `performBackup` (pure), `pruneBackups`, `diagnoseBackup`, dan `setupBackupTrigger`. |
+| `BackupOperations.js` | Backup harian otomatis: `runDailyBackup()` (menyalin **seluruh sheet database** lewat `getBackupSheets()`, sumber nama dari `DATABASE_SHEETS`), `performBackup` (pure), `pruneBackups`, `diagnoseBackup`, dan `setupBackupTrigger`. |
 | `CacheUtil.js` | Util cache `CacheService` + anti-race (single-flight) untuk data master/lookup; dipakai `SheetRead` & endpoint ringkasan. |
 | `Config.gs` | Konstanten konfigurasi (`PROD_SPREADSHEET_ID`), `spreadsheetId()`, dan `configureSpreadsheet(ID)` untuk mengarahkan aplikasi ke salinan backup. |
-| `DatabaseSetup.js` | Inisialisasi tabel & struktur Google Sheets (termasuk kolom `email` pada `Pengguna` untuk laporan kesehatan) + migrasi kolom idempotent. |
+| `DatabaseSetup.js` | Definisi skema (`DATABASE_SHEETS` & `DATABASE_SCHEMA`, single source of truth), inisialisasi tabel & struktur Google Sheets (termasuk kolom `email` pada `Pengguna` untuk laporan kesehatan) + migrasi kolom idempotent. |
 | `DriveOps.js` | Penyimpanan foto ke Google Drive dengan validasi tipe gambar (MIME) & scope folder per cabang (`uploadImageToDrive`, `initDriveFolders`, `fixPhotoPermissions`). |
 | `FlazzOps.js` | CRUD kartu & transaksi Flazz (header-safe), soft-delete, dan logika rekonsiliasi penuh ke Google Sheets. |
 | `HealthOps.js` | Laporan kesehatan harian (`dailyHealthReport`) & notifikasi email admin (`superadminEmails`, `sendAdminAlert`) + `setupDailyHealthTrigger` (manual). |
-| `JalurOps.js` | CRUD jadwal pengiriman (header-safe) + helper sisa hari pajak kendaraan. |
+| `JalurOps.js` | CRUD jalur pengiriman (header-safe) + helper sisa hari pajak kendaraan. |
 | `Locks.js` | `LockService` untuk operasi tulis sensitif (transaksi, rekonsiliasi) agar aman dari tab ganda. |
 | `RateLimit.js` | Rate limiting login (5×/5 menit) & deteksi Gemini (30×/24 jam). |
 | `SessionAuth.js` | Token sesi server (`requireUser`, `SESSION_TTL_SECONDS`), hash password `SHA-256` + salt, migrasi password legacy. |
@@ -204,19 +208,21 @@ Akun SUPERADMIN dibuat terpisah lewat `createSuperadmin()` (bukan dari seed). Ak
 | `SpreadsheetOps.js` | CRUD ke Google Sheets + enforcement cabang server-side (`assertOwnWarehouse`) + harga BBM per cabang. |
 | `SummaryOps.js` | Materialisasi ringkasan bulanan per cabang ke tab `Dashboard` (sumber halaman dashboard & performa). |
 | `TestRunner.js` | Test suite internal untuk verifikasi fungsi backend dari editor. |
-| `Index.html` | Struktur UI utama (Bootstrap 5 + mobile-first), halaman Dashboard Umum, & navigasi. |
-| `js.html` | Logika interaksi sisi client: render dashboard & formulir, pre-fill laporan, dropdown cabang dibatasi peran (`cabangOptionsForRole`), sub-menu sidebar tetap terbuka, kompresi foto, watchdog 2 menit. |
+| `Index.html` | Struktur UI utama (Bootstrap 5 + mobile-first): halaman Dashboard Umum, sidebar desktop + bottom nav mobile (grup/drawer), & navigasi. |
+| `js.html` | Logika interaksi sisi client: render dashboard & formulir, pre-fill laporan, form indikator-aware (bar digital/slider jarum), dropdown cabang dibatasi peran (`cabangOptionsForRole`), sub-menu sidebar tetap terbuka, drawer bottom-nav, kompresi foto, watchdog 2 menit. |
 | `css.html` | Gaya desain custom (responsive, mobile-first). |
 | `Settings.html` | Halaman pengaturan aplikasi (logo, nama, perusahaan, footer). |
-| `FlazzPages.html` | Halaman UI modul Flazz (dashboard, kartu, top-up, rekonsiliasi, riwayat). |
-| `FlazzScript.html` | Logika interaksi sisi client untuk modul Flazz (termasuk tab riwayat & rekonsiliasi, edit top-up/tol, List Flazz dengan filter rentang tanggal, pencocokan tanggal aman zona waktu, dan cetak laporan A4 per periode); dropdown cabang mengikuti peran pengguna. |
-| `JalurPages.html` | Halaman UI modul Jalur Pengiriman (buat jadwal & summary per tanggal). |
-| `JalurScript.html` | Logika interaksi sisi client untuk modul Jalur Pengiriman (render jadwal, screenshot, share WA); filter/kolom cabang tampil hanya untuk SUPERADMIN. |
+| `FlazzPages.html` | Halaman UI modul Flazz (dashboard, kartu, top-up, rekonsiliasi, riwayat, list & saldo). |
+| `FlazzScript.html` | Logika interaksi sisi client untuk modul Flazz (termasuk tab riwayat & rekonsiliasi, gate laporan valid, tindakan Adjust/Abai, edit top-up/tol, List Flazz dengan filter rentang tanggal, pencocokan tanggal aman zona waktu, dan cetak laporan A4 per periode); dropdown cabang mengikuti peran pengguna. |
+| `JalurPages.html` | Halaman UI modul Jalur Pengiriman (buat jalur, daftar jalur, summary per tanggal). |
+| `JalurScript.html` | Logika interaksi sisi client untuk modul Jalur Pengiriman (render jalur, autocomplete driver, screenshot, share WA); filter/kolom cabang tampil hanya untuk SUPERADMIN. |
 | `Html2canvasLib.html` | Library html2canvas lokal (di-embed client-side) untuk pratinjau screenshot summary agar bisa disalin ke WhatsApp. |
 
 ## Backup & Pemulihan
 
-Backup harian otomatis menyalin **4 sheet data utama** (`SESSION`, `PENGENDARA`, `Supir`, `Flazz_Card`) ke spreadsheet baru bernama `Monitoring_BBM_backup_<YYYY-MM-DD>` di dalam folder **`BBM_BACKUP`** (dibuat PRIVATE), lalu memangkas (prune) hanya menyimpan 14 backup terakhir. Hasil backup di-cache dengan prefix `backup:` (TTL 300 detik).
+Backup harian otomatis menyalin **seluruh sheet database** (dari `DATABASE_SHEETS`: `Cabang`, `Supir`, `BBM`, `Pengguna`, `Kendaraan`, `Penggunaan_BBM`, `Pengisian_BBM`, `Foto_Evidence`, `Audit_Log`, `Konfigurasi`, `Dashboard`, `Pengaturan`, `Flazz_Card`, `Flazz_Usage`, `Flazz_TopUp`, `Flazz_Tol`, `Flazz_Reconciliation`, `Jalur_Pengiriman`) ke spreadsheet baru bernama `Monitoring_BBM_backup_<YYYY-MM-DD>` di dalam folder **`BBM_BACKUP`** (dibuat PRIVATE), lalu memangkas (prune) hanya menyimpan **14 backup terakhir**. Hasil backup di-cache dengan prefix `backup:` (TTL 300 detik).
+
+> **Catatan:** daftar sheet yang di-backup disinkronkan otomatis dari `DATABASE_SHEETS` (`getBackupSheets()`), sehingga tidak ada lagi nama sheet warisan (`SESSION`/`PENGENDARA`) yang tidak ada di skema. Jika suatu sheet belum dibuat di spreadsheet, baris tersebut dilewati dan `runDailyBackup` melaporkan *"Backup parsial: N dari M sheet ter-copy"*.
 
 ### 1. Menyalakan Backup Otomatis (Manual dari Editor)
 Fungsi `setupBackupTrigger()` **tidak dijalankan otomatis**. Untuk mengaktifkan, jalankan manual sekali dari editor Apps Script:
@@ -238,10 +244,10 @@ Maksimal **24 jam** — data yang hilang tidak dapat dipulihkan melebihi rentang
 
 ### 4. Catatan Keamanan
 - Folder **`BBM_BACKUP`** dibuat dengan akses **PRIVATE**; jangan pernah membagikannya publik.
-- Keempat sheet backup bersifat independen dari sheet operasional lain (`Penggunaan_BBM`, `Jalur_Pengiriman`, dsb.) — hanya 4 sheet data inti yang disalin.
+- Backup menyalin **seluruh sheet** (operasional + master) dalam satu file, lintas cabang — termasuk `Penggunaan_BBM`, `Jalur_Pengiriman`, dan semua sheet Flazz (topup/tol/recon).
 
 ### Keterbatasan Diketahui (Known Limitation)
-- Backup `Monitoring_BBM_backup_*` menyalin **seluruh** isi `SESSION`, `PENGENDARA`, `Supir`, dan `Flazz_Card` — termasuk data lintas cabang — dalam satu file; backup belum dipisah per cabang. Ringkasan bulanan di tab `Dashboard` dihitung **per cabang** (baris `cabang + periode`).
+- Backup yang tersalin memuat data lintas cabang dalam satu file; belum dipisah per cabang. Ringkasan bulanan di tab `Dashboard` dihitung **per cabang** (baris `cabang + periode`).
 - Aplikasi menampung **12 cabang dalam satu spreadsheet**; data operasional lintas cabang tersimpan di sheet yang sama sehingga backup juga menyeluruh. Namun seluruh endpoint sudah menerapkan **enforce cabang server-side** bagi non-SUPERADMIN, sehingga pemisahan pencatatan per cabang sudah terjamin pada lapisan aplikasi.
 
 ## Konfigurasi Tambahan
