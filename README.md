@@ -54,13 +54,14 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - **Full Reconciliation:** sistem menghitung saldo sistem otomatis dari ledger per periode pemakaian sejak kartu diserahkan (saldo awal + top-up − BBM − tol), lalu dibandingkan dengan saldo fisik → status **`SESUAI`** / **`PERLU_PEMERIKSAAN`**, menandai kartu tersedia kembali, menyimpan riwayat rekonsiliasi, dan **memulihkan supir pemegang ke nilai default** (`default_driver_id`). Pratinjau "Saldo Di Sistem" di form memakai rumus ledger yang sama dengan server, sehingga angka yang terlihat sebelum disimpan == angka yang tersimpan.
 - **Soft-delete & Reaktivasi:** kartu dapat dinonaktifkan (status `NONAKTIF`) dan dimunculkan kembali dengan tombol "Aktifkan Kembali" di Data Master. Transaksi top-up/tol juga dapat di-soft-delete dengan pengembalian saldo otomatis.
 - **Validasi:** nomor kartu unik, nominal top-up/tol > 0, saldo tidak boleh negatif, dan nama kartu wajib untuk kartu `UTAMA`.
+- **Sinkronisasi Nama Kartu ke Jalur:** saat nama kartu etoll diubah, nama baru otomatis diterapkan (**backfill**) ke seluruh baris `Jalur_Pengiriman` yang memakai kartu tersebut, sehingga nama kartu tetap konsisten di semua riwayat — memudahkan request top-up saldo ke finance.
 - **Pre-fill formulir laporan:** form *Input Laporan* otomatis terisi tanggal hari ini serta data laporan harian terakhir (kendaraan, supir, bar BBM, biaya/liter, metode bayar, dll.).
 - **Performa:** Data dimuat sekali lalu di-cache di sisi client agar perpindahan tab menu Flazz cepat, dan otomatis di-refresh setelah aksi simpan/hapus.
 - **Limiter field Kapasitas Bar:** saat mengganti kendaraan pada formulir, nilai **Bar Bensin Awal/Akhir** diberi batas maksimal (max) sesuai `jumlah_bar` kendaraan agar tidak melebihi kapasitas.
 - **Daftar Jadwal difilter tanggal:** halaman Daftar Jadwal Pengiriman kini memiliki kartu filter tanggal + tombol *Tampilkan* untuk mempersempit listing (lihat juga menu Jalur Pengiriman).
 - **Loading state Edit Top-Up/Tol:** tombol simpan modal Edit Top-Up & Edit Tol menampilkan spinner + dinonaktifkan saat proses berjalan, lalu pulih kembali setelah selesai/gagal.
 - **Aksesibilitas (a11y):** tombol ikon (history, jadwal, kartu flazz, top-up/tol/hapus), tombol tutup modal, dan tombol lain diberi `aria-label` yang informatif untuk pembaca layar.
-- **List Flazz (Laporan Per Kartu):** menu **List Flazz** menampilkan ringkasan **Saldo Awal, Total Pengeluaran, dan Saldo Akhir** per kartu dengan filter tanggal. Klik kartu membuka **detail modal** (Top Up, Rincian Pengeluaran Tol+BBM, Rekonsiliasi Harian) dan tombol **Cetak A4** untuk mencetak laporan lengkap (header kartu, summary harian, tabel Top Up/Rincian/Rekonsiliasi) langsung dari browser.
+- **List Flazz (Laporan Per Kartu):** menu **List Flazz** menampilkan ringkasan **Saldo Awal, Total Pengeluaran, dan Saldo Akhir** per kartu dengan filter **rentang tanggal (Dari Tanggal s/d Sampai Tanggal)** — default sama menampilkan hari ini bila kedua input kosong, dan bila salah satu kosong dianggap sama dengan yang lain. Klik kartu membuka **detail modal** (Top Up, Rincian Pengeluaran Tol+BBM, Rekonsiliasi Harian) yang seluruh tabelnya ikut difilter sesuai periode terpilih, lengkap dengan **Total Top Up Periode** dan **Total Pengeluaran Periode** di baris paling bawah. Tombol **Cetak A4** mencetak laporan finance per periode yang sama — header "Periode: awal s/d akhir", summary box per periode (Saldo Awal, Total Top Up, Pengeluaran BBM, Pengeluaran Tol, Total Pengeluaran, Saldo Akhir), serta tabel Top Up/Rincian/Rekonsiliasi yang difilter rentang dengan tfoot total. Margin cetak kiri-kanan diperlebar ke 0,5 cm agar muat lebih banyak kolom.
 - **Saldo Awal dari Rekonsiliasi:** pada listing dan laporan cetak, **Saldo Awal** memakai `opening_balance` dari record Rekonsiliasi pada tanggal tersebut (akurat terhadap selisih/saldo fisik), dengan fallback ke rumus `saldo_akhir + pengeluaran − topup` bila belum ada rekonsiliasi.
 - **Pengeluaran termasuk tol dari transaksi BBM:** total pengeluaran harian (kolom *Pengeluaran*, summary A4, dan rumus saldo awal fallback) menjumlahkan **biaya BBM + biaya tol** dari laporan `Penggunaan_BBM` ber-metode `FLAZZ` bersama pengeluaran Tol mandiri (`Flazz_Tol`) — konsisten dengan perhitungan ledger server, sehingga saldo awal tidak kekurangan nominal tol.
 - **Fallback saldo awal bila opening rekonsiliasi 0:** jika record Rekonsiliasi tanggal tersebut punya `opening_balance` **0** (mis. rekonsiliasi tanggal laporan dikerjakan belakangan sehingga usage yang direkam tidak relevan), listing & cetak memakai rumus fallback `saldo_akhir + pengeluaran − topup` alih-alih menampilkan 0 yang menyesatkan.
@@ -104,8 +105,12 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - Tema warna (Branding) kustom, seperti warna utama (primary color) hijau khas perusahaan.
 
 ### Keamanan Sesi
-- **Auto Logout Idle:** Jika aplikasi tidak digunakan selama **5 menit**, sistem menampilkan modal peringatan dengan **countdown 60 detik**. Bila tanpa aktivitas sampai waktu habis, aplikasi **logout otomatis** dan kembali ke halaman login. Aktivitas apa pun (klik, ketik, scroll, sentuh, fokus) akan mereset timer; tombol **"Lanjutkan Sesi"** pada modal membatalkan logout. Timer hanya aktif saat sesi berjalan (tidak berlaku di halaman login).
-- **Sesi berbasis localStorage:** login tersimpan di `localStorage` (`bbm_user`) dengan masa berlaku maksimal 12 jam (`SESSION_MAX_AGE_MS`).
+- **Login berbasis token server-side:** `doLogin` memvalidasi username+password, lalu menciptakan token sesi acak (12 jam, `SESSION_TTL_SECONDS`) yang disimpan di `CacheService` bersama identitas pengguna (`session:<token>`). Semua panggilan API dikirimkan parameter token; setiap endpoint memanggil `requireUser(token)` **di sisi server** untuk menentukan role/cabang — identitas tidak lagi dikirim/dipercaya dari client (`userInfo`).
+- **Password ter-hash:** password disimpan sebagai `SHA-256` dengan salt (`salt$hash`); password legacy plaintext otomatis di-migrasi saat login pertama (flag `must_change`).
+- **Akses publik aman:** Web App terdeploy sebagai `ANYONE_ANONYMOUS` aman karena seluruh fungsi butuh token sesi; satu-satunya fungsi tanpa token adalah `getAppSettings` yang hanya mengembalikan data non-sensitif. `USER_DEPLOYING` dipertahankan agar kode menulis spreadsheet & Drive milik deployer.
+- **Rate limiting & audit:** login dibatasi (5×/5 menit per username), deteksi Gemini 30×/24 jam per user, dan peristiwa login/logout/update akun tercatat ke sheet `Audit_Log`.
+- **Auto Logout Idle:** Jika aplikasi dioperasikan (klik, ketik, scroll, sentuh, fokus) tidak terdeteksi selama **2 menit**, aplikasi langsung **logout otomatis** dan kembali ke halaman login, tanpa peringatan countdown. Aktivitas apa pun akan mereset timer. Timer hanya aktif saat sesi berjalan (tidak berlaku di halaman login).
+- **Sesi berbasis localStorage:** token sesi disimpan di `localStorage` (`bbm_token`) bersama informasi tampilan (`bbm_user`); masa berlaku token 12 jam (`SESSION_MAX_AGE_MS`).
 
 ### Data Tersimpan di Google Sheets
 - Seluruh data operasional langsung terekam pada Google Sheets.
@@ -125,7 +130,11 @@ Setelah semua kode berada di Editor Apps Script:
 2. Pilih fungsi **`setupDatabase`** pada menu dropdown di atas editor, lalu tekan tombol **Run**.
    > Sistem akan membuat semua sheet: `Cabang`, `Supir`, `BBM`, `Pengguna`, `Kendaraan` (termasuk kolom `tanggal_pajak`), `Penggunaan_BBM`, `Pengisian_BBM`, `Foto_Evidence`, `Audit_Log`, `Konfigurasi`, `Dashboard`, `Pengaturan`, sheet modul Flazz (`Flazz_Card`, `Flazz_Usage`, `Flazz_TopUp`, `Flazz_Tol`, `Flazz_Reconciliation`), serta sheet `Jalur_Pengiriman`.
    > `setupDatabase` bersifat **idempotent**: untuk sheet yang sudah ada, ia hanya menambahkan kolom yang belum ada (mis. `card_name`, `card_role`, `is_deleted`) di ujung kanan tanpa menggeser data lama. Jalankan ulang setelah setiap pembaruan skema untuk menerapkan kolom baru ke sheet lama.
-3. (Opsional) Jalankan **`seedDummyData`** untuk mengisi data percobaan.
+3. Pilih fungsi **`createSuperadmin`** pada menu dropdown di atas editor, lalu klik **Run** untuk membuat akun **SUPERADMIN pertama**, lalu isi `user_id`, `username`, `nama`, dan `password` (tersimpan sebagai hash SHA-256) saat diminta.
+   > (`seedDummyData` kini **hanya membuat akun PIC cabang** — akun SUPERADMIN `admin` tidak lagi bagian dari seed. Gunakan `createSuperadmin` untuk membangun akun admin dari nol.)
+4. (Opsional) Jalankan **`seedDummyData`** untuk mengisi data percobaan.
+
+> **Password legacy:** akun yang dibuat `seedDummyData` di versi lama (mis. `pic123`) masih tersimpan sebagai **plaintext legacy**. Saat user login pertama kali, sistem otomatis me-migrasinya ke hash dan menandai `must_change`; password tersebut wajib segera diganti lewat menu pengguna. Jalankan `migrateLegacyPasswords()` di editor untuk konversi massal tanpa menunggu login.
 
 ### 4. Pengembangan & Deploy dengan clasp
 Proyek ini dikembangkan dan di-deploy menggunakan **clasp** dari folder `src`:
@@ -158,14 +167,15 @@ Ubah konstanta **Spreadsheet ID** di `DatabaseSetup.js` (dan `SpreadsheetOps.js`
 ### 6. Deploy Web App (Manual dari Editor)
 1. Klik **Deploy** > **New deployment** di pojok kanan atas Apps Script Editor.
 2. Pilih tipe **Web app**.
-3. Atur "Execute as" ke **User accessing the web app** dan "Who has access" ke **Anyone**.
+3. Biarkan pengaturan mengikuti `src/appsscript.json`: **"Execute as" = Me (deployer / `USER_DEPLOYING`)** dan **"Who has access" = Anyone (`ANYONE_ANONYMOUS`)**.
 4. Klik **Deploy** dan salin URL Web App yang dihasilkan.
 
-## Akun Login (Default Dummy)
-Setelah menjalankan `seedDummyData()`:
-- **SUPERADMIN:** Username: `snd` | Password: `snd123`
-- **PIC Jakarta:** Username: `picjkt` | Password: `pic123`
-- **PIC Bandung:** Username: `picbdg` | Password: `pic123`
+## Akun Login (Saran Dummy)
+Setelah `seedDummyData()`:
+- **PIC Jakarta:** Username: `picjkt` | Password: `pic123` *(legacy — segera ganti)*
+- **PIC Bandung:** Username: `picbdg` | Password: `pic123` *(legacy — segera ganti)*
+
+Akun SUPERADMIN dibuat terpisah lewat `createSuperadmin()` (bukan dari seed). Akun `admin`/`snd` tidak lagi eksis di kode maupun seed.
 
 ## Struktur File
 
@@ -178,11 +188,11 @@ Setelah menjalankan `seedDummyData()`:
 | `FlazzOps.js` | CRUD kartu & transaksi Flazz (header-safe), soft-delete, dan logika rekonsiliasi penuh ke Google Sheets (termasuk rekonstruksi saldo awal dari ledger bila opening usage 0). |
 | `JalurOps.js` | CRUD jadwal pengiriman (header-safe) + helper perhitungan sisa hari pajak kendaraan. |
 | `Index.html` | Struktur UI utama (Bootstrap 5 + mobile-first), halaman Dashboard Umum, & navigasi. |
-| `js.html` | Logika interaksi sisi client (JavaScript), termasuk rendering Dashboard Umum, pre-fill formulir laporan, dan auto-logout idle 5 menit. |
+| `js.html` | Logika interaksi sisi client (JavaScript), termasuk rendering Dashboard Umum, pre-fill formulir laporan, dan auto-logout idle 2 menit. |
 | `css.html` | Gaya desain custom (responsive, mobile-first). |
 | `Settings.html` | Halaman pengaturan aplikasi (logo, nama, perusahaan, footer). |
 | `FlazzPages.html` | Halaman UI modul Flazz (dashboard, kartu, top-up, rekonsiliasi, riwayat). |
-| `FlazzScript.html` | Logika interaksi sisi client untuk modul Flazz (termasuk tab riwayat & rekonsiliasi, edit top-up/tol, List Flazz, pencocokan tanggal aman zona waktu, dan cetak laporan A4). |
+| `FlazzScript.html` | Logika interaksi sisi client untuk modul Flazz (termasuk tab riwayat & rekonsiliasi, edit top-up/tol, List Flazz dengan filter rentang tanggal, pencocokan tanggal aman zona waktu, dan cetak laporan A4 per periode). |
 | `JalurPages.html` | Halaman UI modul Jalur Pengiriman (buat jadwal & summary per tanggal). |
 | `JalurScript.html` | Logika interaksi sisi client untuk modul Jalur Pengiriman (render jadwal, screenshot, share WA). |
 | `Html2canvasLib.html` | Library html2canvas lokal (di-embed client-side) untuk pratinjau screenshot summary agar bisa disalin ke WhatsApp. |

@@ -1,2 +1,9 @@
 scratch/
 .superpowers/
+
+# artefak diagnostik / skrip sekali pakai
+temp.js
+apply_jalur.py
+scratch_*.js
+src/debug.js
+src/debug_agus.js
