@@ -167,13 +167,25 @@ function getMasterData(token) {
   var ck = masterCacheKey(user.role, user.cabang);
   var hit = cacheGet(ck);
   if (hit) return hit;
+  var isSuper = user.role === 'SUPERADMIN';
+  // NON-SUPERADMIN hanya boleh menerima warehouse miliknya sendiri &
+  // BBM (termasuk harga override) milik cabangnya, bukan seluruh data cabang.
   var payload = {
     vehicles: safeList(function() { return getActiveVehicles(user.role, user.cabang); }),
     drivers: safeList(function() { return getActiveDrivers(user.role, user.cabang); }),
-    cabangList: safeList(function() { return getCabangList(); }),
-    bbmList: safeList(function() { return getActiveBBM(); }),
+    cabangList: safeList(function() {
+      if (isSuper) return getCabangList();
+      var mine = String(user.cabang || '');
+      var all = getCabangList();
+      var own = all.filter(function(c) { return String(c.kode) === mine; });
+      return own.length ? own : [{ kode: mine, nama: mine }];
+    }),
+    bbmList: safeList(function() {
+      if (isSuper) return getActiveBBM();
+      return getActiveBBMForCabang(user.cabang);
+    }),
     flazzCards: safeList(function() { return getFlazzCards(user.role, user.cabang); }),
-    penggunaList: (user.role === 'SUPERADMIN') ? safeList(function() { return getAllUsers(); }) : []
+    penggunaList: isSuper ? safeList(function() { return getAllUsers(); }) : []
   };
   var out = cleanSerializable(payload);
   cachePut(ck, out, 120);
