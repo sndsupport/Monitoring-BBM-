@@ -1075,7 +1075,7 @@ function renderFlazzListingTable() {
     tr.innerHTML = `
       <td class='text-center text-muted'>${idx + 1}</td>
       <td>
-        <a href='#' class='fw-bold text-primary text-decoration-underline' onclick="showFlazzDetailModal('${cardId}'); return false;">
+        <a href='#' class='fw-bold text-primary text-decoration-underline' onclick="showFlazzDetailModal(${JSON.stringify(cardId)}); return false;">
           ${esc(c.card_number)}
         </a>
       </td>

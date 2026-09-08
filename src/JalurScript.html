@@ -565,7 +565,7 @@ function jalurSummaryText() {
 
 function jalurShareWA() {
   const text = encodeURIComponent(jalurSummaryText());
-  window.open('https://wa.me/?text=' + text, '_blank');
+  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
 }
 
 function jalurTakeScreenshot() {

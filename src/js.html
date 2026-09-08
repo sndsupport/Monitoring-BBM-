@@ -956,6 +956,14 @@
       var odoAkhirC = await compressPhoto(odoAkhir);
       var fotoIndC = await compressPhoto(fotoIndikator);
 
+      if ((odoAwal && !odoAwalC) || (odoAkhir && !odoAkhirC)) {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        window.__bbmSubmitting = false;
+        showToast('Gagal mengompresi foto bukti (gambar korup atau tidak terbaca). Cek kembali foto lalu coba lagi.', 'error');
+        return;
+      }
+
       formDataPayload = {
         vehicle_id: document.getElementById('vehicle').value,
         nama_supir: document.getElementById('nama_supir').value,
@@ -1675,13 +1683,17 @@
     };
     let fAwal = document.getElementById('ed_foto_odo_awal');
     if (fAwal && fAwal.files && fAwal.files[0]) {
-      payload.foto_odo_awal = await getBase64(fAwal.files[0]);
-      payload.foto_odo_awal_name = fAwal.files[0].name;
+      let fAwalC = await compressPhoto(fAwal.files[0]);
+      if (!fAwalC) { showToast('Gagal mengompresi foto KM awal, coba foto lain.', 'error'); return; }
+      payload.foto_odo_awal = fAwalC.dataUrl;
+      payload.foto_odo_awal_name = fAwalC.name;
     }
     let fAkhir = document.getElementById('ed_foto_odo_akhir');
     if (fAkhir && fAkhir.files && fAkhir.files[0]) {
-      payload.foto_odo_akhir = await getBase64(fAkhir.files[0]);
-      payload.foto_odo_akhir_name = fAkhir.files[0].name;
+      let fAkhirC = await compressPhoto(fAkhir.files[0]);
+      if (!fAkhirC) { showToast('Gagal mengompresi foto KM akhir, coba foto lain.', 'error'); return; }
+      payload.foto_odo_akhir = fAkhirC.dataUrl;
+      payload.foto_odo_akhir_name = fAkhirC.name;
     }
     google.script.run.withSuccessHandler(res => {
       if(res.success){ 
