@@ -162,6 +162,9 @@ function saveJalur(payload, userInfo) {
         }
       }
     });
+    if (saved > 0) {
+      logAudit(userInfo, 'CREATE', 'jalur', tanggal + ' (' + saved + ' baris)', null, { tanggal: tanggal, kode_cabang: kodeCabang, jumlah: saved });
+    }
     const result = { success: true, msg: saved + ' jadwal pengiriman berhasil disimpan.', saved: saved };
     if (warnings.length) result.warnings = warnings;
     return result;
@@ -215,6 +218,13 @@ function updateJalur(data, userInfo) {
       }
     }
     sheet.getRange(found.rowIndex, idx['updated_at'] + 1).setValue(new Date());
+    logAudit(userInfo, 'EDIT', 'jalur', data.id, null, {
+      tanggal: (data.tanggal !== undefined) ? data.tanggal : found.row[idx['tanggal']],
+      driver_id: (data.driver_id !== undefined) ? data.driver_id : found.row[idx['driver_id']],
+      vehicle_id: (data.vehicle_id !== undefined) ? data.vehicle_id : found.row[idx['vehicle_id']],
+      rute_tujuan: (data.rute_tujuan !== undefined) ? String(data.rute_tujuan).trim() : found.row[idx['rute_tujuan']],
+      flazz_card_id: newCard
+    });
     return { success: true, msg: 'Jadwal berhasil diperbarui.' };
   } catch (e) {
     return { success: false, msg: e.message };
@@ -238,6 +248,13 @@ function deleteJalur(id, userInfo) {
     if (cardId) returnFlazzUsage(cardId);
     // Hard delete: hapus baris secara fisik dari sheet
     sheet.deleteRow(found.rowIndex);
+    logAudit(userInfo, 'DELETE', 'jalur', id, {
+      tanggal: found.row[idx['tanggal']],
+      driver_id: found.row[idx['driver_id']],
+      vehicle_id: found.row[idx['vehicle_id']],
+      rute_tujuan: found.row[idx['rute_tujuan']],
+      flazz_card_id: cardId
+    }, null);
     return { success: true, msg: 'Jadwal berhasil dihapus.' };
   } catch (e) {
     return { success: false, msg: e.message };

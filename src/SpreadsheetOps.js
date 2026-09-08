@@ -237,6 +237,14 @@ function saveTransactionEndOfDayUnlocked(payload) {
     }
   }
 
+  logAudit(payload.userInfo, 'CREATE', 'transaksi', 'TRX ' + transaction_id, null, {
+    cabang: trxCabang,
+    vehicle: platNomor,
+    km_tempuh: km_tempuh,
+    liter: liter,
+    biaya: payload.biaya_bbm
+  });
+
   return { success: true };
 }
 
@@ -804,6 +812,10 @@ function editDailyTransactionUnlocked(payload, userInfo) {
     try { recomputeMonthlySummary(oldCabang, periodKey(oldTgl)); } catch (e) { console.error('summary gagal: ' + e); }
     try { recomputeMonthlySummary(newCabang, periodKey(newTgl)); } catch (e) { console.error('summary gagal: ' + e); }
 
+    logAudit(userInfo, 'EDIT', 'transaksi', payload.transaction_id,
+      { metode_pembayaran: oldMetode, flazz_card_id: oldCard, biaya_bbm: oldBiaya, biaya_toll: oldToll },
+      { metode_pembayaran: newMetode, flazz_card_id: newCard, biaya_bbm: newBiaya, biaya_toll: newToll });
+
     return { success: true, msg: 'Transaksi BBM berhasil diperbarui.' };
   } catch (err) {
     return { success: false, msg: err.message };
@@ -855,6 +867,17 @@ function deleteDailyTransactionUnlocked(transactionId, userInfo) {
       setCardBalance(cardId, (getCardBalance(cardId) || 0) + (biaya + toll));
     }
     try { recomputeMonthlySummary(delCabang, periodKey(delTgl)); } catch (e) { console.error('summary gagal: ' + e); }
+
+    logAudit(userInfo, 'DELETE', 'transaksi', transactionId, {
+      metode_pembayaran: isFlazz ? 'FLAZZ' : '',
+      flazz_card_id: cardId,
+      biaya_bbm: biaya,
+      biaya_toll: toll,
+      vehicle_id: vehicleId,
+      kode_cabang: delCabang,
+      tanggal: delTgl
+    }, null);
+
     return { success: true, msg: 'Transaksi BBM dihapus.' };
   } catch (err) {
     return { success: false, msg: err.message };
@@ -915,6 +938,7 @@ function insertCabang(data, userInfo) {
   assertSuperadminOnly(userInfo, 'mengelola master cabang');
   const ss = getDB();
   ss.getSheetByName('Cabang').appendRow([data.kode, data.nama, data.lokasi || '', 'Aktif']);
+  logAudit(userInfo, 'CREATE', 'master', 'Cabang ' + data.kode, null, { kode: data.kode, nama: data.nama, lokasi: data.lokasi || '' });
   return { msg: 'Cabang Berhasil Ditambahkan' };
 }
 
@@ -924,6 +948,7 @@ function insertKendaraan(data, userInfo) {
   const ss = getDB();
   let id = 'V-' + new Date().getTime();
   ss.getSheetByName('Kendaraan').appendRow([id, data.plat, data.nama, data.jenis || 'Mobil', data.merk || '', data.model || '', data.kapasitas_tangki || '', data.jumlah_bar || '', data.standar_km_l || '', data.cabang, 'Aktif', data.jenis_indikator || 'DIGITAL_BAR', data.tanggal_pajak || '', data.tanggal_pajak_5_tahunan || '', data.tanggal_kir || '']);
+  logAudit(userInfo, 'CREATE', 'master', 'Kendaraan ' + id, null, { vehicle_id: id, plat: data.plat, nama: data.nama, cabang: data.cabang });
   return { msg: 'Kendaraan Berhasil Ditambahkan' };
 }
 
@@ -957,6 +982,7 @@ function insertSupir(data, userInfo) {
   const ss = getDB();
   let id = 'DRV-' + new Date().getTime();
   ss.getSheetByName('Supir').appendRow([id, data.nama, data.cabang, 'Aktif', data.default_vehicle_id || '']);
+  logAudit(userInfo, 'CREATE', 'master', 'Supir ' + id, null, { id: id, nama: data.nama, cabang: data.cabang });
   return { msg: 'Supir Berhasil Ditambahkan' };
 }
 
@@ -970,6 +996,7 @@ function deleteKendaraanById(vehicleId, userInfo) {
     if (data[i][0] === vehicleId) {
       if (role !== 'SUPERADMIN') assertOwnWarehouse(userInfo, data[i][9]);
       sheet.getRange(i + 1, 11).setValue('Non-Aktif');
+      logAudit(userInfo, 'DELETE', 'master', 'Kendaraan ' + vehicleId, { plat: data[i][1], nama: data[i][2] }, null);
       return { msg: 'Kendaraan Berhasil Dihapus' };
     }
   }
@@ -998,6 +1025,9 @@ function updateCabang(data, userInfo) {
   for (let i = 1; i < values.length; i++) {
     if (values[i][0] == data.edit_id) {
       sheet.getRange(i + 1, 1, 1, 3).setValues([[data.kode, data.nama, data.lokasi || '']]);
+      logAudit(userInfo, 'EDIT', 'master', 'Cabang ' + data.edit_id,
+        { kode: values[i][0], nama: values[i][1], lokasi: values[i][2] },
+        { kode: data.kode, nama: data.nama, lokasi: data.lokasi || '' });
       return { msg: 'Cabang Berhasil Diupdate' };
     }
   }
@@ -1031,6 +1061,9 @@ function updateKendaraan(data, userInfo) {
       const iKir = hd.indexOf('tanggal_kir');
       if (iKir > -1) sheet.getRange(i + 1, iKir + 1).setValue(data.tanggal_kir || '');
       
+      logAudit(userInfo, 'EDIT', 'master', 'Kendaraan ' + data.edit_id,
+        { plat: values[i][1], nama: values[i][2] },
+        { plat: data.plat, nama: data.nama, cabang: data.cabang });
       return { msg: 'Kendaraan Berhasil Diupdate' };
     }
   }
@@ -1051,6 +1084,9 @@ function updateSupir(data, userInfo) {
       // update nama, cabang, and default_vehicle_id (col 2, 3, 5)
       sheet.getRange(i + 1, 2, 1, 2).setValues([[data.nama, data.cabang]]);
       sheet.getRange(i + 1, 5).setValue(data.default_vehicle_id || '');
+      logAudit(userInfo, 'EDIT', 'master', 'Supir ' + data.edit_id,
+        { nama: values[i][1], cabang: values[i][2] },
+        { nama: data.nama, cabang: data.cabang });
       return { msg: 'Supir Berhasil Diupdate' };
     }
   }
@@ -1065,6 +1101,9 @@ function updateBBM(data, userInfo) {
   for (let i = 1; i < values.length; i++) {
     if (values[i][0] == data.edit_id) {
       sheet.getRange(i + 1, 2, 1, 2).setValues([[data.jenis, data.harga]]);
+      logAudit(userInfo, 'EDIT', 'master', 'BBM ' + data.edit_id,
+        { jenis: values[i][1], harga: values[i][2] },
+        { jenis: data.jenis, harga: data.harga });
       return { msg: 'BBM Berhasil Diupdate' };
     }
   }
@@ -1076,6 +1115,7 @@ function insertBBM(data, userInfo) {
   const ss = getDB();
   let id = 'BBM-' + new Date().getTime();
   ss.getSheetByName('BBM').appendRow([id, data.jenis, data.harga, 'Aktif']);
+  logAudit(userInfo, 'CREATE', 'master', 'BBM ' + id, null, { id: id, jenis: data.jenis, harga: data.harga });
   return { msg: 'BBM Berhasil Ditambahkan' };
 }
 
@@ -1087,6 +1127,7 @@ function deleteCabangById(kode, userInfo) {
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] == kode) {
       sheet.deleteRow(i + 1);
+      logAudit(userInfo, 'DELETE', 'master', 'Cabang ' + kode, { kode: data[i][0], nama: data[i][1] }, null);
       return { msg: 'Cabang Berhasil Dihapus' };
     }
   }
@@ -1102,6 +1143,7 @@ function deleteSupirById(id, userInfo) {
     if (data[i][0] == id) {
       if (role !== 'SUPERADMIN') assertOwnWarehouse(userInfo, data[i][2]);
       sheet.deleteRow(i + 1);
+      logAudit(userInfo, 'DELETE', 'master', 'Supir ' + id, { nama: data[i][1], cabang: data[i][2] }, null);
       return { msg: 'Supir Berhasil Dihapus' };
     }
   }
@@ -1116,6 +1158,7 @@ function deleteBBMById(id, userInfo) {
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] == id) {
       sheet.deleteRow(i + 1);
+      logAudit(userInfo, 'DELETE', 'master', 'BBM ' + id, { jenis: data[i][1], harga: data[i][2] }, null);
       return { msg: 'BBM Berhasil Dihapus' };
     }
   }
@@ -1186,6 +1229,7 @@ function insertUser(data, userInfo) {
   if (getUserByUsername(sheet, uname)) throw new Error('Username sudah terpakai');
   const id = 'U-' + new Date().getTime();
   sheet.appendRow([id, uname, hashPassword(password), nama, role, cabang, 'Aktif']);
+  logAudit(userInfo, 'CREATE', 'master', 'Pengguna ' + uname, null, { user_id: id, username: uname, nama: nama, role: role, cabang: cabang });
   return { msg: 'Pengguna Berhasil Ditambahkan' };
 }
 

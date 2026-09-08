@@ -198,6 +198,7 @@ function saveFlazzCard(cardData, userInfo) {
       // Backfill nama kartu ke jalur pengiriman yang memakai kartu ini agar tetap konsisten
       backfillFlazzCardName(cardData.id, cardData.card_name || '');
 
+      logAudit(userInfo, 'EDIT', 'flazz', 'Kartu ' + cardData.id, null, { id: cardData.id, card_number: cardNumber, card_name: cardData.card_name || '', branch_id: cardData.branch_id });
       return { success: true, msg: 'Kartu berhasil diperbarui.' };
     } else {
       // Insert new (header-based, aman thd urutan kolom / kondisi sheet lama)
@@ -217,6 +218,7 @@ function saveFlazzCard(cardData, userInfo) {
         created_at: now,
         updated_at: now
       });
+      logAudit(userInfo, 'CREATE', 'flazz', 'Kartu ' + id, null, { id: id, card_number: cardNumber, card_name: cardData.card_name || '', branch_id: cardData.branch_id });
       return { success: true, msg: 'Kartu berhasil ditambahkan.' };
     }
   } catch (err) {
@@ -285,6 +287,7 @@ function saveFlazzTopUpUnlocked(payload) {
       cardSheet.getRange(found.rowIndex, found.colIdx.BALANCE + 1).setValue(currentBalance + amount);
       cardSheet.getRange(found.rowIndex, found.colIdx.UPDATED + 1).setValue(now);
     }
+    logAudit(payload.userInfo, 'CREATE', 'flazz', 'TopUp ' + id, null, { id: id, card_id: payload.card_id, amount: amount });
     return { success: true, msg: 'Top Up berhasil dicatat dan saldo bertambah.' };
   } catch (err) {
     return { success: false, msg: err.message };
@@ -342,6 +345,9 @@ function editFlazzTopUpUnlocked(payload, userInfo) {
       setCardBalance(newCard, (getCardBalance(newCard) || 0) + diff);
     }
 
+    logAudit(userInfo, 'EDIT', 'flazz', 'TopUp ' + payload.id,
+      { card_id: oldCard, amount: oldAmount },
+      { card_id: newCard, amount: newAmount });
     return { success: true, msg: 'Top up berhasil diperbarui.' };
   } catch (err) {
     return { success: false, msg: err.message };
@@ -388,6 +394,7 @@ function deleteFlazzTopUpUnlocked(id, userInfo) {
     }
     if (oldCard) setCardBalance(oldCard, (getCardBalance(oldCard) || 0) - oldAmount);
 
+    logAudit(userInfo, 'DELETE', 'flazz', 'TopUp ' + id, { card_id: oldCard, amount: oldAmount }, null);
     return { success: true, msg: 'Top up berhasil dihapus dan saldo disesuaikan.' };
   } catch (err) {
     return { success: false, msg: err.message };
@@ -445,6 +452,7 @@ function saveFlazzTolUnlocked(payload) {
       cardSheet.getRange(found.rowIndex, found.colIdx.BALANCE + 1).setValue(newBalance);
       cardSheet.getRange(found.rowIndex, found.colIdx.UPDATED + 1).setValue(now);
     }
+    logAudit(payload.userInfo, 'CREATE', 'flazz', 'Tol ' + id, null, { id: id, card_id: payload.card_id, amount: amount });
     return { success: true, msg: 'Pengeluaran Tol berhasil dicatat dan saldo terpotong.' };
   } catch (err) {
     return { success: false, msg: err.message };
@@ -501,6 +509,9 @@ function editFlazzTolUnlocked(payload, userInfo) {
       setCardBalance(newCard, (getCardBalance(newCard) || 0) + diff);
     }
 
+    logAudit(userInfo, 'EDIT', 'flazz', 'Tol ' + payload.id,
+      { card_id: oldCard, amount: oldAmount },
+      { card_id: newCard, amount: newAmount });
     return { success: true, msg: 'Tol berhasil diperbarui.' };
   } catch (err) {
     return { success: false, msg: err.message };
@@ -547,6 +558,7 @@ function deleteFlazzTolUnlocked(id, userInfo) {
     }
     if (oldCard) setCardBalance(oldCard, (getCardBalance(oldCard) || 0) + oldAmount);
 
+    logAudit(userInfo, 'DELETE', 'flazz', 'Tol ' + id, { card_id: oldCard, amount: oldAmount }, null);
     return { success: true, msg: 'Tol berhasil dihapus dan saldo disesuaikan.' };
   } catch (err) {
     return { success: false, msg: err.message };
@@ -839,6 +851,7 @@ function saveFlazzReconUnlocked(payload) {
       if (uReturned > -1) usageSheet.getRange(usageInfo.idx, uReturned + 1).setValue(now);
     }
 
+    logAudit(payload.userInfo, 'CREATE', 'flazz', 'Recon ' + id, null, { id: id, card_id: payload.card_id, reconciliation_status: reconStatus, difference: difference });
     return { success: true, msg: 'Rekonsiliasi disimpan. Status: ' + reconStatus + '. Kartu tersedia kembali.' };
   } catch (err) {
     return { success: false, msg: err.message };
@@ -894,6 +907,7 @@ function saveFlazzUsageUnlocked(payload) {
       cardSheet.getRange(found.rowIndex, found.colIdx.UPDATED + 1).setValue(now);
     }
 
+    logAudit(payload.userInfo, 'CREATE', 'flazz', 'Usage ' + id, null, { id: id, card_id: cardId, driver_id: payload.driver_id || '', vehicle_id: payload.vehicle_id || '' });
     return { success: true, msg: 'Kartu berhasil diberikan ke supir.' };
   } catch (err) {
     return { success: false, msg: err.message };
@@ -1091,6 +1105,7 @@ function deleteFlazzCardUnlocked(cardId, userInfo) {
     sheet.getRange(found.rowIndex, found.colIdx.STATUS + 1).setValue('NONAKTIF');
     if (found.colIdx.DRIVER !== undefined) sheet.getRange(found.rowIndex, found.colIdx.DRIVER + 1).setValue('');
     sheet.getRange(found.rowIndex, found.colIdx.UPDATED + 1).setValue(new Date());
+    logAudit(userInfo, 'DELETE', 'flazz', 'Kartu ' + cardId, { status: status, balance: balance }, null);
     return { success: true, msg: 'Kartu berhasil dinonaktifkan.' };
   } catch (err) {
     return { success: false, msg: err.message };
@@ -1112,6 +1127,7 @@ function activateFlazzCard(id, userInfo) {
 
     sheet.getRange(found.rowIndex, found.colIdx.STATUS + 1).setValue('TERSEDIA');
     sheet.getRange(found.rowIndex, found.colIdx.UPDATED + 1).setValue(new Date());
+    logAudit(userInfo, 'EDIT', 'flazz', 'Kartu ' + id, { status: 'NONAKTIF' }, { status: 'TERSEDIA' });
     return { success: true, msg: 'Kartu berhasil diaktifkan kembali menjadi TERSEDIA.' };
   } catch (err) {
     return { success: false, msg: err.message };
@@ -1169,6 +1185,7 @@ function deleteFlazzBBMUnlocked(transactionId, mode, userInfo) {
       setCardBalance(cardId, (getCardBalance(cardId) || 0) + biaya);
     }
 
+    logAudit(userInfo, 'DELETE', 'flazz', 'Transaksi Flazz ' + transactionId, { metode_pembayaran: isFlazz ? 'FLAZZ' : '', flazz_card_id: cardId, biaya_bbm: biaya }, null);
     return { success: true, msg: mode === 'detach' ? 'Transaksi dilepas dari Flazz dan saldo dikembalikan.' : 'Transaksi BBM dihapus dan saldo dikembalikan.' };
   } catch (err) {
     return { success: false, msg: err.message };
