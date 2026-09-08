@@ -84,19 +84,12 @@ function cleanSerializable(obj) {
 function processInitialData(token) {
   var user = requireUser(token);
   ensurePenggunaBBMColumns();
-  var payload = {
-    vehicles: safeList(function() { return getActiveVehicles(user.role, user.cabang); }),
-    drivers: safeList(function() { return getActiveDrivers(user.role, user.cabang); }),
-    cabangList: safeList(function() { return getCabangList(); }),
-    bbmList: safeList(function() { return getActiveBBM(); }),
-    user: (user.nama || ''),
-    username: user.username,
-    role: user.role,
-    cabang: user.cabang,
-    flazzCards: safeList(function() { return getFlazzCards(user.role, user.cabang); }),
-    penggunaList: (user.role === 'SUPERADMIN') ? safeList(function() { return getAllUsers(); }) : []
-  };
-  return cleanSerializable(payload);
+  var base = getMasterData(token);
+  base.user = (user.nama || '');
+  base.username = user.username;
+  base.role = user.role;
+  base.cabang = user.cabang;
+  return cleanSerializable(base);
 }
 
 function getLastLaporanPrefill(token) {
@@ -137,6 +130,9 @@ function getLastLaporanPrefill(token) {
 
 function getMasterData(token) {
   var user = requireUser(token);
+  var ck = masterCacheKey(user.role, user.cabang);
+  var hit = cacheGet(ck);
+  if (hit) return hit;
   var payload = {
     vehicles: safeList(function() { return getActiveVehicles(user.role, user.cabang); }),
     drivers: safeList(function() { return getActiveDrivers(user.role, user.cabang); }),
@@ -145,7 +141,9 @@ function getMasterData(token) {
     flazzCards: safeList(function() { return getFlazzCards(user.role, user.cabang); }),
     penggunaList: (user.role === 'SUPERADMIN') ? safeList(function() { return getAllUsers(); }) : []
   };
-  return cleanSerializable(payload);
+  var out = cleanSerializable(payload);
+  cachePut(ck, out, 120);
+  return out;
 }
 
 function getDashboardData(token) {
@@ -155,7 +153,12 @@ function getDashboardData(token) {
 
 function getPerformaData(token) {
   var user = requireUser(token);
-  return getPerformaSummary(user.role, user.cabang);
+  var ck = performaCacheKey(user.role, user.cabang);
+  var hit = cacheGet(ck);
+  if (hit) return hit;
+  var out = getPerformaSummary(user.role, user.cabang);
+  cachePut(ck, out, 300);
+  return out;
 }
 
 function processDailyImages(data, token) {
@@ -200,26 +203,93 @@ function processDailyImages(data, token) {
 }
 
 function saveDailyTransaction(payload, token) {
-  payload.userInfo = requireUser(token);
-  return saveTransactionEndOfDay(payload);
+  var user = requireUser(token);
+  payload.userInfo = user;
+  var res = saveTransactionEndOfDay(payload);
+  if (res && res.success) invalidatePerforma(user.role, user.cabang);
+  return res;
 }
 
-function saveMasterCabang(data, token) { return insertCabang(data, requireUser(token)); }
-function saveMasterKendaraan(data, token) { return insertKendaraan(data, requireUser(token)); }
-function saveMasterSupir(data, token) { return insertSupir(data, requireUser(token)); }
-function deleteMasterKendaraan(vehicleId, token) { return deleteKendaraanById(vehicleId, requireUser(token)); }
-function updateMasterCabang(data, token) { return updateCabang(data, requireUser(token)); }
-function updateMasterKendaraan(data, token) { return updateKendaraan(data, requireUser(token)); }
-function updateMasterSupir(data, token) { return updateSupir(data, requireUser(token)); }
-function updateMasterBBM(data, token) { return updateBBM(data, requireUser(token)); }
-function saveMasterBBM(data, token) { return insertBBM(data, requireUser(token)); }
-function deleteMasterCabang(kode, token) { return deleteCabangById(kode, requireUser(token)); }
-function deleteMasterSupir(id, token) { return deleteSupirById(id, requireUser(token)); }
-function deleteMasterBBM(id, token) { return deleteBBMById(id, requireUser(token)); }
-function saveMasterPengguna(data, token) { return insertUser(data, requireUser(token)); }
-function updateMasterPengguna(data, token) { return updateUser(data, requireUser(token)); }
-function deleteMasterPengguna(userId, token) { return setUserStatus(userId, 'Non-Aktif', requireUser(token)); }
-function activateMasterPengguna(userId, token) { return setUserStatus(userId, 'Aktif', requireUser(token)); }
+function saveMasterCabang(data, token) {
+  var res = insertCabang(data, requireUser(token));
+  if (res && res.msg) invalidateMaster('SUPERADMIN', '');
+  return res;
+}
+function saveMasterKendaraan(data, token) {
+  var res = insertKendaraan(data, requireUser(token));
+  if (res && res.msg) invalidateMaster('SUPERADMIN', '');
+  return res;
+}
+function saveMasterSupir(data, token) {
+  var res = insertSupir(data, requireUser(token));
+  if (res && res.msg) invalidateMaster('SUPERADMIN', '');
+  return res;
+}
+function deleteMasterKendaraan(vehicleId, token) {
+  var res = deleteKendaraanById(vehicleId, requireUser(token));
+  if (res && res.msg) invalidateMaster('SUPERADMIN', '');
+  return res;
+}
+function updateMasterCabang(data, token) {
+  var res = updateCabang(data, requireUser(token));
+  if (res && res.msg) invalidateMaster('SUPERADMIN', '');
+  return res;
+}
+function updateMasterKendaraan(data, token) {
+  var res = updateKendaraan(data, requireUser(token));
+  if (res && res.msg) invalidateMaster('SUPERADMIN', '');
+  return res;
+}
+function updateMasterSupir(data, token) {
+  var res = updateSupir(data, requireUser(token));
+  if (res && res.msg) invalidateMaster('SUPERADMIN', '');
+  return res;
+}
+function updateMasterBBM(data, token) {
+  var res = updateBBM(data, requireUser(token));
+  if (res && res.msg) invalidateMaster('SUPERADMIN', '');
+  return res;
+}
+function saveMasterBBM(data, token) {
+  var res = insertBBM(data, requireUser(token));
+  if (res && res.msg) invalidateMaster('SUPERADMIN', '');
+  return res;
+}
+function deleteMasterCabang(kode, token) {
+  var res = deleteCabangById(kode, requireUser(token));
+  if (res && res.msg) invalidateMaster('SUPERADMIN', '');
+  return res;
+}
+function deleteMasterSupir(id, token) {
+  var res = deleteSupirById(id, requireUser(token));
+  if (res && res.msg) invalidateMaster('SUPERADMIN', '');
+  return res;
+}
+function deleteMasterBBM(id, token) {
+  var res = deleteBBMById(id, requireUser(token));
+  if (res && res.msg) invalidateMaster('SUPERADMIN', '');
+  return res;
+}
+function saveMasterPengguna(data, token) {
+  var res = insertUser(data, requireUser(token));
+  if (res && res.msg) invalidateMaster('SUPERADMIN', '');
+  return res;
+}
+function updateMasterPengguna(data, token) {
+  var res = updateUser(data, requireUser(token));
+  if (res && res.msg) invalidateMaster('SUPERADMIN', '');
+  return res;
+}
+function deleteMasterPengguna(userId, token) {
+  var res = setUserStatus(userId, 'Non-Aktif', requireUser(token));
+  if (res && res.msg) invalidateMaster('SUPERADMIN', '');
+  return res;
+}
+function activateMasterPengguna(userId, token) {
+  var res = setUserStatus(userId, 'Aktif', requireUser(token));
+  if (res && res.msg) invalidateMaster('SUPERADMIN', '');
+  return res;
+}
 
 // ==========================================
 // FLAZZ API WRAPPERS
@@ -239,8 +309,18 @@ function apiDeleteFlazzTopUp(id, token) { return deleteFlazzTopUp(id, requireUse
 function apiEditFlazzTol(payload, token) { return editFlazzTol(payload, requireUser(token)); }
 function apiDeleteFlazzTol(id, token) { return deleteFlazzTol(id, requireUser(token)); }
 function apiDeleteFlazzBBM(transactionId, mode, token) { return deleteFlazzBBM(transactionId, mode, requireUser(token)); }
-function apiEditDailyTransaction(payload, token) { return editDailyTransaction(payload, requireUser(token)); }
-function apiDeleteDailyTransaction(transactionId, token) { return deleteDailyTransaction(transactionId, requireUser(token)); }
+function apiEditDailyTransaction(payload, token) {
+  var user = requireUser(token);
+  var res = editDailyTransaction(payload, user);
+  if (res && res.success) invalidatePerforma(user.role, user.cabang);
+  return res;
+}
+function apiDeleteDailyTransaction(transactionId, token) {
+  var user = requireUser(token);
+  var res = deleteDailyTransaction(transactionId, user);
+  if (res && res.success) invalidatePerforma(user.role, user.cabang);
+  return res;
+}
 
 // ==========================================
 // JALUR PENGIRIMAN API WRAPPERS
