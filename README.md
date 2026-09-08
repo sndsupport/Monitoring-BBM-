@@ -225,7 +225,7 @@ Maksimal **24 jam** — data yang hilang tidak dapat dipulihkan melebihi rentang
 - Keempat sheet backup bersifat independen dari sheet operasional lain (`Penggunaan_BBM`, `Jalur_Pengiriman`, dsb.) — hanya 4 sheet data inti yang disalin.
 
 ### Keterbatasan Diketahui (Known Limitation)
-- Sheet `SESSION` menyimpan data **semua cabang**, tetapi ringkasan & backup saat ini beroperasi pada level **satu cabang bawaan** (built-in cabang). Artinya `SESSION` berisi data lintas cabang namun ringkasan/backup hanya mencakup cabang bawaan tersebut.
+- Backup `Monitoring_BBM_backup_*` menyalin **seluruh** isi `SESSION`, `PENGENDARA`, `Supir`, dan `Flazz_Card` — termasuk data lintas cabang — dalam satu file; backup belum dipisah per cabang. Ringkasan bulanan di tab `Dashboard` dihitung **per cabang** (baris `cabang + periode`).
 - **P2 akan bercabang per cabang** (per-branch) — pencatatan dan backup dipisahkan per cabang karena aplikasi ini menghasilkan satu spreadsheet untuk menampung 12 cabang × 2 user. Hingga saat ini, data lintas cabang tetap tersimpan di `SESSION`, dan backup menyertakan seluruh isi sheet tersebut.
 
 ## Konfigurasi Tambahan
@@ -234,7 +234,7 @@ Maksimal **24 jam** — data yang hilang tidak dapat dipulihkan melebihi rentang
 |-----|--------|------------|
 | `GEMINI_API_KEY` | **Script Properties** | Kunci API Gemini untuk deteksi level BBM (model `gemini-3.6-flash`). Tidak boleh disimpan di repositori. |
 
-**Spreadsheet ID** dikonfigurasi di `FlazzOps.js` (`SpreadsheetApp.openById`) dan via `getDB()` di `SpreadsheetOps.js` / `DatabaseSetup.js`.
+**Spreadsheet ID** dikonfigurasi di `Config.gs` (`PROD_SPREADSHEET_ID`), dipakai `getDB()` via `spreadsheetId()` dan nilainya bisa diganti sementara dengan `configureSpreadsheet(ID)`.
 
 ---
 

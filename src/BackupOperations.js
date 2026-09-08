@@ -74,11 +74,16 @@ function runDailyBackup() {
     pruneBackups(14);
 
     var kode = result.collided ? 'copies' : 'ok';
-    return {
+    var out = {
       kode: kode,
       backupFolderUrl: result.backupFolderUrl,
       spreadsheetCopyId: result.spreadsheetCopyId
     };
+    if (result.sheetsCopied < BACKUP_SHEETS.length) {
+      out.msg = 'Backup parsial: ' + result.sheetsCopied + ' dari ' + BACKUP_SHEETS.length + ' sheet ter-copy.';
+      Logger.log(out.msg);
+    }
+    return out;
   } catch (e) {
     Logger.log('Backup gagal: ' + e);
     return { kode: 'ramje', msg: e.toString() };

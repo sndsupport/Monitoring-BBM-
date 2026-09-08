@@ -1229,7 +1229,7 @@ function insertUser(data, userInfo) {
   if (getUserByUsername(sheet, uname)) throw new Error('Username sudah terpakai');
   const id = 'U-' + new Date().getTime();
   sheet.appendRow([id, uname, hashPassword(password), nama, role, cabang, 'Aktif']);
-  logAudit(userInfo, 'CREATE', 'master', 'Pengguna ' + uname, null, { user_id: id, username: uname, nama: nama, role: role, cabang: cabang });
+  logAudit(userInfo, 'CREATE', 'pengguna', 'Pengguna ' + uname, null, { user_id: id, username: uname, nama: nama, role: role, cabang: cabang });
   return { msg: 'Pengguna Berhasil Ditambahkan' };
 }
 

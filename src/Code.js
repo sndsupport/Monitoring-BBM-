@@ -338,7 +338,11 @@ function activateMasterPengguna(userId, token) {
 // ==========================================
 // FLAZZ API WRAPPERS
 // ==========================================
-function apiSaveFlazzCard(payload, token) { return saveFlazzCard(payload, requireUser(token)); }
+function apiSaveFlazzCard(payload, token) {
+  var res = saveFlazzCard(payload, requireUser(token));
+  if (res && res.msg) invalidateMaster('SUPERADMIN', '');
+  return res;
+}
 function apiSaveFlazzTopUp(payload, token) { payload.userInfo = requireUser(token); return saveFlazzTopUp(payload); }
 function apiSaveFlazzTol(payload, token) { payload.userInfo = requireUser(token); return saveFlazzTol(payload); }
 function apiSaveFlazzRecon(payload, token) { payload.userInfo = requireUser(token); return saveFlazzRecon(payload); }
@@ -346,8 +350,16 @@ function apiCheckReconGate(cardId, token) { requireUser(token); return checkReco
 function apiSaveFlazzUsage(payload, token) { payload.userInfo = requireUser(token); return saveFlazzUsage(payload); }
 
 function apiGetFlazzDashboardData(token) { var user = requireUser(token); return getFlazzDashboardData(user.role, user.cabang); }
-function apiDeleteFlazzCard(cardId, token) { return deleteFlazzCard(cardId, requireUser(token)); }
-function apiActivateFlazzCard(cardId, token) { return activateFlazzCard(cardId, requireUser(token)); }
+function apiDeleteFlazzCard(cardId, token) {
+  var res = deleteFlazzCard(cardId, requireUser(token));
+  if (res && res.msg) invalidateMaster('SUPERADMIN', '');
+  return res;
+}
+function apiActivateFlazzCard(cardId, token) {
+  var res = activateFlazzCard(cardId, requireUser(token));
+  if (res && res.msg) invalidateMaster('SUPERADMIN', '');
+  return res;
+}
 function apiEditFlazzTopUp(payload, token) { return editFlazzTopUp(payload, requireUser(token)); }
 function apiDeleteFlazzTopUp(id, token) { return deleteFlazzTopUp(id, requireUser(token)); }
 function apiEditFlazzTol(payload, token) { return editFlazzTol(payload, requireUser(token)); }
