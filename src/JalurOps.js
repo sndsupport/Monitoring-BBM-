@@ -129,7 +129,9 @@ function saveJalur(payload, userInfo) {
       const v = jalurVehicleById(vid);
       const namaDriver = jalurDriverNameById(r.driver_id);
       const row = new Array(Object.keys(idx).length).fill('');
-      row[idx['id']] = 'JLR-' + now.getTime() + '-' + (saved++);
+      const jalurId = 'JLR-' + now.getTime() + '-' + (saved);
+      saved++;
+      row[idx['id']] = jalurId;
       row[idx['tanggal']] = tanggal;
       row[idx['driver_id']] = r.driver_id;
       row[idx['nama_driver']] = namaDriver;
@@ -156,7 +158,7 @@ function saveJalur(payload, userInfo) {
       // Serahkan kartu etoll ke driver
       if (r.etoll_card_id) {
         const hadUsage = flazzCardHasGiveren(r.etoll_card_id);
-        autoCreateFlazzUsage(r.etoll_card_id, namaDriver, vid);
+        autoCreateFlazzUsage(r.etoll_card_id, namaDriver, vid, 'JALUR', jalurId);
         if (hadUsage) {
           warnings.push('Kartu etoll "' + (r.etoll_card_name || r.etoll_card_id) + '" masih dipakai (belum dikembalikan) untuk ' + (namaDriver || r.driver_id) + '. Proses admin sebelumnya belum selesai.');
         }
@@ -214,7 +216,7 @@ function updateJalur(data, userInfo) {
       if (newCard) {
         const namaDriver = data.driver_id !== undefined ? jalurDriverNameById(data.driver_id) : String(found.row[idx['nama_driver']] || '');
         const vid = data.vehicle_id !== undefined ? data.vehicle_id : String(found.row[idx['vehicle_id']] || '');
-        autoCreateFlazzUsage(newCard, namaDriver, vid);
+        autoCreateFlazzUsage(newCard, namaDriver, vid, 'JALUR', String(data.id));
       }
     }
     sheet.getRange(found.rowIndex, idx['updated_at'] + 1).setValue(new Date());

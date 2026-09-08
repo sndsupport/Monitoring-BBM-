@@ -231,7 +231,7 @@ function saveTransactionEndOfDayUnlocked(payload) {
       }
 
       // 3. Auto-create penyerahan (Flazz_Usage) bila kartu belum sedang digunakan
-      autoCreateFlazzUsage(cardId, payload.nama_supir, payload.vehicle_id);
+      autoCreateFlazzUsage(cardId, payload.nama_supir, payload.vehicle_id, 'TRX', transaction_id);
     } catch (e) {
       Logger.log("Gagal memproses flazz: " + e.toString());
     }
@@ -293,11 +293,12 @@ function isDuplicateTransaction(sheet, payload, row) {
 
 // Buat catatan penyerahan kartu (Flazz_Usage) otomatis bila kartu belum punya status DIBERIKAN.
 // Membantu pengguna yang tidak lagi mengisi halaman "Penggunaan Kartu" secara manual.
-function autoCreateFlazzUsage(cardId, driverName, vehicleId) {
+function autoCreateFlazzUsage(cardId, driverName, vehicleId, refType, refId) {
   const ss = getDB();
   const usageSheet = ss.getSheetByName('Flazz_Usage');
   const cardSheet = ss.getSheetByName('Flazz_Card');
   if (!usageSheet || !cardSheet) return;
+  ensureFlazzUsageRefColumns();
 
   // Cek apakah kartu sudah punya catatan DIBERIKAN (sedang dipakai)
   const uData = usageSheet.getDataRange().getValues();
@@ -314,7 +315,7 @@ function autoCreateFlazzUsage(cardId, driverName, vehicleId) {
   const id = 'USE-' + now.getTime();
   const opening = getCardBalance ? (parseFloat(getCardBalance(cardId)) || 0) : 0;
 
-  appendFlazzRow(usageSheet, {
+  const usageValues = {
     id: id,
     date: now,
     card_id: cardId,
@@ -329,7 +330,12 @@ function autoCreateFlazzUsage(cardId, driverName, vehicleId) {
     status: 'DIBERIKAN',
     notes: 'Dibuat otomatis dari transaksi BBM',
     created_at: now
-  });
+  };
+  if (refType && refId) {
+    usageValues.ref_type = refType;
+    usageValues.ref_id = refId;
+  }
+  appendFlazzRow(usageSheet, usageValues);
 
   // Update status & pemegang di master
   const found = findFlazzCardRow(cardSheet, cardId);
@@ -678,6 +684,15 @@ function editDailyTransaction(payload, userInfo) {
   });
 }
 
+// Penyerahan kartu otomatis hanya perlu dibuat saat sebuah transaksi menjadi FLAZZ
+// (transisi TUNAI/FLAZZ lain -> FLAZZ). Koreksi atas laporan yang SUDAH FLAZZ tidak
+// boleh membuat ulang catatan penyerahan: bila kartu sudah dikembalikan (DIKEMBALIKAN),
+// status master kartu tidak boleh berubah (mis. menjadi SEDANG_DIGUNAKAN) hanya karena
+// laporan diedit (mis. merevisi KM awal / jenis BBM).
+function shouldAutoCreateUsageOnEdit(wasFlazz, isFlazz) {
+  return !wasFlazz && isFlazz;
+}
+
 function editDailyTransactionUnlocked(payload, userInfo) {
   try {
     const ss = getDB();
@@ -782,9 +797,10 @@ function editDailyTransactionUnlocked(payload, userInfo) {
       setCardBalance(newCard, (getCardBalance(newCard) || 0) - newTotal);
     }
 
-    // Jika transaksi menjadi FLAZZ dan kartu belum digunakan, ciptakan penyerahan otomatis
-    if (isFlazz) {
-      try { autoCreateFlazzUsage(newCard, payload.nama_supir || (sheet.getRange(rowIndex, idxNama + 1).getValue()) , ''); }
+    // Jika transaksi menjadi FLAZZ (baru ber-Flazz, bukan koreksi atas yang sudah FLAZZ),
+    // ciptakan penyerahan kartu otomatis bila kartu belum sedang dipakai.
+    if (isFlazz && shouldAutoCreateUsageOnEdit(wasFlazz, isFlazz)) {
+      try { autoCreateFlazzUsage(newCard, payload.nama_supir || (sheet.getRange(rowIndex, idxNama + 1).getValue()) , '', 'TRX', payload.transaction_id); }
       catch (e) { Logger.log("autoCreateFlazzUsage gagal: " + e.toString()); }
     }
 
@@ -865,6 +881,9 @@ function deleteDailyTransactionUnlocked(transactionId, userInfo) {
     sheet.deleteRow(rowIndex);
     if (isFlazz && cardId) {
       setCardBalance(cardId, (getCardBalance(cardId) || 0) + (biaya + toll));
+      // Kembalikan penyerahan kartu yang dibuat oleh transaksi ini agar kartu tidak menggantung.
+      try { if (typeof returnFlazzUsageForRef === 'function') returnFlazzUsageForRef('TRX', String(transactionId)); }
+      catch (e) { Logger.log('returnFlazzUsageForRef gagal: ' + e.toString()); }
     }
     try { recomputeMonthlySummary(delCabang, periodKey(delTgl)); } catch (e) { console.error('summary gagal: ' + e); }
 
@@ -1049,6 +1068,18 @@ function updateCabang(data, userInfo) {
   const values = sheet.getDataRange().getValues();
   for (let i = 1; i < values.length; i++) {
     if (values[i][0] == data.edit_id) {
+      // Kode cabang adalah primary key dan dipakai sebagai referensi lintas sheet.
+      // Mengubahnya memerlukan migrasi ke semua sheet anak; untuk saat ini kode tidak boleh diubah.
+      if (String(data.kode || '') !== String(data.edit_id || '')) {
+        throw new Error('Kode cabang tidak dapat diubah. Hanya nama/lokasi yang boleh diedit.');
+      }
+      // Cek duplikat: pastikan tidak ada baris lain yang sudah memakai kode yang sama
+      for (let j = 1; j < values.length; j++) {
+        if (j === i) continue;
+        if (String(values[j][0]) === String(data.edit_id)) {
+          throw new Error('Kode cabang "' + data.edit_id + '" sudah terpakai oleh baris lain.');
+        }
+      }
       sheet.getRange(i + 1, 1, 1, 3).setValues([[data.kode, data.nama, data.lokasi || '']]);
       logAudit(userInfo, 'EDIT', 'master', 'Cabang ' + data.edit_id,
         { kode: values[i][0], nama: values[i][1], lokasi: values[i][2] },
@@ -1057,6 +1088,27 @@ function updateCabang(data, userInfo) {
     }
   }
   throw new Error('Cabang tidak ditemukan');
+}
+
+// Cek apakah kode cabang masih dirujuk oleh data pada sheet-sheet lain.
+function cabangHasDependencies(ss, kode) {
+  const refs = [
+    ['Kendaraan', 'kode_cabang'], ['Supir', 'kode_cabang'], ['BBM', 'kode_cabang'],
+    ['Pengguna', 'kode_cabang'], ['Penggunaan_BBM', 'kode_cabang'],
+    ['Jalur_Pengiriman', 'kode_cabang'], ['Flazz_Card', 'branch_id']
+  ];
+  const found = [];
+  refs.forEach(function(pair) {
+    const sheet = ss.getSheetByName(pair[0]);
+    if (!sheet || sheet.getLastRow() <= 1) return;
+    const data = sheet.getDataRange().getValues();
+    const iCol = data[0].indexOf(pair[1]);
+    if (iCol < 0) return;
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][iCol]) === String(kode)) { found.push(pair[0]); break; }
+    }
+  });
+  return found;
 }
 
 function updateKendaraan(data, userInfo) {
@@ -1151,7 +1203,12 @@ function deleteCabangById(kode, userInfo) {
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] == kode) {
-      sheet.deleteRow(i + 1);
+      const deps = cabangHasDependencies(ss, kode);
+      if (deps.length > 0) {
+        throw new Error('Cabang masih memiliki data terkait (' + deps.join(', ') + '). Hapus atau timpa data terkait terlebih dahulu.');
+      }
+      // Soft-delete: ubah status menjadi Non-Aktif agar baris dan jejak tetap tersimpan
+      sheet.getRange(i + 1, 4).setValue('Non-Aktif');
       logAudit(userInfo, 'DELETE', 'master', 'Cabang ' + kode, { kode: data[i][0], nama: data[i][1] }, null);
       return { msg: 'Cabang Berhasil Dihapus' };
     }
@@ -1167,7 +1224,8 @@ function deleteSupirById(id, userInfo) {
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] == id) {
       if (role !== 'SUPERADMIN') assertOwnWarehouse(userInfo, data[i][2]);
-      sheet.deleteRow(i + 1);
+      // Soft-delete: ubah status menjadi Non-Aktif agar riwayat penggunaan tetap utuh
+      sheet.getRange(i + 1, 4).setValue('Non-Aktif');
       logAudit(userInfo, 'DELETE', 'master', 'Supir ' + id, { nama: data[i][1], cabang: data[i][2] }, null);
       return { msg: 'Supir Berhasil Dihapus' };
     }
@@ -1182,7 +1240,8 @@ function deleteBBMById(id, userInfo) {
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] == id) {
-      sheet.deleteRow(i + 1);
+      // Soft-delete: ubah status menjadi Non-Aktif agar harga riwayat tetap tersimpan
+      sheet.getRange(i + 1, 5).setValue('Non-Aktif');
       logAudit(userInfo, 'DELETE', 'master', 'BBM ' + id, { jenis: data[i][1], harga: data[i][2] }, null);
       return { msg: 'BBM Berhasil Dihapus' };
     }
@@ -1333,6 +1392,25 @@ function ensurePenggunaBBMColumns() {
     sheet.getRange(1, newCol).setValue('km_sumber');
     const lastRow = sheet.getLastRow();
     if (lastRow > 1) sheet.getRange(2, newCol, lastRow - 1, 1).setValue('AKTUAL');
+  }
+}
+
+// Tambahkan kolom ref_type / ref_id di Flazz_Usage bila belum ada (migrasi aman).
+// Kolom ini menautkan setiap catatan penyerahan kartu ke sumbernya (transaksi/jalur)
+// sehingga operasi hapus hanya mengembalikan penyerahan yang memang berasal dari sumber itu.
+function ensureFlazzUsageRefColumns() {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('Flazz_Usage');
+  if (!sheet) return;
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  let newCol = sheet.getLastColumn();
+  if (headers.indexOf('ref_type') === -1) {
+    newCol += 1;
+    sheet.getRange(1, newCol).setValue('ref_type');
+  }
+  if (headers.indexOf('ref_id') === -1) {
+    newCol += 1;
+    sheet.getRange(1, newCol).setValue('ref_id');
   }
 }
 

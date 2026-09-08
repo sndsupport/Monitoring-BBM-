@@ -37,7 +37,7 @@ var DATABASE_SCHEMA = [
     { name: 'Pengaturan', headers: ['key', 'value', 'updated_at'] },
     // --- FLAZZ MODULE SHEETS ---
     { name: 'Flazz_Card', headers: ['id', 'card_number', 'card_name', 'card_type', 'card_role', 'branch_id', 'driver_id', 'default_driver_id', 'last_balance', 'status', 'notes', 'created_at', 'updated_at'] },
-    { name: 'Flazz_Usage', headers: ['id', 'date', 'card_id', 'driver_id', 'vehicle_id', 'usage_type', 'primary_card_id', 'backup_card_id', 'reason', 'opening_balance', 'used_at', 'returned_at', 'status', 'created_by', 'created_at'] },
+    { name: 'Flazz_Usage', headers: ['id', 'date', 'card_id', 'driver_id', 'vehicle_id', 'usage_type', 'primary_card_id', 'backup_card_id', 'reason', 'opening_balance', 'used_at', 'returned_at', 'status', 'created_by', 'created_at', 'ref_type', 'ref_id'] },
     { name: 'Flazz_TopUp', headers: ['id', 'date', 'card_id', 'amount', 'evidence_url', 'notes', 'created_by', 'created_at', 'is_deleted'] },
     { name: 'Flazz_Tol', headers: ['id', 'date', 'card_id', 'driver_id', 'vehicle_id', 'amount', 'evidence_url', 'notes', 'created_by', 'created_at', 'is_deleted'] },
     { name: 'Flazz_Reconciliation', headers: ['id', 'date', 'card_id', 'driver_id', 'vehicle_id', 'opening_balance', 'total_topup', 'total_bbm_flazz', 'total_tol', 'total_expense', 'flazz_balance', 'actual_balance', 'difference', 'reconciliation_status', 'notes', 'reconciled_by', 'reconciled_at'] },

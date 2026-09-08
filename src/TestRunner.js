@@ -65,9 +65,42 @@ function __runBackupSheetTests() {
   ]);
 }
 
+function __runEditUsageTests() {
+  return __summarize([
+    __expectEqual(shouldAutoCreateUsageOnEdit(false, true), true, 'TUNAI->FLAZZ (konversi): boleh auto-create penyerahan'),
+    __expectEqual(shouldAutoCreateUsageOnEdit(true, true), false, 'koreksi laporan FLAZZ: TIDAK boleh membuat ulang penyerahan'),
+    __expectEqual(shouldAutoCreateUsageOnEdit(true, false), false, 'FLAZZ->TUNAI: tidak dibuat penyerahan'),
+    __expectEqual(shouldAutoCreateUsageOnEdit(false, false), false, 'non-flazz tetap non-flazz: tidak dibuat penyerahan')
+  ]);
+}
+
+function __runMasterGuardTests() {
+  var superUser = { user_id: 'U-TEST-RUNNER', username: 'tester', nama: 'Test Runner', role: 'SUPERADMIN', cabang: '' };
+  var results = [];
+  try { updateCabang({ edit_id: '###TAK-ADA###', kode: 'X', nama: 'X', lokasi: '' }, superUser); }
+  catch (e) { results.push(__expectTrue(e.message.indexOf('tidak ditemukan') > -1, 'updateCabang kode tak dikenal -> error')); }
+  try { deleteCabangById('###TAK-ADA###', superUser); }
+  catch (e) { results.push(__expectTrue(e.message.indexOf('tidak ditemukan') > -1, 'deleteCabangById kode tak dikenal -> error')); }
+  try { deleteSupirById('###TAK-ADA###', superUser); }
+  catch (e) { results.push(__expectTrue(e.message.indexOf('tidak ditemukan') > -1, 'deleteSupirById id tak dikenal -> error')); }
+  try { deleteBBMById('###TAK-ADA###', superUser); }
+  catch (e) { results.push(__expectTrue(e.message.indexOf('tidak ditemukan') > -1, 'deleteBBMById id tak dikenal -> error')); }
+  var sheet = getDB().getSheetByName('Flazz_TopUp');
+  var data = sheet ? sheet.getDataRange().getValues() : [];
+  var found = -1;
+  for (var i = 1; i < data.length; i++) { if (data[i][0]) { found = i; break; } }
+  if (found > 0) {
+    try { editFlazzTopUp({ id: data[found][0], card_id: '###KARTU-TAK-ADA###', amount: 0 }, superUser); }
+    catch (e) { results.push(__expectTrue(e.message.indexOf('Kartu tujuan tidak ditemukan') > -1, 'edit TopUp ke kartu tak dikenal -> error')); }
+  }
+  return __summarize(results);
+}
+
 function __runAllTests() {
   var r = __runAuthTests();
   r = __runBackupSheetTests();
+  r = __runEditUsageTests();
+  r = __runMasterGuardTests();
   Logger.log('==== ALL TESTS DONE ====');
   return r;
 }
