@@ -918,6 +918,19 @@ function saveFlazzReconUnlocked(payload) {
       if (uReturned > -1) usageSheet.getRange(usageInfo.idx, uReturned + 1).setValue(now);
     }
 
+    // Update status jalur pengiriman terkait kartu yang baru direkonsiliasi
+    try {
+      const jalurMatch = findJalurByCriteria({ flazz_card_id: payload.card_id });
+      const usageTgl = (usageInfo && usageInfo.date instanceof Date)
+        ? Utilities.formatDate(usageInfo.date, getDB().getSpreadsheetTimeZone(), 'yyyy-MM-dd')
+        : (usageInfo && usageInfo.date ? String(usageInfo.date).substring(0, 10) : '');
+      if (jalurMatch && jalurMatch.status !== 'SELESAI' && (!usageTgl || !jalurMatch.tanggalJalur || jalurMatch.tanggalJalur === usageTgl)) {
+        updateJalurStatus(jalurMatch.id, 'SELESAI', '');
+      }
+    } catch (e) {
+      Logger.log('Gagal update status jalur dari rekon: ' + e.toString());
+    }
+
     logAudit(payload.userInfo, 'CREATE', 'flazz', 'Recon ' + id, null, { id: id, card_id: payload.card_id, reconciliation_status: reconStatus, difference: difference });
     return { success: true, msg: 'Rekonsiliasi disimpan. Status: ' + reconStatus + '. Kartu tersedia kembali.' };
   } catch (err) {
