@@ -416,14 +416,14 @@
                             </div>
                           </div>
                           <div class='mb-3'>
-                            <label class='form-label fw-bold text-muted small text-uppercase'>Metode Pembayaran</label>
+                            <label class='form-label fw-bold text-muted small text-uppercase'>Metode Pembayaran BBM</label>
                             <select id='metode_pembayaran' class='form-select' onchange='toggleFlazzCardSelection()'>
                               <option value='TUNAI'>Tunai</option>
                               <option value='FLAZZ'>Kartu Flazz</option>
                             </select>
                           </div>
                           <div class='mb-3' id='flazz-card-section' style='display:none;'>
-                            <label class='form-label fw-bold text-muted small text-uppercase'>Pilih Kartu Flazz</label>
+                            <label class='form-label fw-bold text-muted small text-uppercase'>Pilih Kartu Flazz untuk BBM</label>
                             <select id='flazz_card_id' class='form-select'>
                               <option value=''>Pilih Kartu...</option>
                             </select>
@@ -441,6 +441,19 @@
                                 <input type='number' id='biaya_toll' class='form-control border-start-0' min='0' placeholder='35000'>
                               </div>
                               <small class='text-muted' style='font-size:0.75rem'>Total seluruh gerbang tol hari ini. Bukti fisik disimpan.</small>
+                            </div>
+                            <div class='mb-3'>
+                              <label class='form-label fw-bold text-muted small text-uppercase'>Metode Pembayaran Tol</label>
+                              <select id='metode_toll' class='form-select' onchange='toggleTolFlazzCardSelection()'>
+                                <option value='TUNAI'>Tunai</option>
+                                <option value='FLAZZ'>Kartu Flazz</option>
+                              </select>
+                            </div>
+                            <div class='mb-3' id='tol-flazz-card-section' style='display:none;'>
+                              <label class='form-label fw-bold text-muted small text-uppercase'>Pilih Kartu Flazz untuk Tol</label>
+                              <select id='flazz_card_id_toll' class='form-select'>
+                                <option value=''>Pilih Kartu...</option>
+                              </select>
                             </div>
                           </div>
                         </div>
@@ -1180,18 +1193,26 @@
               <div class="mb-2"><label class="form-label small">Liter BBM</label>
                 <input id="ed_liter" type="number" step="0.01" class="form-control" placeholder="0.00">
                 <small class="text-muted" style="font-size:0.75rem">Terisi otomatis dari biaya. Ubah manual jika perlu.</small></div>
-              <div class="mb-2"><label class="form-label small">Metode Pembayaran</label>
+              <div class="mb-2"><label class="form-label small">Metode Pembayaran BBM</label>
                 <select id="ed_metode" class="form-select" onchange="toggleEditFlazz()">
                   <option value="TUNAI">Tunai</option>
                   <option value="FLAZZ">Flazz</option>
                 </select></div>
               <div class="mb-2" id="ed_flazz_row" style="display:none;">
-                <label class="form-label small">Kartu Flazz</label>
+                <label class="form-label small">Kartu Flazz BBM</label>
                 <select id="ed_flazz_card_id" class="form-select"></select></div>
-              <div class="mb-2" id="ed_toll_row" style="display:none;">
+              <div class="mb-2" id="ed_toll_row">
                 <label class="form-label small">Biaya Tol (Total Hari Ini)</label>
                 <input id="ed_biaya_toll" type="number" min="0" class="form-control" placeholder="0">
                 <small class="text-muted" style="font-size:0.75rem">Kosongkan jika tidak ada tol.</small></div>
+              <div class="mb-2"><label class="form-label small">Metode Pembayaran Tol</label>
+                <select id="ed_metode_toll" class="form-select" onchange="toggleEditTolFlazzCard()">
+                  <option value="TUNAI">Tunai</option>
+                  <option value="FLAZZ">Flazz</option>
+                </select></div>
+              <div class="mb-2" id="ed_tol_flazz_row" style="display:none;">
+                <label class="form-label small">Kartu Flazz Tol</label>
+                <select id="ed_flazz_card_id_toll" class="form-select"></select></div>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>

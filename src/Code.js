@@ -152,7 +152,9 @@ function getLastLaporanPrefill(token) {
         biaya_bbm: parseFloat(row[19]) || 0,
         liter_bbm: parseFloat(row[18]) || 0,
         metode_pembayaran: row[27] || 'TUNAI',
-        flazz_card_id: row[28] || '',
+        flazz_card_id: typeof resolveCanonicalCardId === 'function' ? resolveCanonicalCardId(row[28]) : (row[28] || ''),
+        metode_toll: resolveTollMethod(row[35], row[27]),
+        flazz_card_id_toll: typeof resolveCanonicalCardId === 'function' ? resolveCanonicalCardId(resolveTollCard(row[36], resolveTollMethod(row[35], row[27]), row[27], row[28])) : resolveTollCard(row[36], resolveTollMethod(row[35], row[27]), row[27], row[28]),
         keterangan: row[33] || ''
       }};
     }

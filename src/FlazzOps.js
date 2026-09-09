@@ -50,12 +50,32 @@ function getFlazzCardColIdx(sheet) {
 function findFlazzCardRow(sheet, cardId) {
   const data = sheet.getDataRange().getValues();
   const colIdx = getFlazzCardColIdx(sheet);
+  const target = (typeof canonicalCardId === 'function') ? canonicalCardId(cardId) : String(cardId);
   for (let i = 1; i < data.length; i++) {
-    if (String(data[i][colIdx.ID]) === String(cardId)) {
+    const idRaw = String(data[i][colIdx.ID]);
+    const same = (typeof canonicalCardId === 'function')
+      ? (canonicalCardId(idRaw) === target)
+      : (idRaw === String(cardId));
+    if (same) {
       return { rowIndex: i + 1, row: data[i], colIdx: colIdx };
     }
   }
   return null;
+}
+
+// Kembalikan id kartu versi master (mis. "FLZ-1788404474583") dari id apa pun yang
+// tersimpan di baris laporan. Data lama kadang menyimpan id tanpa karakter '-';
+// dengan cara ini UI/edit/migrasi memakai id kanonik yang benar.
+function resolveCanonicalCardId(rawId) {
+  if (rawId === undefined || rawId === null || rawId === '') return '';
+  try {
+    const ss = getDB();
+    const sheet = ss.getSheetByName('Flazz_Card');
+    if (!sheet) return String(rawId);
+    const found = findFlazzCardRow(sheet, rawId);
+    if (found && String(found.row[found.colIdx.ID])) return String(found.row[found.colIdx.ID]);
+  } catch (e) { /* abaikan, kembalikan nilai mentah */ }
+  return String(rawId);
 }
 
 // Helper: Membaca saldo kartu Flazz (return 0 bila tidak ditemukan)
@@ -640,17 +660,28 @@ function computeFlazzLedger(cardId, ss, sinceTime) {
     const headers = data[0];
     const cMetode = headers.indexOf('metode_pembayaran');
     const cCard = headers.indexOf('flazz_card_id');
+    const cMetodeToll = headers.indexOf('metode_toll');
+    const cCardToll = headers.indexOf('flazz_card_id_toll');
     const cBiaya = headers.indexOf('biaya_bbm');
     const cToll = headers.indexOf('biaya_toll');
     const cStamp = headers.indexOf('timestamp');
     const fallbackStamp = headers.indexOf('tanggal');
     for (let i = 1; i < data.length; i++) {
-      if (cMetode > -1 && cCard > -1 && data[i][cMetode] === 'FLAZZ' && String(data[i][cCard]) === String(cardId) && after(cStamp > -1 ? data[i][cStamp] : data[i][fallbackStamp])) {
-        result.total_bbm_flazz += parseFloat(data[i][cBiaya]) || 0;
-        if (cToll > -1) {
-          result.total_tol += parseFloat(data[i][cToll]) || 0;
-        }
-      }
+      const row = data[i];
+      if (!after(cStamp > -1 ? row[cStamp] : row[fallbackStamp])) continue;
+      const bbmMethod = cMetode > -1 ? row[cMetode] : '';
+      const tollMethod = resolveTollMethod(cMetodeToll > -1 ? row[cMetodeToll] : '', bbmMethod);
+      const tollCard = resolveTollCard(cCardToll > -1 ? row[cCardToll] : '', tollMethod, bbmMethod, cCard > -1 ? row[cCard] : null);
+      const st = {
+        metodeBbm: bbmMethod,
+        cardBbm: cCard > -1 ? row[cCard] : null,
+        biayaBbm: cBiaya > -1 ? (parseFloat(row[cBiaya]) || 0) : 0,
+        metodeTol: tollMethod,
+        cardTol: tollCard,
+        biayaTol: cToll > -1 ? (parseFloat(row[cToll]) || 0) : 0
+      };
+      result.total_bbm_flazz += flazzBbmShare(st, cardId);
+      result.total_tol += flazzTolShare(st, cardId);
     }
   }
 
@@ -682,6 +713,8 @@ function hasCompliantFlazzLaporan(cardId, sinceDate, ss) {
   const h = data[0];
   const cMetode = h.indexOf('metode_pembayaran');
   const cCard = h.indexOf('flazz_card_id');
+  const cMetodeToll = h.indexOf('metode_toll');
+  const cCardToll = h.indexOf('flazz_card_id_toll');
   const cStamp = h.indexOf('timestamp');
   const fallbackStamp = h.indexOf('tanggal');
   const cVeh = h.indexOf('vehicle_id');
@@ -692,8 +725,6 @@ function hasCompliantFlazzLaporan(cardId, sinceDate, ss) {
 
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    if (cMetode > -1 && row[cMetode] !== 'FLAZZ') continue;
-    if (cCard > -1 && String(row[cCard]) !== String(cardId)) continue;
     if (since !== null) {
       const stampIdx = cStamp > -1 ? cStamp : fallbackStamp;
       const raw = (stampIdx > -1) ? row[stampIdx] : null;
@@ -703,6 +734,20 @@ function hasCompliantFlazzLaporan(cardId, sinceDate, ss) {
       // menciptakan penyerahannya sendiri") harus tetap dianggap periode berjalan.
       if (dt.getTime() < since) continue;
     }
+
+    // Baris berkontribusi bila kartu terlibat pada bagian BBM ATAU tol (Flazz).
+    const bbmMethod = cMetode > -1 ? row[cMetode] : '';
+    const tollMethod = resolveTollMethod(cMetodeToll > -1 ? row[cMetodeToll] : '', bbmMethod);
+    const tollCard = resolveTollCard(cCardToll > -1 ? row[cCardToll] : '', tollMethod, bbmMethod, cCard > -1 ? row[cCard] : null);
+    const st = {
+      metodeBbm: bbmMethod,
+      cardBbm: cCard > -1 ? row[cCard] : null,
+      biayaBbm: 0,
+      metodeTol: tollMethod,
+      cardTol: tollCard,
+      biayaTol: 0
+    };
+    if (!isFlazzRowForCard(st, String(cardId))) continue;
 
     const photoAwal = cFotoAwal > -1 ? String(row[cFotoAwal] || '').trim() : '';
     const photoAkhir = cFotoAkhir > -1 ? String(row[cFotoAkhir] || '').trim() : '';
@@ -741,11 +786,15 @@ function checkReconGate(cardId) {
       }
     }
     const eligible = hasCompliantFlazzLaporan(cardId, sinceDate, ss);
+    if (eligible) {
+      return {
+        eligible: true,
+        reason: 'Laporan valid dengan foto KM awal & akhir terdeteksi.'
+      };
+    }
     return {
-      eligible: eligible,
-      reason: eligible
-        ? 'Laporan valid dengan foto KM awal & akhir terdeteksi.'
-        : 'Belum ada laporan valid dengan foto KM awal & akhir pada periode kartu ini.'
+      eligible: false,
+      reason: 'Belum ada laporan valid dengan foto KM awal & akhir pada periode kartu ini.'
     };
   } catch (e) {
     return { eligible: false, reason: 'Gagal memeriksa gate: ' + e.toString() };
@@ -1084,11 +1133,30 @@ function getFlazzDashboardData(userRole, cabangId) {
   }
 
   let cardIds = cards.map(c => c.id);
+  // Normalisasi id kartu: seluruh codebase membandingkan id via canonicalCardId()
+  // (strip '-') karena baris lama kadang menyimpan "FLZ1788..." tanpa strip sementara
+  // master memakai "FLZ-1788...". Filter dan nilai card_id di bawah dibuat konsisten
+  // (dipetakan ke id master) agar tol/BBM dari laporan harian tetap terbaca dan cocok
+  // dengan pemilihan kartu di klien.
+  const canonicalIds = cardIds.map(canonicalCardId);
+  const canonicalToMaster = {};
+  cards.forEach(function(c) { canonicalToMaster[canonicalCardId(c.id)] = String(c.id); });
+  function normalizeCardId(raw) {
+    const str = String(raw == null ? '' : raw).trim();
+    if (!str) return '';
+    const key = canonicalCardId(str);
+    return (canonicalToMaster[key] !== undefined) ? canonicalToMaster[key] : str;
+  }
+  function inCards(raw) { return canonicalIds.indexOf(canonicalCardId(raw)) !== -1; }
 
-  let topups = getSheetData('Flazz_TopUp').filter(t => cardIds.includes(t.card_id) && String(t.is_deleted || '') !== '1');
-  let tols = getSheetData('Flazz_Tol').filter(t => cardIds.includes(t.card_id) && String(t.is_deleted || '') !== '1');
-  let usages = getSheetData('Flazz_Usage').filter(u => cardIds.includes(u.card_id));
-  let recons = getSheetData('Flazz_Reconciliation').filter(r => cardIds.includes(r.card_id));
+  let topups = getSheetData('Flazz_TopUp').map(function(t) { return Object.assign({}, t, { card_id: normalizeCardId(t.card_id) }); })
+    .filter(function(t) { return inCards(t.card_id) && String(t.is_deleted || '') !== '1'; });
+  let tols = getSheetData('Flazz_Tol').map(function(t) { return Object.assign({}, t, { card_id: normalizeCardId(t.card_id) }); })
+    .filter(function(t) { return inCards(t.card_id) && String(t.is_deleted || '') !== '1'; });
+  let usages = getSheetData('Flazz_Usage').map(function(u) { return Object.assign({}, u, { card_id: normalizeCardId(u.card_id) }); })
+    .filter(function(u) { return inCards(u.card_id); });
+  let recons = getSheetData('Flazz_Reconciliation').map(function(r) { return Object.assign({}, r, { card_id: normalizeCardId(r.card_id) }); })
+    .filter(function(r) { return inCards(r.card_id); });
 
   // Ambil history pemotongan BBM dari Penggunaan_BBM jika perlu, tapi kita cuma baca yang flazz
   let bbmSheet = ss.getSheetByName('Penggunaan_BBM');
@@ -1108,21 +1176,43 @@ function getFlazzDashboardData(userRole, cabangId) {
     const vehicleIdx = headers.indexOf('plat_nomor');
 
     const bbmData = readLastRows(bbmSheet, 5000);
+    const metodeTollIdx = headers.indexOf('metode_toll');
+    const cardTollIdx = headers.indexOf('flazz_card_id_toll');
     for (let i = 0; i < bbmData.length; i++) {
       let row = bbmData[i];
-      if (metodeIdx > -1 && row[metodeIdx] === 'FLAZZ' && cardIds.includes(row[cardIdx])) {
-        bbmFlazz.push({
-           transaction_id: row[trxIdx],
-           tanggal: (row[tglIdx] instanceof Date) ? row[tglIdx].toISOString() : row[tglIdx],
-           timestamp: (stampIdx > -1 && row[stampIdx] instanceof Date) ? row[stampIdx].toISOString() : (stampIdx > -1 ? row[stampIdx] : ''),
-           card_id: row[cardIdx],
-           amount: parseFloat(row[bbmIdx]) || 0,
-           toll_amount: tollIdx > -1 ? (parseFloat(row[tollIdx]) || 0) : 0,
-           evidence: row[evidenceIdx],
-           toll_evidence: tollEvidenceIdx > -1 ? row[tollEvidenceIdx] : '',
-           driver: row[driverIdx],
-           vehicle: row[vehicleIdx]
-        });
+      // Pisahkan bagian BBM & tol per kartu (BBM boleh tunai sementara tol Flazz, dst).
+      // Kolom metode_toll mungkin kosong pada baris lama → inferensi kompatibilitas.
+      const bbmMethod = metodeIdx > -1 ? row[metodeIdx] : '';
+      const rawBbmCard = cardIdx > -1 ? row[cardIdx] : null;
+      const bbmCard = normalizeCardId(rawBbmCard);
+      const tollMethod = resolveTollMethod(metodeTollIdx > -1 ? row[metodeTollIdx] : '', bbmMethod);
+      const tollCard = normalizeCardId(resolveTollCard(cardTollIdx > -1 ? row[cardTollIdx] : '', tollMethod, bbmMethod, rawBbmCard));
+      const bbmAmount = parseFloat(row[bbmIdx]) || 0;
+      const tollAmount = tollIdx > -1 ? (parseFloat(row[tollIdx]) || 0) : 0;
+      const base = {
+        transaction_id: row[trxIdx],
+        tanggal: (row[tglIdx] instanceof Date) ? row[tglIdx].toISOString() : row[tglIdx],
+        timestamp: (stampIdx > -1 && row[stampIdx] instanceof Date) ? row[stampIdx].toISOString() : (stampIdx > -1 ? row[stampIdx] : ''),
+        evidence: row[evidenceIdx],
+        toll_evidence: tollEvidenceIdx > -1 ? row[tollEvidenceIdx] : '',
+        driver: row[driverIdx],
+        vehicle: row[vehicleIdx]
+      };
+      const sameCard = bbmCard && String(tollCard) === String(bbmCard);
+      if (bbmMethod === 'FLAZZ' && bbmCard && inCards(bbmCard) && bbmAmount > 0) {
+        bbmFlazz.push(Object.assign({}, base, {
+          card_id: bbmCard,
+          amount: bbmAmount,
+          // Saat tol dibayar kartu yang sama, gabungkan agar agregasi klien tetap benar.
+          toll_amount: (tollMethod === 'FLAZZ' && sameCard) ? tollAmount : 0
+        }));
+      }
+      if (tollMethod === 'FLAZZ' && tollCard && inCards(tollCard) && tollAmount > 0 && !(sameCard && bbmMethod === 'FLAZZ')) {
+        bbmFlazz.push(Object.assign({}, base, {
+          card_id: tollCard,
+          amount: 0,
+          toll_amount: tollAmount
+        }));
       }
     }
   }
@@ -1238,12 +1328,15 @@ function deleteFlazzBBMUnlocked(transactionId, mode, userInfo) {
     const idxTrx = headers.indexOf('transaction_id');
     const idxMetode = headers.indexOf('metode_pembayaran');
     const idxCard = headers.indexOf('flazz_card_id');
+    const idxMetodeToll = headers.indexOf('metode_toll');
+    const idxCardToll = headers.indexOf('flazz_card_id_toll');
     const idxBiaya = headers.indexOf('biaya_bbm');
     const idxToll = headers.indexOf('biaya_toll');
     const idxCabang = headers.indexOf('kode_cabang');
     const idxTgl = headers.indexOf('tanggal');
 
     let rowIndex = -1, isFlazz = false, biaya = 0, toll = 0, cardId = null, delCabang = '', delTgl = '';
+    let delMetodeToll = '', delCardToll = null;
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][idxTrx]) === String(transactionId)) {
         rowIndex = i + 1;
@@ -1251,6 +1344,8 @@ function deleteFlazzBBMUnlocked(transactionId, mode, userInfo) {
         biaya = parseFloat(data[i][idxBiaya]) || 0;
         toll = idxToll > -1 ? (parseFloat(data[i][idxToll]) || 0) : 0;
         cardId = data[i][idxCard];
+        delMetodeToll = idxMetodeToll > -1 ? data[i][idxMetodeToll] : '';
+        delCardToll = idxCardToll > -1 ? data[i][idxCardToll] : '';
         delCabang = idxCabang > -1 ? data[i][idxCabang] : '';
         delTgl = idxTgl > -1 ? data[i][idxTgl] : '';
         break;
@@ -1258,8 +1353,19 @@ function deleteFlazzBBMUnlocked(transactionId, mode, userInfo) {
     }
     if (rowIndex === -1) throw new Error('Transaksi BBM tidak ditemukan.');
 
+    // Inferensi bagian tol baris lama: kolom metode tol kosong + BBM FLAZZ => tol ikut kartu BBM.
+    const delTollMethod = resolveTollMethod(delMetodeToll, data[rowIndex - 1][idxMetode]);
+    const delTollCard = resolveTollCard(delCardToll, delTollMethod, data[rowIndex - 1][idxMetode], cardId);
+    const payState = {
+      metodeBbm: data[rowIndex - 1][idxMetode], cardBbm: cardId, biayaBbm: biaya,
+      metodeTol: delTollMethod, cardTol: delTollCard, biayaTol: toll
+    };
+    const involvedCards = distinctFlazzCards(payState.metodeBbm, payState.cardBbm, payState.metodeTol, payState.cardTol);
+
     if (isFlazz && cardId) {
       assertFlazzAccess(userInfo, flazzCardBranch(cardId));
+    } else if (delTollMethod === 'FLAZZ' && delTollCard) {
+      assertFlazzAccess(userInfo, flazzCardBranch(delTollCard));
     } else {
       assertMasterAccess(userInfo, 'menghapus transaksi BBM');
     }
@@ -1267,20 +1373,26 @@ function deleteFlazzBBMUnlocked(transactionId, mode, userInfo) {
     if (mode === 'detach') {
       sheet.getRange(rowIndex, idxMetode + 1).setValue('');
       sheet.getRange(rowIndex, idxCard + 1).setValue('');
+      if (idxMetodeToll > -1) sheet.getRange(rowIndex, idxMetodeToll + 1).setValue('');
+      if (idxCardToll > -1) sheet.getRange(rowIndex, idxCardToll + 1).setValue('');
     } else {
       sheet.deleteRow(rowIndex);
       // Ringkasan bulanan harus dihitung ulang karena baris transaksi terhapus
       try { recomputeMonthlySummary(delCabang, periodKey(delTgl)); } catch (e) { console.error('summary gagal: ' + e); }
     }
 
-    if (isFlazz && cardId) {
-      setCardBalance(cardId, (getCardBalance(cardId) || 0) + biaya + toll);
+    involvedCards.forEach(function(cardId) {
+      const delta = flazzCardCharge(payState, cardId);
+      if (delta > 0) {
+        setCardBalance(cardId, (getCardBalance(cardId) || 0) + delta);
+        adjustActiveUsageOpening(cardId, delta);
+      }
       // Kembalikan penyerahan yang dibuat transaksi ini agar kartu tidak menggantung.
       try { if (typeof returnFlazzUsageForRef === 'function') returnFlazzUsageForRef('TRX', String(transactionId)); }
       catch (e) { Logger.log('returnFlazzUsageForRef gagal: ' + e.toString()); }
-    }
+    });
 
-    logAudit(userInfo, 'DELETE', 'flazz', 'Transaksi Flazz ' + transactionId, { metode_pembayaran: isFlazz ? 'FLAZZ' : '', flazz_card_id: cardId, biaya_bbm: biaya, biaya_toll: toll, kode_cabang: delCabang, tanggal: delTgl }, null);
+    logAudit(userInfo, 'DELETE', 'flazz', 'Transaksi Flazz ' + transactionId, { metode_pembayaran: payState.metodeBbm, flazz_card_id: cardId, biaya_bbm: biaya, biaya_toll: toll, metode_toll: delTollMethod, flazz_card_id_toll: delTollCard, kode_cabang: delCabang, tanggal: delTgl }, null);
     return { success: true, msg: mode === 'detach' ? 'Transaksi dilepas dari Flazz dan saldo dikembalikan.' : 'Transaksi BBM dihapus dan saldo dikembalikan.' };
   } catch (err) {
     return { success: false, msg: err.message };

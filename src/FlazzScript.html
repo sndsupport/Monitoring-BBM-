@@ -1192,6 +1192,7 @@ function renderFlazzDetailHistory(cardId, data) {
       totalExpense += parseFloat(t.amount) || 0;
     });
     bbm.forEach(b => {
+      if ((parseFloat(b.amount) || 0) <= 0) return; // entri tol-only; tol sudah tampil via tolHistory
       rows.push({ tanggal: b.tanggal, jenis: 'BBM', supir: b.driver || '-', kendaraan: b.vehicle || '-', nilai: '-' + formatCurrency(b.amount) });
       totalExpense += parseFloat(b.amount) || 0;
     });
