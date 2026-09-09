@@ -230,6 +230,23 @@ function saveJalur(payload, userInfo) {
     const rows = payload.rows || [];
     if (!tanggal || rows.length === 0) throw new Error('Tanggal dan minimal satu baris wajib diisi.');
     const idx = jalurColIdx(sheet);
+    const ungatedVehicles = [];
+    rows.forEach(function (r) {
+      if (!r || !r.driver_id || !r.vehicle_id || !String(r.rute_tujuan || '').trim()) return;
+      if (ungatedVehicles.indexOf(String(r.vehicle_id)) === -1) ungatedVehicles.push(String(r.vehicle_id));
+    });
+    const blockers = [];
+    ungatedVehicles.forEach(function (vid) {
+      const check = checkIncompleteJalurForVehicle(vid, tanggal);
+      if (check.blocked && check.incompleteJalur) blockers.push(check.incompleteJalur);
+    });
+    if (blockers.length) {
+      const detail = blockers.map(function (b) {
+        const aksi = b.flazz_card_id ? 'rekonsiliasi saldo flazz' : 'input laporan';
+        return 'Kendaraan ' + (b.plat_nomor || b.id) + ' (jalur ' + b.tanggal + ', status ' + b.status + ') masih belum selesai. Harap ' + aksi + ' terlebih dahulu.';
+      }).join(' ');
+      throw new Error('Jalur baru diblokir: ' + detail);
+    }
     const createdBy = (userInfo && (userInfo.nama || userInfo.username)) || '';
     const kodeCabang = (userInfo && userInfo.cabang) || '';
     const now = new Date();
@@ -265,6 +282,8 @@ function saveJalur(payload, userInfo) {
       row[idx['created_at']] = now;
       row[idx['updated_at']] = now;
       row[idx['is_deleted']] = '';
+      if (idx['status'] !== undefined) row[idx['status']] = 'BELUM_DIISI';
+      if (idx['laporan_id'] !== undefined) row[idx['laporan_id']] = '';
       sheet.appendRow(row);
 
       // Serahkan kartu etoll ke driver
