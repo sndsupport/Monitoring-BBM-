@@ -1334,6 +1334,7 @@ function deleteFlazzBBMUnlocked(transactionId, mode, userInfo) {
     const idxToll = headers.indexOf('biaya_toll');
     const idxCabang = headers.indexOf('kode_cabang');
     const idxTgl = headers.indexOf('tanggal');
+    const idxStamp = headers.indexOf('timestamp');
 
     let rowIndex = -1, isFlazz = false, biaya = 0, toll = 0, cardId = null, delCabang = '', delTgl = '';
     let delMetodeToll = '', delCardToll = null;
@@ -1362,6 +1363,14 @@ function deleteFlazzBBMUnlocked(transactionId, mode, userInfo) {
     };
     const involvedCards = distinctFlazzCards(payState.metodeBbm, payState.cardBbm, payState.metodeTol, payState.cardTol);
 
+    // Waktu pencatatan laporan; dipakai agar penghapusan tidak menggeser opening_balance
+    // bila transaksi tercatat SETELAH penyerahan kartu (sudah masuk ledger periode).
+    let txStampMs = null;
+    {
+      const stampCell = sheet.getRange(rowIndex, (idxStamp > -1 ? idxStamp : idxTgl) + 1).getValue();
+      if (stampCell instanceof Date && !isNaN(stampCell.getTime())) txStampMs = stampCell.getTime();
+    }
+
     if (isFlazz && cardId) {
       assertFlazzAccess(userInfo, flazzCardBranch(cardId));
     } else if (delTollMethod === 'FLAZZ' && delTollCard) {
@@ -1385,7 +1394,9 @@ function deleteFlazzBBMUnlocked(transactionId, mode, userInfo) {
       const delta = flazzCardCharge(payState, cardId);
       if (delta > 0) {
         setCardBalance(cardId, (getCardBalance(cardId) || 0) + delta);
-        adjustActiveUsageOpening(cardId, delta);
+        if (shouldAdjustUsageOpeningAt(cardId, txStampMs)) {
+          adjustActiveUsageOpening(cardId, delta);
+        }
       }
       // Kembalikan penyerahan yang dibuat transaksi ini agar kartu tidak menggantung.
       try { if (typeof returnFlazzUsageForRef === 'function') returnFlazzUsageForRef('TRX', String(transactionId)); }

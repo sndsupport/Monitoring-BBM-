@@ -397,6 +397,41 @@ function adjustActiveUsageOpening(cardId, delta) {
   }
 }
 
+// Waktu penyerahan terakhir kartu yang berstatus DIBERIKAN (ms epoch), atau null bila
+// kartu tidak sedang dipakai. Membantu memutuskan apakah koreksi laporan harus digeser
+// lewat opening_balance (laporan pada/sebelum penyerahan, tidak masuk periode ledger)
+// atau dibiarkan ke ledger periode (laporan tercatat SETELAH penyerahan).
+function latestFlazzGivenAt(cardId) {
+  const ss = getDB();
+  const usageSheet = ss.getSheetByName('Flazz_Usage');
+  if (!usageSheet) return null;
+  const data = usageSheet.getDataRange().getValues();
+  const headers = data[0];
+  const cCard = headers.indexOf('card_id');
+  const cStatus = headers.indexOf('status');
+  const cUsed = headers.indexOf('used_at');
+  const cDate = headers.indexOf('date');
+  if (cCard < 0 || cStatus < 0) return null;
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][cCard]) === String(cardId) && String(data[i][cStatus]) === 'DIBERIKAN') {
+      const v = (cUsed > -1 && data[i][cUsed]) || (cDate > -1 ? data[i][cDate] : null);
+      if (v) {
+        const t = new Date(v).getTime();
+        if (!isNaN(t)) return t;
+      }
+      return null;
+    }
+  }
+  return null;
+}
+
+function shouldAdjustUsageOpeningAt(cardId, txTimestampMs) {
+  if (txTimestampMs == null) return true;
+  const since = latestFlazzGivenAt(cardId);
+  if (since == null) return true;
+  return !(txTimestampMs > since);
+}
+
 function getLastTransactionForVehicle(vehicleId) {
   const ss = getDB();
   const sheet = ss.getSheetByName('Penggunaan_BBM');
@@ -783,6 +818,14 @@ function editDailyTransactionUnlocked(payload, userInfo) {
     }
     if (rowIndex === -1) throw new Error('Transaksi tidak ditemukan.');
 
+    // Waktu pencatatan laporan (timestamp; fallback tanggal). Dipakai untuk memutuskan
+    // apakah koreksi digeser via opening_balance atau dibiarkan ke ledger periode.
+    let txStampMs = null;
+    {
+      const stampCell = sheet.getRange(rowIndex, (idxStamp > -1 ? idxStamp : idxTgl) + 1).getValue();
+      if (stampCell instanceof Date && !isNaN(stampCell.getTime())) txStampMs = stampCell.getTime();
+    }
+
     // Inferensi bagian tol baris lama (kompatibilitas): kolom metode tol kosong + BBM FLAZZ
     // => tol dianggap ikut dibayar kartu BBM (semantik lama satu metode).
     const oldTollMethod = (oldMetodeToll !== undefined && oldMetodeToll !== null && String(oldMetodeToll) !== '')
@@ -905,9 +948,9 @@ function editDailyTransactionUnlocked(payload, userInfo) {
       const delta = flazzEditDelta(oldPayState, newPayState, cardId);
       if (delta !== 0) {
         setCardBalance(cardId, (getCardBalance(cardId) || 0) + delta);
-        // Bila kartu punya usage aktif, samakan opening-nya; bila belum, autoCreate di
-        // bawah menciptakan usage dengan opening yang sudah terpotong.
-        adjustActiveUsageOpening(cardId, delta);
+        if (shouldAdjustUsageOpeningAt(cardId, txStampMs)) {
+          adjustActiveUsageOpening(cardId, delta);
+        }
       }
     });
 
@@ -982,6 +1025,7 @@ function deleteDailyTransactionUnlocked(transactionId, userInfo) {
     const idxVehicle = headers.indexOf('vehicle_id');
     const idxTgl = headers.indexOf('tanggal');
     const idxCabang = headers.indexOf('kode_cabang');
+    const idxStamp = headers.indexOf('timestamp');
 
     let rowIndex = -1, isFlazz = false, cardId = null, biaya = 0, toll = 0, vehicleId = '', delCabang = '', delTgl = '';
     let delMetodeToll = '', delCardToll = null;
@@ -1019,12 +1063,22 @@ function deleteDailyTransactionUnlocked(transactionId, userInfo) {
     };
     const deletionCards = distinctFlazzCards(delPayState.metodeBbm, delPayState.cardBbm, delPayState.metodeTol, delPayState.cardTol);
 
+    // Waktu pencatatan laporan; dipakai agar penghapusan tidak menggeser opening_balance
+    // bila transaksi tercatat SETELAH penyerahan kartu (sudah masuk ledger periode).
+    let txStampMs = null;
+    {
+      const stampCell = sheet.getRange(rowIndex, (idxStamp > -1 ? idxStamp : idxTgl) + 1).getValue();
+      if (stampCell instanceof Date && !isNaN(stampCell.getTime())) txStampMs = stampCell.getTime();
+    }
+
     sheet.deleteRow(rowIndex);
     deletionCards.forEach(function(cardId) {
       const delta = flazzCardCharge(delPayState, cardId);
       if (delta > 0) {
         setCardBalance(cardId, (getCardBalance(cardId) || 0) + delta);
-        adjustActiveUsageOpening(cardId, delta);
+        if (shouldAdjustUsageOpeningAt(cardId, txStampMs)) {
+          adjustActiveUsageOpening(cardId, delta);
+        }
       }
       // Kembalikan penyerahan kartu yang dibuat oleh transaksi ini agar kartu tidak menggantung.
       try { if (typeof returnFlazzUsageForRef === 'function') returnFlazzUsageForRef('TRX', String(transactionId)); }
