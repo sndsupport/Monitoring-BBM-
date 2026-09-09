@@ -498,3 +498,77 @@ function getJalurByTanggal(tanggal, userInfo, opts) {
     return { success: false, msg: e.message };
   }
 }
+
+function backfillJalurStatus() {
+  try {
+    const ss = getDB();
+    const jalurSheetRef = ss.getSheetByName('Jalur_Pengiriman');
+    const trxSheet = ss.getSheetByName('Penggunaan_BBM');
+    const reconSheet = ss.getSheetByName('Flazz_Reconciliation');
+    if (!jalurSheetRef || jalurSheetRef.getLastRow() <= 1) return { success: true, msg: 'Tidak ada jalur untuk di-backfill.' };
+
+    const jData = jalurSheetRef.getDataRange().getValues();
+    const jIdx = jalurColIdx(jalurSheetRef);
+    const hasStatus = jIdx['status'] !== undefined;
+    const hasLaporanId = jIdx['laporan_id'] !== undefined;
+    let updated = 0;
+
+    // Pre-index laporan per (tanggal, vehicle_id, nama_supir)
+    const laporanMap = {};
+    if (trxSheet && trxSheet.getLastRow() > 1) {
+      const tData = trxSheet.getDataRange().getValues();
+      const tH = tData[0];
+      const tTgl = tH.indexOf('tanggal');
+      const tVeh = tH.indexOf('vehicle_id');
+      const tDrv = tH.indexOf('nama_supir');
+      const tId = tH.indexOf('transaction_id');
+      for (let i = 1; i < tData.length; i++) {
+        const key = String(tData[i][tTgl] || '').substring(0, 10) + '|' + String(tData[i][tVeh] || '') + '|' + String(tData[i][tDrv] || '');
+        if (!laporanMap[key]) laporanMap[key] = String(tData[i][tId] || '');
+      }
+    }
+
+    // Pre-index tanggal recon terbaru per kartu
+    const reconMaxTgl = {};
+    if (reconSheet && reconSheet.getLastRow() > 1) {
+      const rData = reconSheet.getDataRange().getValues();
+      const rH = rData[0];
+      const rCard = rH.indexOf('card_id');
+      const rDate = rH.indexOf('date');
+      for (let i = 1; i < rData.length; i++) {
+        const dStr = String(rData[i][rDate] || '').substring(0, 10);
+        const cId = String(rData[i][rCard] || '');
+        if (!reconMaxTgl[cId] || dStr > reconMaxTgl[cId]) reconMaxTgl[cId] = dStr;
+      }
+    }
+
+    for (let i = 1; i < jData.length; i++) {
+      const tgl = String(jData[i][jIdx['tanggal']] || '').substring(0, 10);
+      const vid = String(jData[i][jIdx['vehicle_id']] || '');
+      const drv = String(jData[i][jIdx['nama_driver']] || '');
+      const cardId = (jIdx['flazz_card_id'] !== undefined) ? String(jData[i][jIdx['flazz_card_id']] || '') : '';
+      const current = (jIdx['status'] !== undefined) ? String(jData[i][jIdx['status']] || '') : '';
+      if (current === 'SELESAI') continue;
+
+      const laporanId = laporanMap[tgl + '|' + vid + '|' + drv] || '';
+      let newStatus = 'BELUM_DIISI';
+      if (laporanId) {
+        if (cardId && reconMaxTgl[cardId] && reconMaxTgl[cardId] >= tgl) newStatus = 'SELESAI';
+        else newStatus = 'SUDAH_LAPORAN';
+      }
+
+      const rowIdx = i + 1;
+      if (hasStatus && String(jData[i][jIdx['status']] || '') !== newStatus) {
+        jalurSheetRef.getRange(rowIdx, jIdx['status'] + 1).setValue(newStatus);
+        updated++;
+      }
+      if (hasLaporanId && laporanId && String(jData[i][jIdx['laporan_id']] || '') !== laporanId) {
+        jalurSheetRef.getRange(rowIdx, jIdx['laporan_id'] + 1).setValue(laporanId);
+      }
+    }
+
+    return { success: true, msg: updated + ' jalur berhasil di-backfill statusnya.' };
+  } catch (e) {
+    return { success: false, msg: 'Backfill gagal: ' + e.toString() };
+  }
+}
