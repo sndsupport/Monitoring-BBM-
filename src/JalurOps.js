@@ -44,6 +44,118 @@ function findJalurRow(sheet, id) {
   return null;
 }
 
+function updateJalurStatus(jalurId, newStatus, laporanId) {
+  try {
+    const sheet = jalurSheet();
+    if (!sheet) return;
+    const found = findJalurRow(sheet, jalurId);
+    if (!found) return;
+    const idx = found.idx;
+    if (idx['status'] !== undefined) {
+      sheet.getRange(found.rowIndex, idx['status'] + 1).setValue(newStatus);
+    }
+    if (laporanId && idx['laporan_id'] !== undefined) {
+      sheet.getRange(found.rowIndex, idx['laporan_id'] + 1).setValue(laporanId);
+    }
+    if (idx['updated_at'] !== undefined) {
+      sheet.getRange(found.rowIndex, idx['updated_at'] + 1).setValue(new Date());
+    }
+  } catch (e) {
+    Logger.log('updateJalurStatus error: ' + e.toString());
+  }
+}
+
+function findJalurByCriteria(criteria) {
+  try {
+    const sheet = jalurSheet();
+    if (!sheet || sheet.getLastRow() <= 1) return null;
+    const data = sheet.getDataRange().getValues();
+    const idx = jalurColIdx(sheet);
+    const iDeleted = idx['is_deleted'];
+    let best = null;
+    for (let i = 1; i < data.length; i++) {
+      if (iDeleted !== undefined && String(data[i][iDeleted]) === '1') continue;
+      let match = true;
+      let rowTgl = '';
+      if (idx['tanggal'] !== undefined) {
+        const rawTgl = data[i][idx['tanggal']];
+        if (rawTgl instanceof Date) {
+          const tz = getDB().getSpreadsheetTimeZone();
+          rowTgl = Utilities.formatDate(rawTgl, tz, 'yyyy-MM-dd');
+        } else {
+          rowTgl = String(rawTgl).substring(0, 10);
+        }
+      }
+      if (criteria.tanggal && rowTgl !== String(criteria.tanggal).substring(0, 10)) match = false;
+      if (match && criteria.vehicle_id && String(data[i][idx['vehicle_id']]) !== String(criteria.vehicle_id)) match = false;
+      if (match && criteria.nama_driver && String(data[i][idx['nama_driver']] || '') !== String(criteria.nama_driver)) match = false;
+      if (match && criteria.kode_cabang && String(data[i][idx['kode_cabang']] || '') !== String(criteria.kode_cabang)) match = false;
+      if (match && criteria.flazz_card_id) {
+        const cardVal = (idx['flazz_card_id'] !== undefined) ? String(data[i][idx['flazz_card_id']] || '') : '';
+        if (cardVal !== String(criteria.flazz_card_id)) match = false;
+      }
+      if (match) {
+        const rec = {
+          id: data[i][idx['id']],
+          status: (idx['status'] !== undefined) ? String(data[i][idx['status']] || 'BELUM_DIISI') : 'BELUM_DIISI',
+          flazz_card_id: (idx['flazz_card_id'] !== undefined) ? String(data[i][idx['flazz_card_id']] || '') : '',
+          tanggalJalur: rowTgl,
+          kode_cabang: (idx['kode_cabang'] !== undefined) ? String(data[i][idx['kode_cabang']] || '') : '',
+          nama_driver: (idx['nama_driver'] !== undefined) ? String(data[i][idx['nama_driver']] || '') : '',
+          plat_nomor: (idx['plat_nomor'] !== undefined) ? String(data[i][idx['plat_nomor']] || '') : '',
+          rowIndex: i + 1
+        };
+        // Kembalikan record TERAKHIR yang cocok (baris paling bawah = paling baru).
+        best = rec;
+      }
+    }
+    return best;
+  } catch (e) {
+    Logger.log('findJalurByCriteria error: ' + e.toString());
+    return null;
+  }
+}
+
+function checkIncompleteJalurForVehicle(vehicleId, tanggal) {
+  try {
+    const sheet = jalurSheet();
+    if (!sheet || sheet.getLastRow() <= 1) return { blocked: false, incompleteJalur: null };
+    const data = sheet.getDataRange().getValues();
+    const idx = jalurColIdx(sheet);
+    const iDeleted = idx['is_deleted'];
+    const inputTgl = String(tanggal || '').substring(0, 10);
+    let latest = null;
+    for (let i = 1; i < data.length; i++) {
+      if (iDeleted !== undefined && String(data[i][iDeleted]) === '1') continue;
+      if (String(data[i][idx['vehicle_id']]) !== String(vehicleId)) continue;
+      let rowTgl = data[i][idx['tanggal']];
+      if (rowTgl instanceof Date) {
+        const tz = getDB().getSpreadsheetTimeZone();
+        rowTgl = Utilities.formatDate(rowTgl, tz, 'yyyy-MM-dd');
+      } else {
+        rowTgl = String(rowTgl).substring(0, 10);
+      }
+      if (!inputTgl || rowTgl >= inputTgl) continue;
+      if (!latest || rowTgl > latest.tanggal) {
+        latest = {
+          id: data[i][idx['id']],
+          tanggal: rowTgl,
+          plat_nomor: (idx['plat_nomor'] !== undefined) ? String(data[i][idx['plat_nomor']] || '') : '',
+          status: (idx['status'] !== undefined) ? String(data[i][idx['status']] || 'BELUM_DIISI') : 'BELUM_DIISI',
+          flazz_card_id: (idx['flazz_card_id'] !== undefined) ? String(data[i][idx['flazz_card_id']] || '') : ''
+        };
+      }
+    }
+    if (!latest) return { blocked: false, incompleteJalur: null };
+    const finalStatus = latest.flazz_card_id ? 'SELESAI' : 'SUDAH_LAPORAN';
+    const blocked = latest.status !== finalStatus;
+    return { blocked: blocked, incompleteJalur: blocked ? latest : null };
+  } catch (e) {
+    Logger.log('checkIncompleteJalurForVehicle error: ' + e.toString());
+    return { blocked: false, incompleteJalur: null };
+  }
+}
+
 function getJalurCabangFor(userInfo) {
   if (userInfo && userInfo.role === 'SUPERADMIN') return null; // null = semua cabang
   return (userInfo && userInfo.cabang) || '';
