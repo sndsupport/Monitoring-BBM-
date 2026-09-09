@@ -256,6 +256,21 @@ function saveTransactionEndOfDayUnlocked(payload) {
     }
   }
 
+  // Update status jalur pengiriman terkait laporan yang baru disimpan
+  try {
+    const matchedJalur = findJalurByCriteria({
+      tanggal: payload.tanggal,
+      vehicle_id: payload.vehicle_id,
+      nama_driver: payload.nama_supir,
+      kode_cabang: trxCabang
+    });
+    if (matchedJalur && matchedJalur.status !== 'SELESAI') {
+      updateJalurStatus(matchedJalur.id, 'SUDAH_LAPORAN', transaction_id);
+    }
+  } catch (e) {
+    Logger.log('Gagal update status jalur: ' + e.toString());
+  }
+
   logAudit(payload.userInfo, 'CREATE', 'transaksi', 'TRX ' + transaction_id, null, {
     cabang: trxCabang,
     vehicle: platNomor,
