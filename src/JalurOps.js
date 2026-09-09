@@ -452,6 +452,8 @@ function getJalurByTanggal(tanggal, userInfo, opts) {
         kode_cabang: row[idx['kode_cabang']],
         flazz_card_id: (idx['flazz_card_id'] !== undefined) ? row[idx['flazz_card_id']] : '',
         flazz_card_name: (idx['flazz_card_name'] !== undefined) ? row[idx['flazz_card_name']] : '',
+        status: (idx['status'] !== undefined) ? (row[idx['status']] || 'BELUM_DIISI') : 'BELUM_DIISI',
+        laporan_id: (idx['laporan_id'] !== undefined) ? (row[idx['laporan_id']] || '') : '',
         created_by: row[idx['created_by']],
         sisa_hari_pajak: pajakTahunan.sisa_hari_pajak,
         status_pajak: pajakTahunan.status_pajak,
