@@ -189,8 +189,13 @@ function saveTransactionEndOfDayUnlocked(payload) {
     warning = buildOdoWarning(km_awal, prevTrx.km_akhir, prevTrx.tanggal);
   }
 
+  // Timestamp transaksi di-capture sekali dan dipakai untuk baris jejak (kolom timestamp)
+  // sekaligus dijadikan used_at penyerahan otomatis, agar laporan yang menciptakan
+  // penyerahan kartunya sendiri tetap berada dalam periode gate rekonsiliasi yang sama.
+  const trxTs = new Date();
+
   let row = [
-    transaction_id, new Date(), payload.tanggal, payload.userInfo.username, userName, trxCabang, payload.vehicle_id, platNomor,
+    transaction_id, trxTs, payload.tanggal, payload.userInfo.username, userName, trxCabang, payload.vehicle_id, platNomor,
     payload.serverData.files.odo_awal, payload.serverData.km_awal, km_awal, payload.bar_awal,
     payload.serverData.files.odo_akhir, payload.serverData.km_akhir, km_akhir, payload.bar_akhir,
     km_tempuh, (payload.bar_awal - payload.bar_akhir), liter, payload.biaya_bbm,
@@ -230,8 +235,9 @@ function saveTransactionEndOfDayUnlocked(payload) {
         recordFlazzExpense(cardId, 'TOL', biayaTol, tolFoto, payload.tanggal);
       }
 
-      // 3. Auto-create penyerahan (Flazz_Usage) bila kartu belum sedang digunakan
-      autoCreateFlazzUsage(cardId, payload.nama_supir, payload.vehicle_id, 'TRX', transaction_id);
+      // 3. Auto-create penyerahan (Flazz_Usage) bila kartu belum sedang digunakan.
+      //    used_at menyamai timestamp laporan sehingga periode gate tetap konsisten.
+      autoCreateFlazzUsage(cardId, payload.nama_supir, payload.vehicle_id, 'TRX', transaction_id, trxTs);
     } catch (e) {
       Logger.log("Gagal memproses flazz: " + e.toString());
     }
@@ -293,7 +299,7 @@ function isDuplicateTransaction(sheet, payload, row) {
 
 // Buat catatan penyerahan kartu (Flazz_Usage) otomatis bila kartu belum punya status DIBERIKAN.
 // Membantu pengguna yang tidak lagi mengisi halaman "Penggunaan Kartu" secara manual.
-function autoCreateFlazzUsage(cardId, driverName, vehicleId, refType, refId) {
+function autoCreateFlazzUsage(cardId, driverName, vehicleId, refType, refId, usedAt) {
   const ss = getDB();
   const usageSheet = ss.getSheetByName('Flazz_Usage');
   const cardSheet = ss.getSheetByName('Flazz_Card');
@@ -312,12 +318,15 @@ function autoCreateFlazzUsage(cardId, driverName, vehicleId, refType, refId) {
   }
 
   const now = new Date();
+  // used_at disamakan dgn timestamp laporan (bila diberikan) agar laporan yang menciptakan
+  // penyerahannya sendiri tetap berada dalam periode gate rekonsiliasi yang sama.
+  const ts = usedAt || now;
   const id = 'USE-' + now.getTime();
   const opening = getCardBalance ? (parseFloat(getCardBalance(cardId)) || 0) : 0;
 
   const usageValues = {
     id: id,
-    date: now,
+    date: ts,
     card_id: cardId,
     driver_id: driverName || '',
     vehicle_id: vehicleId || '',
@@ -326,7 +335,7 @@ function autoCreateFlazzUsage(cardId, driverName, vehicleId, refType, refId) {
     backup_card_id: '',
     reason: '',
     opening_balance: opening,
-    used_at: now,
+    used_at: ts,
     status: 'DIBERIKAN',
     notes: 'Dibuat otomatis dari transaksi BBM',
     created_at: now
@@ -348,6 +357,29 @@ function autoCreateFlazzUsage(cardId, driverName, vehicleId, refType, refId) {
     }
     if (found.colIdx.UPDATED !== undefined) {
       cardSheet.getRange(found.rowIndex, found.colIdx.UPDATED + 1).setValue(now);
+    }
+  }
+}
+
+// Penyesuaian opening_balance pada penyerahan kartu terakhir yang masih DIBERIKAN, dipakai
+// saat edit/koreksi laporan BBM agar ledger rekonsiliasi ikut selaras dengan saldo kartu.
+// Tidak menyentuh status/used_at/returned_at: penyerahan itu sendiri tidak berubah.
+function adjustActiveUsageOpening(cardId, delta) {
+  if (!delta) return;
+  const ss = getDB();
+  const usageSheet = ss.getSheetByName('Flazz_Usage');
+  if (!usageSheet) return;
+  const data = usageSheet.getDataRange().getValues();
+  const headers = data[0];
+  const cCard = headers.indexOf('card_id');
+  const cStatus = headers.indexOf('status');
+  const cOpen = headers.indexOf('opening_balance');
+  if (cCard < 0 || cStatus < 0 || cOpen < 0) return;
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][cCard]) === String(cardId) && String(data[i][cStatus]) === 'DIBERIKAN') {
+      const prev = parseFloat(data[i][cOpen]) || 0;
+      usageSheet.getRange(i + 1, cOpen + 1).setValue(prev + delta);
+      return;
     }
   }
 }
@@ -735,9 +767,45 @@ function editDailyTransactionUnlocked(payload, userInfo) {
     assertTransactionAccess(userInfo, oldMetode === 'FLAZZ' ? flazzCardBranch(oldCard) : vehicleBranchById(vehicleId));
 
     const newMetode = payload.metode_pembayaran || oldMetode;
-    const newCard = payload.flazz_card_id || '';
-    const newBiaya = parseFloat(payload.biaya_bbm) || 0;
-    const newToll = parseFloat(payload.biaya_toll) || 0;
+    // Semantik edit = koreksi parsial: bila field nominal tidak dikirim, pertahankan nilai
+    // lama (jangan paksa jadi 0) agar koreksi kecil tidak mengubah jumlah uang tak sengaja.
+    const newBiaya = (payload.biaya_bbm !== undefined && payload.biaya_bbm !== null && payload.biaya_bbm !== '')
+      ? (parseFloat(payload.biaya_bbm) || 0) : oldBiaya;
+    const newToll = (payload.biaya_toll !== undefined && payload.biaya_toll !== null && payload.biaya_toll !== '')
+      ? (parseFloat(payload.biaya_toll) || 0) : oldToll;
+
+    // Resolusi kartu untuk alur Flazz:
+    // - Bila hasilnya FLAZZ tapi payload tidak mengirim kartu, pertahankan kartu lama agar
+    //   edit tidak diam-diam menghapus kartu sekaligus mengembalikan uang (defence server).
+    // - Bila menjadi FLAZZ tanpa kartu yang sah, tolak dengan pesan yang jelas.
+    // - Bila mengganti kartu, pastikan kartu tujuan ada di master dan boleh diakses.
+    const rawCard = (payload.flazz_card_id !== undefined && payload.flazz_card_id !== null)
+      ? String(payload.flazz_card_id).trim() : '';
+    let newCard = '';
+    if (newMetode === 'FLAZZ') {
+      newCard = rawCard || (oldMetode === 'FLAZZ' ? String(oldCard || '') : '');
+      if (!newCard) throw new Error('Pilih kartu Flazz terlebih dahulu.');
+      if (newCard !== String(oldCard || '')) {
+        const cardSheet = ss.getSheetByName('Flazz_Card');
+        const target = (cardSheet) ? findFlazzCardRow(cardSheet, newCard) : null;
+        if (!target) throw new Error('Kartu tujuan tidak ditemukan.');
+        assertFlazzAccess(userInfo, flazzCardBranch(newCard));
+      }
+    }
+
+    // Jaga agar koreksi tidak membuat saldo kartu Flazz negatif.
+    if (newMetode === 'FLAZZ') {
+      const curBal = (getCardBalance(newCard) || 0);
+      let after = curBal;
+      if (oldMetode === 'FLAZZ' && String(oldCard || '') === newCard) {
+        after = curBal + ((oldBiaya + oldToll) - (newBiaya + newToll));
+      } else {
+        after = curBal - (newBiaya + newToll);
+      }
+      if (after < 0) {
+        throw new Error('Saldo kartu tidak mencukupi untuk koreksi ini (sisa Rp ' + curBal.toLocaleString('id-ID') + '). Lakukan Top Up atau selesaikan Rekonsiliasi terlebih dahulu.');
+      }
+    }
 
     sheet.getRange(rowIndex, idxMetode + 1).setValue(newMetode);
     sheet.getRange(rowIndex, idxCard + 1).setValue(newCard);
@@ -775,32 +843,36 @@ function editDailyTransactionUnlocked(payload, userInfo) {
     const oldTotal = oldBiaya + oldToll;
     const newTotal = newBiaya + newToll;
 
-    // Bila transaksi akhirnya ber-Flazz, perbarui kolom timestamp ke waktu edit ini.
-    // Ledger rekonsiliasi memilah transaksi berdasarkan timestamp (> used_at/penyerahan
-    // kartu). Tanpa ini, transaksi yang diubah jadi FLAZZ dari data lama (timestamp sebelum
-    // penyerahan) dianggap sudah masuk opening_balance sehingga tidak terhitung sebagai
-    // pengeluaran, membuat saldo sistem lebih tinggi dari saldo fisik.
-    if (isFlazz && idxStamp > -1) {
-      sheet.getRange(rowIndex, idxStamp + 1).setValue(new Date());
-    }
-
     if (wasFlazz && isFlazz) {
       if (oldCard === newCard) {
-        setCardBalance(newCard, (getCardBalance(newCard) || 0) + (oldTotal - newTotal));
+        const delta = oldTotal - newTotal;
+        if (delta !== 0) {
+          setCardBalance(newCard, (getCardBalance(newCard) || 0) + delta);
+          adjustActiveUsageOpening(newCard, delta);
+        }
       } else {
         setCardBalance(oldCard, (getCardBalance(oldCard) || 0) + oldTotal);
+        adjustActiveUsageOpening(oldCard, oldTotal);
         setCardBalance(newCard, (getCardBalance(newCard) || 0) - newTotal);
+        adjustActiveUsageOpening(newCard, -newTotal);
       }
     } else if (wasFlazz && !isFlazz) {
       setCardBalance(oldCard, (getCardBalance(oldCard) || 0) + oldTotal);
+      adjustActiveUsageOpening(oldCard, oldTotal);
     } else if (!wasFlazz && isFlazz) {
       setCardBalance(newCard, (getCardBalance(newCard) || 0) - newTotal);
+      // Bila kartu sudah punya usage aktif, samakan opening-nya; bila belum, autoCreate di
+      // bawah menciptakan usage dengan opening yang sudah terpotong.
+      adjustActiveUsageOpening(newCard, -newTotal);
     }
 
     // Jika transaksi menjadi FLAZZ (baru ber-Flazz, bukan koreksi atas yang sudah FLAZZ),
-    // ciptakan penyerahan kartu otomatis bila kartu belum sedang dipakai.
+    // ciptakan penyerahan kartu otomatis bila kartu belum sedang dipakai. used_at usage
+    // disamakan dgn timestamp laporan agar laporan tsb tetap dalam periode gate.
     if (isFlazz && shouldAutoCreateUsageOnEdit(wasFlazz, isFlazz)) {
-      try { autoCreateFlazzUsage(newCard, payload.nama_supir || (sheet.getRange(rowIndex, idxNama + 1).getValue()) , '', 'TRX', payload.transaction_id); }
+      let usedAt = null;
+      if (idxStamp > -1) { const v = sheet.getRange(rowIndex, idxStamp + 1).getValue(); if (v) usedAt = v; }
+      try { autoCreateFlazzUsage(newCard, payload.nama_supir || (sheet.getRange(rowIndex, idxNama + 1).getValue()), '', 'TRX', payload.transaction_id, usedAt || undefined); }
       catch (e) { Logger.log("autoCreateFlazzUsage gagal: " + e.toString()); }
     }
 

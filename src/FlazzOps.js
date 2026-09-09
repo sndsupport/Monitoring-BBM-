@@ -699,7 +699,9 @@ function hasCompliantFlazzLaporan(cardId, sinceDate, ss) {
       const raw = (stampIdx > -1) ? row[stampIdx] : null;
       const dt = (raw instanceof Date) ? raw : new Date(raw);
       if (raw === null || isNaN(dt.getTime())) continue;
-      if (dt.getTime() <= since) continue;
+      // Laporan dengan timestamp SAMA dengan used_at penyerahan ("laporan yang
+      // menciptakan penyerahannya sendiri") harus tetap dianggap periode berjalan.
+      if (dt.getTime() < since) continue;
     }
 
     const photoAwal = cFotoAwal > -1 ? String(row[cFotoAwal] || '').trim() : '';
