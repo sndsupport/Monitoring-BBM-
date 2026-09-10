@@ -109,6 +109,7 @@ eq(fTolMethod('', 'TUNAI', 'C'), 'FLAZZ', 'resolveTollMethod: metode tol kosong 
 eq(fTolMethod(undefined, 'TUNAI', ''), 'TUNAI', 'resolveTollMethod: BBM tunai + tanpa kartu tol -> TUNAI');
 eq(fTolMethod('FLAZZ', 'TUNAI', 'C'), 'FLAZZ', 'resolveTollMethod: metode eksplisit FLAZZ tetap diutamakan');
 eq(fTolMethod('TUNAI', 'FLAZZ', 'A'), 'TUNAI', 'resolveTollMethod: metode eksplisit TUNAI tetap diutamakan');
+eq(fTolMethod(undefined, 'TUNAI', '  '), 'TUNAI', 'resolveTollMethod: kartu tol whitespace-only tidak dianggap FLAZZ');
 
 console.log('==== HASIL: ' + passed + ' passed, ' + failed + ' failed ====');
 process.exit(failed === 0 ? 0 : 1);
