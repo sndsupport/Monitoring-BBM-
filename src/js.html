@@ -713,11 +713,12 @@ document.getElementById('page-login').style.display = 'flex';
     }
   }
 
-  function toggleBBM(value, btn) {
+  function toggleBBM(value) {
     document.getElementById('isi_bensin').value = value;
     document.getElementById('bbm-section').style.display = (value === 'Ya') ? 'block' : 'none';
-    btn.parentElement.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    document.querySelectorAll('#daily-form .toggle-group .toggle-btn').forEach(b => b.classList.remove('active'));
+    var activeBtn = document.querySelector('#daily-form .toggle-group button[data-bbm="' + value + '"]');
+    if (activeBtn) activeBtn.classList.add('active');
     if (value === 'Ya') {
       toggleFlazzCardSelection();
       var tolSec = document.getElementById('tol-section');
@@ -732,6 +733,14 @@ document.getElementById('page-login').style.display = 'flex';
       var tolFlazzSec = document.getElementById('tol-flazz-card-section');
       if (tolFlazzSec) tolFlazzSec.style.display = 'none';
     }
+  }
+
+  function syncBensinTersirat() {
+    var isi = document.getElementById('isi_bensin');
+    if (!isi) return;
+    var bb = document.getElementById('biaya_bbm') ? (parseFloat(document.getElementById('biaya_bbm').value) || 0) : 0;
+    var tt = document.getElementById('biaya_toll') ? (parseFloat(document.getElementById('biaya_toll').value) || 0) : 0;
+    isi.value = (bb > 0 || tt > 0) ? 'Ya' : 'Tidak';
   }
 
   function toggleFlazzCardSelection() {
@@ -776,10 +785,11 @@ document.getElementById('page-login').style.display = 'flex';
   function resetDailyForm() {
     document.getElementById('daily-form').reset();
     document.getElementById('isi_bensin').value = 'Tidak';
-    document.getElementById('bbm-section').style.display = 'none';
+    var bbmSec = document.getElementById('bbm-section');
+    if (bbmSec) bbmSec.style.display = 'block';
     document.getElementById('flazz-card-section').style.display = 'none';
     var tolSec = document.getElementById('tol-section');
-    if (tolSec) tolSec.style.display = 'none';
+    if (tolSec) tolSec.style.display = 'block';
     var tolFlazzSec = document.getElementById('tol-flazz-card-section');
     if (tolFlazzSec) tolFlazzSec.style.display = 'none';
 
@@ -800,9 +810,18 @@ document.getElementById('page-login').style.display = 'flex';
     var supirReset = document.getElementById('nama_supir');
     if (supirReset) supirReset.value = '';
 
-    document.querySelectorAll('#daily-form .toggle-group').forEach(group => {
-      group.querySelectorAll('.toggle-btn').forEach((b, idx) => b.classList.toggle('active', idx === 0));
-    });
+    var isiBensinReset = document.getElementById('isi_bensin');
+    if (isiBensinReset) isiBensinReset.value = 'Tidak';
+    var bbmSecReset = document.getElementById('bbm-section');
+    if (bbmSecReset) bbmSecReset.style.display = 'block';
+    var tolSecReset = document.getElementById('tol-section');
+    if (tolSecReset) tolSecReset.style.display = 'block';
+    var lanjutanCollapse = document.getElementById('lanjutan-collapse');
+    if (lanjutanCollapse) {
+      lanjutanCollapse.classList.remove('show');
+      var chevron = document.getElementById('lanjutan-chevron');
+      if (chevron) chevron.className = 'bi bi-chevron-down me-2';
+    }
 
     ['preview-awal', 'preview-akhir', 'preview-indikator'].forEach(id => {
       const p = document.getElementById(id);
@@ -817,14 +836,6 @@ document.getElementById('page-login').style.display = 'flex';
       const span = u.querySelector('span');
       if (span) span.textContent = 'Tap untuk upload foto';
     });
-    
-    // Kembalikan ke step 1
-    if (typeof updateStepIndicator === 'function') {
-      document.getElementById('step-1').style.display = 'block';
-      document.getElementById('step-2').style.display = 'none';
-      document.getElementById('step-3').style.display = 'none';
-      updateStepIndicator(1);
-    }
 
     document.getElementById('km_awal_val').value = '';
     document.getElementById('km_akhir_val').value = '';
@@ -872,9 +883,14 @@ document.getElementById('page-login').style.display = 'flex';
         if (ket) ket.value = p.keterangan || '';
         if (typeof toggleFlazzCardSelection === 'function') toggleFlazzCardSelection();
         if (typeof toggleTolFlazzCardSelection === 'function') toggleTolFlazzCardSelection();
-        if (p.biaya_bbm > 0 && document.getElementById('isi_bensin')) {
-          var yaBtn = document.querySelector('#daily-form .toggle-group button:nth-of-type(2)');
-          if (yaBtn) toggleBBM('Ya', yaBtn);
+        var isiPrefill = document.getElementById('isi_bensin');
+        if (isiPrefill) {
+          var biayaPrefill = p.biaya_bbm > 0 || p.biaya_toll > 0;
+          isiPrefill.value = biayaPrefill ? 'Ya' : 'Tidak';
+          var bbmSecPrefill = document.getElementById('bbm-section');
+          if (bbmSecPrefill) bbmSecPrefill.style.display = 'block';
+          var tolSecPrefill = document.getElementById('tol-section');
+          if (tolSecPrefill) tolSecPrefill.style.display = 'block';
         }
         if (typeof onVehicleChange === 'function') onVehicleChange();
       }).getLastLaporanPrefill(bbmToken());
