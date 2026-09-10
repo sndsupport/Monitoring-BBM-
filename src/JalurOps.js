@@ -65,6 +65,34 @@ function updateJalurStatus(jalurId, newStatus, laporanId) {
   }
 }
 
+// Lepas tautan laporan dari jalur pengiriman. Dipakai saat laporan harian dihapus atau
+// diedit (krit拉 lokasi berubah): laporan_id dikosongkan, dan jalur yang masih berstatus
+// SUDAH_LAPORAN dikembalikan ke BELUM_DIISI (laporan baru belum ada lagi). Jalur yang
+// sudah SELESAI (rekon kartu selesai) TIDAK diturunkan statusnya — hanya tautan laporan
+// yang dilepas agar kartu/rekon tetap aman.
+function releaseJalurReport(laporanId) {
+  try {
+    const sheet = jalurSheet();
+    if (!sheet || !laporanId || sheet.getLastRow() <= 1) return;
+    const idx = jalurColIdx(sheet);
+    const iLap = idx['laporan_id'];
+    const iStatus = idx['status'];
+    const iUpdated = idx['updated_at'];
+    if (iLap === undefined) return;
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][iLap] || '') !== String(laporanId)) continue;
+      sheet.getRange(i + 1, iLap + 1).setValue('');
+      if (iStatus !== undefined && String(data[i][iStatus]) === 'SUDAH_LAPORAN') {
+        sheet.getRange(i + 1, iStatus + 1).setValue('BELUM_DIISI');
+      }
+      if (iUpdated !== undefined) sheet.getRange(i + 1, iUpdated + 1).setValue(new Date());
+    }
+  } catch (e) {
+    Logger.log('releaseJalurReport error: ' + e.toString());
+  }
+}
+
 function findJalurByCriteria(criteria) {
   try {
     const sheet = jalurSheet();

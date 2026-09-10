@@ -388,17 +388,37 @@ function apiEditFlazzTopUp(payload, token) { return editFlazzTopUp(payload, requ
 function apiDeleteFlazzTopUp(id, token) { return deleteFlazzTopUp(id, requireUser(token)); }
 function apiEditFlazzTol(payload, token) { return editFlazzTol(payload, requireUser(token)); }
 function apiDeleteFlazzTol(id, token) { return deleteFlazzTol(id, requireUser(token)); }
-function apiDeleteFlazzBBM(transactionId, mode, token) { return deleteFlazzBBM(transactionId, mode, requireUser(token)); }
+function apiDeleteFlazzBBM(transactionId, mode, token) {
+  var user = requireUser(token);
+  var res = deleteFlazzBBM(transactionId, mode, user);
+  if (res && res.success) {
+    invalidatePerforma(user.role, user.cabang);
+    invalidateMaster(user.role, user.cabang);
+  }
+  return res;
+}
+function apiDeleteFlazzRecon(id, token) {
+  var user = requireUser(token);
+  var res = deleteFlazzRecon(id, user);
+  if (res && res.success) invalidateMaster('SUPERADMIN', '');
+  return res;
+}
 function apiEditDailyTransaction(payload, token) {
   var user = requireUser(token);
   var res = editDailyTransaction(payload, user);
-  if (res && res.success) invalidatePerforma(user.role, user.cabang);
+  if (res && res.success) {
+    invalidatePerforma(user.role, user.cabang);
+    invalidateMaster(user.role, user.cabang);
+  }
   return res;
 }
 function apiDeleteDailyTransaction(transactionId, token) {
   var user = requireUser(token);
   var res = deleteDailyTransaction(transactionId, user);
-  if (res && res.success) invalidatePerforma(user.role, user.cabang);
+  if (res && res.success) {
+    invalidatePerforma(user.role, user.cabang);
+    invalidateMaster(user.role, user.cabang);
+  }
   return res;
 }
 

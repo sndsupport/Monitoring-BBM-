@@ -818,7 +818,7 @@ function editDailyTransactionUnlocked(payload, userInfo) {
     const idxFotoAkhir = headers.indexOf('foto_km_akhir');
     const idxCabang = headers.indexOf('kode_cabang');
 
-    let rowIndex = -1, oldMetode = '', oldCard = null, oldBiaya = 0, oldToll = 0, vehicleId = '', oldCabang = '', oldTgl = '', oldMetodeToll = '', oldCardToll = null;
+    let rowIndex = -1, oldMetode = '', oldCard = null, oldBiaya = 0, oldToll = 0, vehicleId = '', oldCabang = '', oldTgl = '', oldMetodeToll = '', oldCardToll = null, oldNama = '';
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][idxTrx]) === String(payload.transaction_id)) {
         rowIndex = i + 1;
@@ -831,6 +831,7 @@ function editDailyTransactionUnlocked(payload, userInfo) {
         vehicleId = headers.indexOf('vehicle_id') > -1 ? String(data[i][headers.indexOf('vehicle_id')] || '') : '';
         oldCabang = idxCabang > -1 ? data[i][idxCabang] : '';
         oldTgl = idxTgl > -1 ? data[i][idxTgl] : '';
+        oldNama = idxNama > -1 ? String(data[i][idxNama] || '') : '';
         break;
       }
     }
@@ -1006,8 +1007,32 @@ function editDailyTransactionUnlocked(payload, userInfo) {
 
     const newCabang = oldCabang;
     const newTgl = (payload.tanggal !== undefined && payload.tanggal !== '') ? payload.tanggal : oldTgl;
+    if (idxTgl > -1 && String(newTgl) !== String(oldTgl)) {
+      sheet.getRange(rowIndex, idxTgl + 1).setValue(newTgl);
+    }
     try { recomputeMonthlySummary(oldCabang, periodKey(oldTgl)); } catch (e) { console.error('summary gagal: ' + e); }
     try { recomputeMonthlySummary(newCabang, periodKey(newTgl)); } catch (e) { console.error('summary gagal: ' + e); }
+
+    // Sync status jalur pengiriman setelah koreksi. Bila kriteria pembeda laporan
+    // (tanggal/supir) berubah, lepas tautan laporan dari jalur LAMA dulu, lalu tautkan
+    // kembali ke jalur yang cocok dengan nilai BARU (meniru perilaku saat save).
+    try {
+      const newNama = (payload.nama_supir !== undefined && payload.nama_supir !== null && String(payload.nama_supir) !== '')
+        ? String(payload.nama_supir) : oldNama;
+      const linkChanged = String(newTgl) !== String(oldTgl) || String(newNama) !== String(oldNama);
+      if (linkChanged && typeof releaseJalurReport === 'function') releaseJalurReport(payload.transaction_id);
+      const matchedJalur = findJalurByCriteria({
+        tanggal: newTgl,
+        vehicle_id: vehicleId,
+        nama_driver: newNama,
+        kode_cabang: newCabang
+      });
+      if (matchedJalur && matchedJalur.status !== 'SELESAI') {
+        updateJalurStatus(matchedJalur.id, 'SUDAH_LAPORAN', payload.transaction_id);
+      }
+    } catch (e) {
+      Logger.log('Gagal sync jalur saat edit laporan: ' + e.toString());
+    }
 
     logAudit(userInfo, 'EDIT', 'transaksi', payload.transaction_id,
       { metode_pembayaran: oldMetode, flazz_card_id: oldCard, biaya_bbm: oldBiaya, biaya_toll: oldToll, metode_toll: oldTollMethod, flazz_card_id_toll: oldTollCard },
@@ -1103,6 +1128,14 @@ function deleteDailyTransactionUnlocked(transactionId, userInfo) {
       catch (e) { Logger.log('returnFlazzUsageForRef gagal: ' + e.toString()); }
     });
     try { recomputeMonthlySummary(delCabang, periodKey(delTgl)); } catch (e) { console.error('summary gagal: ' + e); }
+
+    // Lepas tautan laporan yang dihapus dari jalur pengiriman (laporan_id dikosongkan,
+    // jalur SUDAH_LAPORAN kembali BELUM_DIISI; jalur SELESAI tetap, hanya tautan dilepas).
+    try {
+      if (typeof releaseJalurReport === 'function') releaseJalurReport(String(transactionId));
+    } catch (e) {
+      Logger.log('Gagal lepas jalur saat hapus laporan: ' + e.toString());
+    }
 
     logAudit(userInfo, 'DELETE', 'transaksi', transactionId, {
       metode_pembayaran: delPayState.metodeBbm,

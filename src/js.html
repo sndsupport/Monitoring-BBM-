@@ -1675,6 +1675,15 @@
     let row = (window.__recent || []).find(r => String(r.transaction_id) === String(id));
     if(!row) return showToast('Data tidak ditemukan', 'error');
     document.getElementById('ed_trx').value = row.transaction_id;
+    let edTgl = document.getElementById('ed_tanggal');
+    if (edTgl) {
+      let d = row.timestamp ? new Date(row.timestamp) : null;
+      if (d && !isNaN(d.getTime())) {
+        edTgl.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      } else {
+        edTgl.value = '';
+      }
+    }
     document.getElementById('ed_nama_supir').value = row.supir || '';
     document.getElementById('ed_km_awal').value = row.km_awal || '';
     document.getElementById('ed_km_akhir').value = row.km_akhir || '';
@@ -1769,6 +1778,7 @@
     e.preventDefault();
     let payload = {
       transaction_id: document.getElementById('ed_trx').value,
+      tanggal: document.getElementById('ed_tanggal') ? document.getElementById('ed_tanggal').value : '',
       nama_supir: document.getElementById('ed_nama_supir').value,
       km_awal: document.getElementById('ed_km_awal').value,
       km_akhir: document.getElementById('ed_km_akhir').value,

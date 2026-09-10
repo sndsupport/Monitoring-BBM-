@@ -942,6 +942,220 @@ function saveFlazzReconUnlocked(payload) {
   }
 }
 
+// Tambahkan kolom is_deleted di Flazz_Reconciliation bila belum ada (migrasi aman).
+// Membuat penghapusan rekon bersifat soft-delete agar jejak audit tetap tersimpan.
+function ensureFlazzReconIsDeletedColumn() {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('Flazz_Reconciliation');
+  if (!sheet) return;
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  if (headers.indexOf('is_deleted') === -1) {
+    sheet.getRange(1, sheet.getLastColumn() + 1).setValue('is_deleted');
+  }
+}
+
+// Hapus Rekonsiliasi Flazz (SUPERADMIN only, soft-delete + balikkan semua).
+// Hanya rekon TERAKHIR untuk kartu yang boleh dihapus, dan ditolak bila ada aktivitas
+// Flazz baru setelah rekon (laporan BBM/tol ber-Flazz, top up, atau penyerahan baru).
+// Efek rekon dibalikkan penuh: saldo kartu ke opening_balance, status SEDANG_DIGUNAKAN,
+// usage DIKEMBALIKAN kembali DIBERIKAN, jalur SELESAI kembali SUDAH_LAPORAN.
+function deleteFlazzRecon(id, userInfo) {
+  return withLock('flazz-del-recon', function() {
+    return deleteFlazzReconUnlocked(id, userInfo);
+  });
+}
+
+function deleteFlazzReconUnlocked(id, userInfo) {
+  try {
+    if (!userInfo || userInfo.role !== 'SUPERADMIN') {
+      throw new Error('Akses ditolak: hanya SUPERADMIN yang dapat menghapus rekonsiliasi.');
+    }
+
+    const ss = getDB();
+    const sheet = ss.getSheetByName('Flazz_Reconciliation');
+    const cardSheet = ss.getSheetByName('Flazz_Card');
+    if (!sheet || !cardSheet) throw new Error('Sheet Flazz tidak lengkap.');
+
+    ensureFlazzReconIsDeletedColumn();
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idxId = headers.indexOf('id');
+    const idxDate = headers.indexOf('date');
+    const idxCard = headers.indexOf('card_id');
+    const idxOpening = headers.indexOf('opening_balance');
+    const idxReconAt = headers.indexOf('reconciled_at');
+    const idxDel = headers.indexOf('is_deleted');
+
+    let rowIndex = -1, recon = null;
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][idxId]) === String(id)) { rowIndex = i + 1; recon = data[i]; break; }
+    }
+    if (rowIndex === -1 || !recon) throw new Error('Rekonsiliasi tidak ditemukan.');
+    const cardId = String(recon[idxCard] || '');
+    if (!cardId) throw new Error('Kartu pada rekonsiliasi tidak valid.');
+
+    assertFlazzAccess(userInfo, flazzCardBranch(cardId));
+
+    const tsOf = function(v) {
+      if (v instanceof Date && !isNaN(v.getTime())) return v.getTime();
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? null : d.getTime();
+    };
+    const reconciledTs = tsOf(recon[idxReconAt]) || tsOf(recon[idxDate]);
+    if (reconciledTs === null) throw new Error('Waktu rekonsiliasi tidak valid.');
+
+    // Validasi 1: harus rekon TERAKHIR untuk kartu (tidak ada rekon lain lebih baru/berikutnya).
+    for (let i = 1; i < data.length; i++) {
+      if (i + 1 === rowIndex) continue;
+      if (String(data[i][idxCard]) !== cardId) continue;
+      if (idxDel > -1 && String(data[i][idxDel] || '') === '1') continue;
+      const otherTs = tsOf(idxReconAt > -1 ? data[i][idxReconAt] : null) || tsOf(data[i][idxDate]);
+      if (otherTs !== null && otherTs > reconciledTs) {
+        throw new Error('Hanya baris rekonsiliasi TERAKHIR untuk kartu ini yang dapat dihapus.');
+      }
+    }
+
+    // Validasi 2: tidak boleh ada aktivitas Flazz baru setelah waktu rekonsiliasi.
+    const sinceTs = reconciledTs;
+
+    const bbmSheet = ss.getSheetByName('Penggunaan_BBM');
+    if (bbmSheet && bbmSheet.getLastRow() > 1) {
+      const bData = bbmSheet.getDataRange().getValues();
+      const bH = bData[0];
+      const bMetode = bH.indexOf('metode_pembayaran');
+      const bCard = bH.indexOf('flazz_card_id');
+      const bMetodeToll = bH.indexOf('metode_toll');
+      const bCardToll = bH.indexOf('flazz_card_id_toll');
+      const bStamp = bH.indexOf('timestamp');
+      for (let i = 1; i < bData.length; i++) {
+        const row = bData[i];
+        const stamp = tsOf(bStamp > -1 ? row[bStamp] : null);
+        if (stamp === null || stamp <= sinceTs) continue;
+        const bbmMethod = bMetode > -1 ? row[bMetode] : '';
+        const tollMethod = (typeof resolveTollMethod === 'function')
+          ? resolveTollMethod(bMetodeToll > -1 ? row[bMetodeToll] : '', bbmMethod, bCardToll > -1 ? row[bCardToll] : '') : '';
+        const bbmCard = String(row[bCard] || '');
+        const tollCard = (tollMethod === 'FLAZZ' && bCardToll > -1) ? String(row[bCardToll] || '') : '';
+        const same = function(a) { return a && (typeof canonicalCardId === 'function' ? canonicalCardId(a) === canonicalCardId(cardId) : String(a) === cardId); };
+        if (bbmMethod === 'FLAZZ' && same(bbmCard)) {
+          throw new Error('Ada laporan BBM ber-Flazz baru setelah rekonsiliasi ini. Batalkan aktivitas tersebut atau buat rekonsiliasi baru.');
+        }
+        if (tollMethod === 'FLAZZ' && same(tollCard)) {
+          throw new Error('Ada laporan tol ber-Flazz baru setelah rekonsiliasi ini. Batalkan aktivitas tersebut atau buat rekonsiliasi baru.');
+        }
+      }
+    }
+
+    const topSheet = ss.getSheetByName('Flazz_TopUp');
+    if (topSheet && topSheet.getLastRow() > 1) {
+      const tData = topSheet.getDataRange().getValues();
+      const tH = tData[0];
+      const tCard = tH.indexOf('card_id');
+      const tDate = tH.indexOf('created_at') > -1 ? tH.indexOf('created_at') : tH.indexOf('date');
+      const tDel = tH.indexOf('is_deleted');
+      for (let i = 1; i < tData.length; i++) {
+        if (String(tData[i][tCard]) !== cardId) continue;
+        if (tDel > -1 && String(tData[i][tDel] || '') === '1') continue;
+        const d = tsOf(tDate > -1 ? tData[i][tDate] : null);
+        if (d !== null && d > sinceTs) {
+          throw new Error('Ada Top Up baru setelah rekonsiliasi ini. Hapus/dibatalkan terlebih dahulu.');
+        }
+      }
+    }
+
+    const usageSheet = ss.getSheetByName('Flazz_Usage');
+    if (usageSheet && usageSheet.getLastRow() > 1) {
+      const uData = usageSheet.getDataRange().getValues();
+      const uH = uData[0];
+      const uCard = uH.indexOf('card_id');
+      const uStatus = uH.indexOf('status');
+      const uUsed = uH.indexOf('used_at');
+      for (let i = 1; i < uData.length; i++) {
+        if (String(uData[i][uCard]) !== cardId) continue;
+        if (uStatus > -1 && String(uData[i][uStatus]) === 'DIBERIKAN') {
+          const d = tsOf(uUsed > -1 ? uData[i][uUsed] : null);
+          if (d !== null && d > sinceTs) {
+            throw new Error('Kartu sudah diserahkan lagi setelah rekonsiliasi ini (DIBERIKAN baru). Selesaikan penggunaan tersebut terlebih dahulu.');
+          }
+        }
+      }
+    }
+
+    // Balikkan usage yang ditutup rekon: DIKEMBALIKAN -> DIBERIKAN, returned_at dikosongkan.
+    // Karena hanya rekon TERAKHIR yang boleh dihapus dan tidak ada aktivitas baru setelahnya,
+    // usage yang ditutup rekon ini adalah baris DIKEMBALIKAN terakhir untuk kartu (paling bawah)
+    // dengan returned_at <= waktu rekonsiliasi.
+    let matchedUsage = null;
+    if (usageSheet && usageSheet.getLastRow() > 1) {
+      const uData = usageSheet.getDataRange().getValues();
+      const uH = uData[0];
+      const uCard = uH.indexOf('card_id');
+      const uStatus = uH.indexOf('status');
+      const uReturned = uH.indexOf('returned_at');
+      const uDriver = uH.indexOf('driver_id');
+      const uVehicle = uH.indexOf('vehicle_id');
+      const uDate = uH.indexOf('date');
+      let useIdx = null;
+      for (let i = 1; i < uData.length; i++) {
+        if (String(uData[i][uCard]) !== cardId) continue;
+        if (uStatus > -1 && String(uData[i][uStatus]) === 'DIKEMBALIKAN') {
+          const r = tsOf(uReturned > -1 ? uData[i][uReturned] : null);
+          if (r === null || r <= reconciledTs) {
+            useIdx = i + 1;
+            matchedUsage = {
+              driver: uDriver > -1 ? String(uData[i][uDriver] || '') : '',
+              vehicle: uVehicle > -1 ? String(uData[i][uVehicle] || '') : '',
+              date: uDate > -1 ? uData[i][uDate] : null
+            };
+          }
+        }
+      }
+      if (useIdx !== null) {
+        if (uStatus > -1) usageSheet.getRange(useIdx, uStatus + 1).setValue('DIBERIKAN');
+        if (uReturned > -1) usageSheet.getRange(useIdx, uReturned + 1).setValue('');
+      }
+    }
+
+    // Soft-delete baris rekon
+    if (idxDel > -1) sheet.getRange(rowIndex, idxDel + 1).setValue('1');
+
+    // Kembalikan master kartu: saldo ke opening_balance rekon, status SEDANG_DIGUNAKAN
+    // (kartu dianggap masih dipegang supir), pemegang -> driver usage yang dibalik.
+    const found = findFlazzCardRow(cardSheet, cardId);
+    const opening = parseFloat(recon[idxOpening]) || 0;
+    if (found && found.colIdx.BALANCE !== undefined) {
+      cardSheet.getRange(found.rowIndex, found.colIdx.BALANCE + 1).setValue(opening);
+    }
+    if (found && found.colIdx.STATUS !== undefined) {
+      cardSheet.getRange(found.rowIndex, found.colIdx.STATUS + 1).setValue('SEDANG_DIGUNAKAN');
+    }
+    if (found && found.colIdx.DRIVER !== undefined) {
+      cardSheet.getRange(found.rowIndex, found.colIdx.DRIVER + 1).setValue(matchedUsage ? matchedUsage.driver : '');
+    }
+    if (found && found.colIdx.UPDATED !== undefined) {
+      cardSheet.getRange(found.rowIndex, found.colIdx.UPDATED + 1).setValue(new Date());
+    }
+
+    // Kembalikan status jalur pengiriman terkait kartu: SELESAI -> SUDAH_LAPORAN (laporan tetap ada).
+    try {
+      const jalurMatch = findJalurByCriteria({ flazz_card_id: cardId });
+      const usageTgl = (matchedUsage && matchedUsage.date instanceof Date)
+        ? Utilities.formatDate(matchedUsage.date, getDB().getSpreadsheetTimeZone(), 'yyyy-MM-dd')
+        : (matchedUsage && matchedUsage.date ? String(matchedUsage.date).substring(0, 10) : '');
+      if (jalurMatch && jalurMatch.status === 'SELESAI' && (!usageTgl || !jalurMatch.tanggalJalur || jalurMatch.tanggalJalur === usageTgl)) {
+        updateJalurStatus(jalurMatch.id, 'SUDAH_LAPORAN', '');
+      }
+    } catch (e) {
+      Logger.log('Gagal update status jalur dari hapus rekon: ' + e.toString());
+    }
+
+    logAudit(userInfo, 'DELETE', 'flazz', 'Recon ' + id, { id: id, card_id: cardId, reconciliation_status: recon[headers.indexOf('reconciliation_status')] }, null);
+    return { success: true, msg: 'Rekonsiliasi dihapus. Saldo kartu dikembalikan ke saldo awal dan status kartu jadi SEDANG_DIGUNAKAN.' };
+  } catch (err) {
+    return { success: false, msg: err.message };
+  }
+}
+
 // Assign/Usage Flazz (Berikan ke Supir)
 function saveFlazzUsage(payload) {
   return withLock('flazz-usage', function() {
@@ -1173,7 +1387,7 @@ function getFlazzDashboardData(userRole, cabangId) {
   let usages = getSheetData('Flazz_Usage').map(function(u) { return Object.assign({}, u, { card_id: normalizeCardId(u.card_id) }); })
     .filter(function(u) { return inCards(u.card_id); });
   let recons = getSheetData('Flazz_Reconciliation').map(function(r) { return Object.assign({}, r, { card_id: normalizeCardId(r.card_id) }); })
-    .filter(function(r) { return inCards(r.card_id); });
+    .filter(function(r) { return inCards(r.card_id) && String(r.is_deleted || '') !== '1'; });
 
   // Ambil history pemotongan BBM dari Penggunaan_BBM jika perlu, tapi kita cuma baca yang flazz
   let bbmSheet = ss.getSheetByName('Penggunaan_BBM');
@@ -1405,6 +1619,9 @@ function deleteFlazzBBMUnlocked(transactionId, mode, userInfo) {
       sheet.deleteRow(rowIndex);
       // Ringkasan bulanan harus dihitung ulang karena baris transaksi terhapus
       try { recomputeMonthlySummary(delCabang, periodKey(delTgl)); } catch (e) { console.error('summary gagal: ' + e); }
+      // Lepas tautan laporan yang dihapus dari jalur pengiriman.
+      try { if (typeof releaseJalurReport === 'function') releaseJalurReport(String(transactionId)); }
+      catch (e) { Logger.log('Gagal lepas jalur saat hapus transaksi Flazz: ' + e.toString()); }
     }
 
     involvedCards.forEach(function(cardId) {

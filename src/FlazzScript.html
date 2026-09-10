@@ -736,6 +736,9 @@ function renderHistSection(type) {
     } else if (type === 'recon') {
       let cardStr = data.cards.find(c => c.id === t.card_id)?.card_number || t.card_id;
       let statClass = t.reconciliation_status === 'SESUAI' ? 'bg-success' : 'bg-danger';
+      let aksi = (typeof userRole !== 'undefined' && userRole === 'SUPERADMIN')
+        ? `<button class="btn btn-sm btn-outline-danger" title="Hapus rekonsiliasi" aria-label="Hapus rekonsiliasi" onclick="deleteRecon('${esc(t.id)}')"><i class="bi bi-trash"></i></button>`
+        : '';
       tbody.innerHTML += `<tr>
         <td>${formatDateShort(t.date)}</td>
         <td>${esc(cardStr)}</td>
@@ -750,6 +753,7 @@ function renderHistSection(type) {
         <td>${esc(t.notes || '')}</td>
         <td>${esc(t.reconciled_by || '')}</td>
         <td>${t.reconciled_at ? formatDateShort(t.reconciled_at) : '-'}</td>
+        <td class="text-end text-nowrap">${aksi}</td>
       </tr>`;
     }
   });
@@ -876,6 +880,14 @@ function deleteTol(id) {
     if(res.success){ showToast(res.msg, 'success'); loadFlazzDataWrapper(true); }
     else showToast(res.msg, 'error');
   }).withFailureHandler(flazzFailHandler('Menghapus tol', [])).apiDeleteFlazzTol(id, bbmToken());
+}
+function deleteRecon(id) {
+  if(typeof userRole === 'undefined' || userRole !== 'SUPERADMIN'){ showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
+  if(!confirm('Yakin menghapus rekonsiliasi ini?\n\nSaldo kartu akan DIKEMBALIKAN ke saldo awal, status kartu jadi SEDANG_DIGUNAKAN, dan jalur pengiriman kembali SUDAH_LAPORAN.\n\nCatatan: hanya rekon TERAKHIR per kartu yang bisa dihapus, dan tidak boleh ada aktivitas Flazz baru setelah rekon ini.')) return;
+  google.script.run.withSuccessHandler(res => {
+    if(res.success){ showToast(res.msg, 'success'); loadFlazzDataWrapper(true); }
+    else showToast(res.msg, 'error');
+  }).withFailureHandler(flazzFailHandler('Menghapus rekonsiliasi', [])).apiDeleteFlazzRecon(id, bbmToken());
 }
 function deleteBBMFlazz(trxId) {
   if(!confirm('Lepas transaksi BBM ini dari Flazz? Laporan harian tetap tersimpan, saldo kartu dikembalikan.')) return;
