@@ -42,7 +42,7 @@
        userInfo = storedUser;
        loadInitialData(userInfo);
     } else {
-       document.getElementById('page-login').style.display = 'block';
+document.getElementById('page-login').style.display = 'flex';
        var loginUserInput = document.getElementById('login_username');
        if (loginUserInput) loginUserInput.focus();
     }
@@ -116,7 +116,7 @@
     document.getElementById('main-app').style.display = 'none';
     var bottomNav = document.getElementById('bottom-nav');
     if (bottomNav) bottomNav.style.display = 'none';
-    document.getElementById('page-login').style.display = 'block';
+    document.getElementById('page-login').style.display = 'flex';
     document.getElementById('page-form').style.display = 'none';
     document.getElementById('page-dashboard').style.display = 'none';
     document.getElementById('page-dashboard-history').style.display = 'none';
@@ -382,6 +382,17 @@
             if (settings.footer_text !== '') {
               footerText.innerText = settings.footer_text;
               footer.style.display = 'block';
+            }
+          }
+          var loginFooter = document.getElementById('login-footer');
+          if (loginFooter) {
+            if (settings.footer_text !== '') {
+              loginFooter.innerText = settings.footer_text;
+            } else {
+              var companyText = settings.company_name
+                ? '© ' + new Date().getFullYear() + ' ' + settings.company_name
+                : '';
+              if (companyText) loginFooter.innerText = companyText;
             }
           }
         }
