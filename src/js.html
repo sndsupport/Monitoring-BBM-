@@ -48,6 +48,13 @@
     }
   });
 
+  document.addEventListener('DOMContentLoaded', function() {
+    var cardTolSelect = document.getElementById('flazz_card_id_toll');
+    if (cardTolSelect) {
+      cardTolSelect.addEventListener('change', onTolCardSelect);
+    }
+  });
+
   var btnTogglePw = document.getElementById('btn-toggle-pw');
   var pwInput = document.getElementById('login_password');
   if (btnTogglePw && pwInput) {
@@ -730,6 +737,15 @@
     if (tolFlazzSec) tolFlazzSec.style.display = isFlazzTol ? 'block' : 'none';
   }
 
+  function onTolCardSelect() {
+    var cardSelect = document.getElementById('flazz_card_id_toll');
+    var metodeTol = document.getElementById('metode_toll');
+    if (cardSelect && cardSelect.value && metodeTol && metodeTol.value !== 'FLAZZ') {
+      metodeTol.value = 'FLAZZ';
+      toggleTolFlazzCardSelection();
+    }
+  }
+
   function resetTolFields() {
     var t = document.getElementById('biaya_toll');
     if (t) t.value = '';
@@ -925,7 +941,10 @@
       return;
     }
     
+    let isiBensinVal = document.getElementById('isi_bensin') ? document.getElementById('isi_bensin').value : 'Ya';
+    let biaya_bbmSubmit = document.getElementById('biaya_bbm') ? (parseFloat(document.getElementById('biaya_bbm').value) || 0) : 0;
     let metode_pembayaran = document.getElementById('metode_pembayaran') ? document.getElementById('metode_pembayaran').value : 'TUNAI';
+    if (isiBensinVal !== 'Ya' || biaya_bbmSubmit <= 0) metode_pembayaran = '';
     let flazz_card_id = document.getElementById('flazz_card_id') ? document.getElementById('flazz_card_id').value : '';
     let metode_toll = document.getElementById('metode_toll') ? document.getElementById('metode_toll').value : 'TUNAI';
     let flazz_card_id_toll = document.getElementById('flazz_card_id_toll') ? document.getElementById('flazz_card_id_toll').value : '';
@@ -1756,7 +1775,7 @@
       biaya_bbm: document.getElementById('ed_biaya').value,
       biaya_toll: document.getElementById('ed_biaya_toll') ? document.getElementById('ed_biaya_toll').value : 0,
       liter_bbm: document.getElementById('ed_liter').value,
-      metode_pembayaran: document.getElementById('ed_metode').value,
+      metode_pembayaran: ((parseFloat(document.getElementById('ed_biaya').value) || 0) > 0 || document.getElementById('ed_metode').value === 'FLAZZ') ? document.getElementById('ed_metode').value : '',
       flazz_card_id: document.getElementById('ed_metode').value === 'FLAZZ' ? document.getElementById('ed_flazz_card_id').value : '',
       metode_toll: document.getElementById('ed_metode_toll') ? document.getElementById('ed_metode_toll').value : 'TUNAI',
       flazz_card_id_toll: (document.getElementById('ed_metode_toll') && document.getElementById('ed_metode_toll').value === 'FLAZZ') ? (document.getElementById('ed_flazz_card_id_toll') ? document.getElementById('ed_flazz_card_id_toll').value : '') : ''
