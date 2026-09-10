@@ -1004,6 +1004,13 @@ function renderFlazzListing() {
   }
 }
 
+function flazzReconTs(r) {
+  if (!r) return 0;
+  if (r.reconciled_at) { const t = new Date(r.reconciled_at).getTime(); if (!isNaN(t)) return t; }
+  const d = new Date(r.date);
+  return isNaN(d.getTime()) ? 0 : d.getTime();
+}
+
 function renderFlazzListingTable() {
   if (!__flazzListingData) return;
   let data = __flazzListingData;
@@ -1062,20 +1069,46 @@ function renderFlazzListingTable() {
     let cardRecons = (data.recons || []).filter(r =>
       r.card_id === cardId && inRange(r.date, start, end)
     );
-    cardRecons.sort(function(a, b) { return localDateKey(a.date) < localDateKey(b.date) ? -1 : 1; });
-    let saldoAwal = totalExpense > 0 || totalTopup > 0 || cardRecons.length > 0
-      ? (cardRecons.length > 0 ? (parseFloat(cardRecons[0].opening_balance) || 0) : (lastBal + totalExpense - totalTopup))
-      : 0;
-    let saldoAkhir = cardRecons.length > 0
-      ? (parseFloat(cardRecons[cardRecons.length - 1].flazz_balance) || lastBal)
-      : lastBal;
+    cardRecons.sort(function(a, b) { return flazzReconTs(a) - flazzReconTs(b); });
+
+    // Bila ada rekonsiliasi dalam rentang, saldo akhir = saldo rekonsiliasi TERAKHIR yang
+    // ditambah aktivitas dalam rentang yang tercatat SETELAH rekonsiliasi itu (belum
+    // direkonsiliasi). Tanpa penyesuaian ini pengeluaran setelah rekonsiliasi terakhir
+    // diabaikan sehingga saldo awal jadi sama dengan saldo akhir.
+    let saldoAwal;
+    let saldoAkhir;
+    if (cardRecons.length > 0) {
+      const lastRecon = cardRecons[cardRecons.length - 1];
+      // Aktivitas "ekor" = yang TERCATAT (timestamp) setelah momen rekonsiliasi terakhir.
+      // Perbandingan memakai timestamp, bukan tanggal, agar transaksi di hari yang sama
+      // setelah rekonsiliasi tetap dihitung (mis. rekonsiliasi pagi, laporan tol siang).
+      const lastReconTs = (lastRecon.reconciled_at)
+        ? new Date(lastRecon.reconciled_at).getTime()
+        : (lastRecon.date ? new Date(lastRecon.date).getTime() : 0);
+      const afterLastRecon = function(v) {
+        const t = new Date(v);
+        if (isNaN(t.getTime())) return false;
+        return t.getTime() > lastReconTs;
+      };
+      let tailTopup = 0, tailExpense = 0;
+      dayTopups.forEach(function(t) { if (afterLastRecon(t.created_at || t.date)) tailTopup += parseFloat(t.amount) || 0; });
+      dayTols.forEach(function(t) { if (afterLastRecon(t.created_at || t.date)) tailExpense += parseFloat(t.amount) || 0; });
+      dayBbm.forEach(function(b) { if (afterLastRecon(b.timestamp || b.tanggal)) tailExpense += (parseFloat(b.amount) || 0) + (parseFloat(b.toll_amount) || 0); });
+      // Saldo awal = opening rekon TERAKHIR dalam rentang (carry-forward dari rekon
+      // sebelumnya), bukan rekon pertama, agar saldo awal tidak "kembali" ke nilai lama.
+      saldoAwal = parseFloat(lastRecon.opening_balance) || 0;
+      saldoAkhir = (parseFloat(lastRecon.flazz_balance) || lastBal) + tailTopup - tailExpense;
+    } else {
+      saldoAwal = (totalExpense > 0 || totalTopup > 0) ? (lastBal + totalExpense - totalTopup) : 0;
+      saldoAkhir = lastBal;
+    }
 
     let tr = document.createElement('tr');
     let statusBadgeCls = c.status === 'SEDANG_DIGUNAKAN' ? 'bg-warning' : (c.status === 'TERSEDIA' ? 'bg-success' : 'bg-secondary');
     tr.innerHTML = `
       <td class='text-center text-muted'>${idx + 1}</td>
       <td>
-        <a href='#' class='fw-bold text-primary text-decoration-underline' onclick="showFlazzDetailModal(${JSON.stringify(cardId)}); return false;">
+        <a href='#' class='fw-bold text-primary text-decoration-underline' onclick='showFlazzDetailModal(${JSON.stringify(cardId)}); return false;'>
           ${esc(c.card_number)}
         </a>
       </td>
@@ -1280,19 +1313,32 @@ function printFlazzA4() {
   let periodTols = (data.tolHistory || []).filter(t => t.card_id === card.id && inRange(t.date, start, end));
   let periodBbm = (data.bbmFlazz || []).filter(b => b.card_id === card.id && inRange(b.tanggal || b.timestamp, start, end));
   let periodRecons = (data.recons || []).filter(r => r.card_id === card.id && inRange(r.date, start, end));
-  periodRecons.sort(function(a, b) { return localDateKey(a.date) < localDateKey(b.date) ? -1 : 1; });
+  periodRecons.sort(function(a, b) { return flazzReconTs(a) - flazzReconTs(b); });
 
   let totalTopup = periodTopups.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
   let totalTol = periodTols.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
   let totalBbm = periodBbm.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
   let totalExpense = totalTol + totalBbm;
 
+  // Saldo awal periode = opening rekon TERAKHIR dalam rentang (carry-forward),
+  // bukan rekon pertama.
   let saldoAwal = periodRecons.length > 0
-    ? (parseFloat(periodRecons[0].opening_balance) || 0)
+    ? (parseFloat(periodRecons[periodRecons.length - 1].opening_balance) || 0)
     : (lastBal + totalExpense - totalTopup);
-  let saldoAkhir = periodRecons.length > 0
-    ? (parseFloat(periodRecons[periodRecons.length - 1].flazz_balance) || lastBal)
-    : lastBal;
+  let saldoAkhir = lastBal;
+  if (periodRecons.length > 0) {
+    const lastRecon = periodRecons[periodRecons.length - 1];
+    const lastReconTs = flazzReconTs(lastRecon);
+    const afterLastRecon = function(v) {
+      const t = new Date(v);
+      return !isNaN(t.getTime()) && t.getTime() > lastReconTs;
+    };
+    let tailTopup = 0, tailExpense = 0;
+    periodTopups.forEach(function(t) { if (afterLastRecon(t.created_at || t.date)) tailTopup += parseFloat(t.amount) || 0; });
+    periodTols.forEach(function(t) { if (afterLastRecon(t.date)) tailExpense += parseFloat(t.amount) || 0; });
+    periodBbm.forEach(function(b) { if (afterLastRecon(b.timestamp || b.tanggal)) tailExpense += (parseFloat(b.amount) || 0) + (parseFloat(b.toll_amount) || 0); });
+    saldoAkhir = (parseFloat(lastRecon.flazz_balance) || lastBal) + tailTopup - tailExpense;
+  }
 
   printHtml += '<div class="summary-box">';
   printHtml += '<div class="summary-row"><span>Saldo Awal Periode</span><span>' + formatCurrency(saldoAwal) + '</span></div>';
