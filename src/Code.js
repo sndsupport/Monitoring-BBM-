@@ -153,8 +153,8 @@ function getLastLaporanPrefill(token) {
         liter_bbm: parseFloat(row[18]) || 0,
         metode_pembayaran: row[27] || 'TUNAI',
         flazz_card_id: typeof resolveCanonicalCardId === 'function' ? resolveCanonicalCardId(row[28]) : (row[28] || ''),
-        metode_toll: resolveTollMethod(row[35], row[27]),
-        flazz_card_id_toll: typeof resolveCanonicalCardId === 'function' ? resolveCanonicalCardId(resolveTollCard(row[36], resolveTollMethod(row[35], row[27]), row[27], row[28])) : resolveTollCard(row[36], resolveTollMethod(row[35], row[27]), row[27], row[28]),
+        metode_toll: resolveTollMethod(row[35], row[27], row[36]),
+        flazz_card_id_toll: typeof resolveCanonicalCardId === 'function' ? resolveCanonicalCardId(resolveTollCard(row[36], resolveTollMethod(row[35], row[27], row[36]), row[27], row[28])) : resolveTollCard(row[36], resolveTollMethod(row[35], row[27], row[36]), row[27], row[28]),
         keterangan: row[33] || ''
       }};
     }
@@ -621,4 +621,93 @@ function cleanupOrphanPhotos() {
   }
 
   return { cleaned: cleaned, message: cleaned + ' kolom foto orphan dibersihkan dari sheet' };
+}
+
+// ==========================================
+// DIAGNOSTIK (sementara) — dump jejak sebuah kartu Flazz untuk debugging.
+// Jalankan dari editor Apps Script: debugFlazzCard("0145 0082 0168 3827")
+// lalu salin output dari tab "Execution log". Dibaca di: Code.js.
+// ==========================================
+function debugFlazzCard(input) {
+  const ss = getDB();
+  const key = String(input || '').trim();
+  const keyDig = key.replace(/[^0-9]/g, '');
+
+  function FMT(v) {
+    if (v instanceof Date) return v.toISOString();
+    return String(v == null ? '' : v);
+  }
+
+  if (!key) {
+    Logger.log('=== DAFTAR KARTU FLAZZ (input kosong, tampilkan semua) ===');
+    const cs = ss.getSheetByName('Flazz_Card');
+    if (cs) {
+      const cd = cs.getDataRange().getValues();
+      const ch = cd[0];
+      const iId = ch.indexOf('id'), iNum = ch.indexOf('card_number'), iName = ch.indexOf('card_name'),
+            iSt = ch.indexOf('status'), iBal = ch.indexOf('balance'), iDrv = ch.indexOf('driver_id');
+      for (let i = 1; i < cd.length; i++) {
+        Logger.log('KARTU R' + (i + 1) + ': id=' + FMT(cd[i][iId]) + ' | no=' + FMT(cd[i][iNum]) +
+          ' | ' + FMT(cd[i][iName]) + ' | ' + FMT(cd[i][iSt]) + ' | saldo=' + FMT(cd[i][iBal]) +
+          ' | supir=' + FMT(cd[i][iDrv]));
+      }
+    }
+    return { done: true, card: key };
+  }
+  function dumpSheet(sheetName, matchCols, maxRows) {
+    const sheet = ss.getSheetByName(sheetName);
+    if (!sheet) { Logger.log('--- ' + sheetName + ': sheet tidak ada'); return; }
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) { Logger.log('--- ' + sheetName + ': kosong'); return; }
+    const headers = data[0];
+    const cols = matchCols.map(function(c) { return headers.indexOf(c); });
+    let shown = 0;
+    for (let i = data.length - 1; i >= 1 && shown < (maxRows || 15); i--) {
+      const row = data[i];
+      let hit = false;
+      for (let j = 0; j < cols.length; j++) {
+        if (cols[j] > -1) {
+          const dig = String(row[cols[j]] || '').replace(/[^0-9]/g, '');
+          if (String(row[cols[j]] || '') === key || (keyDig && dig === keyDig)) hit = true;
+        }
+      }
+      if (!hit) continue;
+      shown++;
+      const out = {};
+      for (let j = 0; j < headers.length; j++) out[headers[j]] = FMT(row[j]);
+      Logger.log(sheetName + ' R' + (i + 1) + ': ' + JSON.stringify(out));
+    }
+    if (shown === 0) Logger.log('--- ' + sheetName + ': tidak ada baris cocok');
+  }
+
+  Logger.log('=== DEBUG FLAZZ CARD: ' + key + ' ===');
+
+  const cardSheet = ss.getSheetByName('Flazz_Card');
+  if (cardSheet) {
+    const cd = cardSheet.getDataRange().getValues();
+    const ch = cd[0];
+    const iId = ch.indexOf('id');
+    const iNum = ch.indexOf('card_number');
+    let found = false;
+    for (let i = 1; i < cd.length; i++) {
+      const idDig = String(cd[i][iId] || '').replace(/[^0-9]/g, '');
+      const numDig = String(cd[i][iNum] || '').replace(/[^0-9]/g, '');
+      if ((key && String(cd[i][iId] || '') === key) || (keyDig && (idDig === keyDig || numDig === keyDig))) {
+        const out = {};
+        for (let j = 0; j < ch.length; j++) out[ch[j]] = FMT(cd[i][j]);
+        Logger.log('KARTU (R' + (i + 1) + ') [id=' + FMT(cd[i][iId]) + ']: ' + JSON.stringify(out));
+        found = true;
+        break;
+      }
+    }
+    if (!found) Logger.log('KARTU: tidak ditemukan!');
+  }
+
+  dumpSheet('Flazz_Usage', ['card_id'], 10);
+  dumpSheet('Flazz_Reconciliation', ['card_id'], 10);
+  dumpSheet('Flazz_TopUp', ['card_id'], 15);
+  dumpSheet('Flazz_Tol', ['card_id'], 15);
+  dumpSheet('Penggunaan_BBM', ['flazz_card_id', 'flazz_card_id_toll'], 15);
+
+  return { done: true, card: key };
 }

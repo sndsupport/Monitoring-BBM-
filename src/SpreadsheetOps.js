@@ -196,8 +196,11 @@ function saveTransactionEndOfDayUnlocked(payload) {
 
   // Resolusi metode & kartu tol efektif (form baru mengirim metode_toll; form lama tidak,
   // sehingga bila BBM FLAZZ dianggap tol ikut FLAZZ memakai kartu BBM).
-  const effMetodeToll = resolveTollMethod(payload.metode_toll, payload.metode_pembayaran);
+  const effMetodeToll = resolveTollMethod(payload.metode_toll, payload.metode_pembayaran, payload.flazz_card_id_toll);
   const effCardToll = resolveTollCard(payload.flazz_card_id_toll, effMetodeToll, payload.metode_pembayaran, payload.flazz_card_id);
+  // Kolom metode_pembayaran khusus untuk BBM; bila tidak ada pembelian BBM, biarkan
+  // kosong agar tidak membingungkan (tol dicatat di kolom metode_toll/flazz_card_id_toll).
+  const storeMetodeBbm = (parseFloat(payload.biaya_bbm) || 0) > 0 ? (payload.metode_pembayaran || 'TUNAI') : '';
 
   let row = [
     transaction_id, trxTs, payload.tanggal, payload.userInfo.username, userName, trxCabang, payload.vehicle_id, platNomor,
@@ -208,7 +211,7 @@ function saveTransactionEndOfDayUnlocked(payload) {
     parseFloat(payload.biaya_toll) || 0,
     (payload.serverData && payload.serverData.files && payload.serverData.files.struk_toll) || '',
     efisiensi, 'COMPLETED', warning, payload.nama_supir,
-    payload.metode_pembayaran || 'TUNAI', payload.flazz_card_id || '',
+    storeMetodeBbm, payload.flazz_card_id || '',
     (payload.serverData && payload.serverData.files && payload.serverData.files.indikator) || '',
     payload.level_bbm || '', payload.confidence_bbm || '',
     (payload.serverData && payload.serverData.level_status) || (payload.level_bbm ? 'SUCCESS' : ''),
@@ -745,10 +748,10 @@ function getRecentTransactions(role, userCabang) {
       supir: row[26] || '-',
       transaction_id: row[0],
       biaya_bbm: parseFloat(row[19]) || 0,
-      metode_pembayaran: row[27] || 'TUNAI',
+      metode_pembayaran: (parseFloat(row[19]) || 0) > 0 ? (row[27] || 'TUNAI') : (row[27] || ''),
       flazz_card_id: typeof resolveCanonicalCardId === 'function' ? resolveCanonicalCardId(row[28]) : (row[28] || ''),
-      metode_toll: resolveTollMethod(row[35], row[27]),
-      flazz_card_id_toll: typeof resolveCanonicalCardId === 'function' ? resolveCanonicalCardId(resolveTollCard(row[36], resolveTollMethod(row[35], row[27]), row[27], row[28])) : resolveTollCard(row[36], resolveTollMethod(row[35], row[27]), row[27], row[28]),
+      metode_toll: resolveTollMethod(row[35], row[27], row[36]),
+      flazz_card_id_toll: typeof resolveCanonicalCardId === 'function' ? resolveCanonicalCardId(resolveTollCard(row[36], resolveTollMethod(row[35], row[27], row[36]), row[27], row[28])) : resolveTollCard(row[36], resolveTollMethod(row[35], row[27], row[36]), row[27], row[28]),
       km_awal: parseFloat(row[10]) || 0,
       km_akhir: parseFloat(row[14]) || 0,
       km_sumber: row[34] ? String(row[34]) : 'AKTUAL',
@@ -811,8 +814,8 @@ function editDailyTransactionUnlocked(payload, userInfo) {
     const idxKmTempuh = headers.indexOf('km_tempuh');
     const idxTgl = headers.indexOf('tanggal');
     const idxStamp = headers.indexOf('timestamp');
-    const idxFotoAwal = headers.indexOf('foto_odo_awal');
-    const idxFotoAkhir = headers.indexOf('foto_odo_akhir');
+    const idxFotoAwal = headers.indexOf('foto_km_awal');
+    const idxFotoAkhir = headers.indexOf('foto_km_akhir');
     const idxCabang = headers.indexOf('kode_cabang');
 
     let rowIndex = -1, oldMetode = '', oldCard = null, oldBiaya = 0, oldToll = 0, vehicleId = '', oldCabang = '', oldTgl = '', oldMetodeToll = '', oldCardToll = null;
@@ -881,7 +884,7 @@ function editDailyTransactionUnlocked(payload, userInfo) {
 
     // Resolusi metode & kartu BAYAR TOL, independen dari metode BBM. Form baru selalu
     // mengirimkan metode_toll; bila tidak (form lama), inferensi kompatibel di atas.
-    const newMetodeToll = resolveTollMethod(payload.metode_toll, newMetode);
+    const newMetodeToll = resolveTollMethod(payload.metode_toll, newMetode, payload.flazz_card_id_toll);
     const rawCardToll = (payload.flazz_card_id_toll !== undefined && payload.flazz_card_id_toll !== null)
       ? String(payload.flazz_card_id_toll).trim() : '';
     let newCardToll = '';
@@ -921,7 +924,7 @@ function editDailyTransactionUnlocked(payload, userInfo) {
       }
     });
 
-    sheet.getRange(rowIndex, idxMetode + 1).setValue(newMetode);
+    sheet.getRange(rowIndex, idxMetode + 1).setValue(((parseFloat(newBiaya) || 0) > 0 || newMetode === 'FLAZZ') ? newMetode : '');
     sheet.getRange(rowIndex, idxCard + 1).setValue(newCard);
     sheet.getRange(rowIndex, idxBiaya + 1).setValue(newBiaya);
     if (idxToll > -1) sheet.getRange(rowIndex, idxToll + 1).setValue(newToll);

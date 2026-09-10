@@ -95,7 +95,10 @@ function setCardBalance(cardId, newBalance) {
   if (!sheet) return;
   const found = findFlazzCardRow(sheet, cardId);
   if (!found) return;
-  sheet.getRange(found.rowIndex, found.colIdx.BALANCE + 1).setValue(newBalance);
+  let bal = parseFloat(newBalance);
+  if (isNaN(bal)) bal = 0;
+  if (bal < 0) bal = 0;
+  sheet.getRange(found.rowIndex, found.colIdx.BALANCE + 1).setValue(bal);
   sheet.getRange(found.rowIndex, found.colIdx.UPDATED + 1).setValue(new Date());
 }
 
@@ -630,7 +633,7 @@ function computeFlazzLedger(cardId, ss, sinceTime) {
     const cDate = headers.indexOf('created_at');
     const fallbackDate = headers.indexOf('date');
     for (let i = 1; i < data.length; i++) {
-      if (String(data[i][cCard]) !== String(cardId)) continue;
+      if (canonicalCardId(data[i][cCard]) !== canonicalCardId(cardId)) continue;
       if (cDel > -1 && String(data[i][cDel]) === '1') continue;
       if (!after(cDate > -1 ? data[i][cDate] : data[i][fallbackDate])) continue;
       result.total_topup += parseFloat(data[i][cAmount]) || 0;
@@ -647,7 +650,7 @@ function computeFlazzLedger(cardId, ss, sinceTime) {
     const cDate = headers.indexOf('created_at');
     const fallbackDate = headers.indexOf('date');
     for (let i = 1; i < data.length; i++) {
-      if (String(data[i][cCard]) !== String(cardId)) continue;
+      if (canonicalCardId(data[i][cCard]) !== canonicalCardId(cardId)) continue;
       if (cDel > -1 && String(data[i][cDel]) === '1') continue;
       if (!after(cDate > -1 ? data[i][cDate] : data[i][fallbackDate])) continue;
       result.total_tol += parseFloat(data[i][cAmount]) || 0;
@@ -670,7 +673,7 @@ function computeFlazzLedger(cardId, ss, sinceTime) {
       const row = data[i];
       if (!after(cStamp > -1 ? row[cStamp] : row[fallbackStamp])) continue;
       const bbmMethod = cMetode > -1 ? row[cMetode] : '';
-      const tollMethod = resolveTollMethod(cMetodeToll > -1 ? row[cMetodeToll] : '', bbmMethod);
+      const tollMethod = resolveTollMethod(cMetodeToll > -1 ? row[cMetodeToll] : '', bbmMethod, cCardToll > -1 ? row[cCardToll] : '');
       const tollCard = resolveTollCard(cCardToll > -1 ? row[cCardToll] : '', tollMethod, bbmMethod, cCard > -1 ? row[cCard] : null);
       const st = {
         metodeBbm: bbmMethod,
@@ -737,7 +740,7 @@ function hasCompliantFlazzLaporan(cardId, sinceDate, ss) {
 
     // Baris berkontribusi bila kartu terlibat pada bagian BBM ATAU tol (Flazz).
     const bbmMethod = cMetode > -1 ? row[cMetode] : '';
-    const tollMethod = resolveTollMethod(cMetodeToll > -1 ? row[cMetodeToll] : '', bbmMethod);
+    const tollMethod = resolveTollMethod(cMetodeToll > -1 ? row[cMetodeToll] : '', bbmMethod, cCardToll > -1 ? row[cCardToll] : '');
     const tollCard = resolveTollCard(cCardToll > -1 ? row[cCardToll] : '', tollMethod, bbmMethod, cCard > -1 ? row[cCard] : null);
     const st = {
       metodeBbm: bbmMethod,
@@ -870,6 +873,7 @@ function saveFlazzReconUnlocked(payload) {
       : +((currentBalance + ledger.total_bbm_flazz + ledger.total_tol) - ledger.total_topup);
     const flazzBalance = +(openingBalance + ledger.total_topup - ledger.total_bbm_flazz - ledger.total_tol);
     const actualBalance = parseFloat(payload.actual_balance);
+    if (isNaN(actualBalance) || actualBalance < 0) throw new Error('Saldo aktual wajib berupa angka yang valid.');
     const difference = +(flazzBalance - actualBalance);
     const tolerance = 1;
     const reconStatus = Math.abs(difference) <= tolerance ? 'SESUAI' : 'PERLU_PEMERIKSAAN';
@@ -1198,7 +1202,7 @@ function getFlazzDashboardData(userRole, cabangId) {
       const bbmMethod = metodeIdx > -1 ? row[metodeIdx] : '';
       const rawBbmCard = cardIdx > -1 ? row[cardIdx] : null;
       const bbmCard = normalizeCardId(rawBbmCard);
-      const tollMethod = resolveTollMethod(metodeTollIdx > -1 ? row[metodeTollIdx] : '', bbmMethod);
+      const tollMethod = resolveTollMethod(metodeTollIdx > -1 ? row[metodeTollIdx] : '', bbmMethod, cardTollIdx > -1 ? row[cardTollIdx] : '');
       const tollCard = normalizeCardId(resolveTollCard(cardTollIdx > -1 ? row[cardTollIdx] : '', tollMethod, bbmMethod, rawBbmCard));
       const bbmAmount = parseFloat(row[bbmIdx]) || 0;
       const tollAmount = tollIdx > -1 ? (parseFloat(row[tollIdx]) || 0) : 0;
@@ -1220,7 +1224,7 @@ function getFlazzDashboardData(userRole, cabangId) {
           toll_amount: (tollMethod === 'FLAZZ' && sameCard) ? tollAmount : 0
         }));
       }
-      if (tollMethod === 'FLAZZ' && tollCard && inCards(tollCard) && tollAmount > 0 && !(sameCard && bbmMethod === 'FLAZZ')) {
+      if (tollMethod === 'FLAZZ' && tollCard && inCards(tollCard) && tollAmount > 0 && !(sameCard && bbmMethod === 'FLAZZ' && bbmAmount > 0)) {
         bbmFlazz.push(Object.assign({}, base, {
           card_id: tollCard,
           amount: 0,
@@ -1368,7 +1372,7 @@ function deleteFlazzBBMUnlocked(transactionId, mode, userInfo) {
     if (rowIndex === -1) throw new Error('Transaksi BBM tidak ditemukan.');
 
     // Inferensi bagian tol baris lama: kolom metode tol kosong + BBM FLAZZ => tol ikut kartu BBM.
-    const delTollMethod = resolveTollMethod(delMetodeToll, data[rowIndex - 1][idxMetode]);
+    const delTollMethod = resolveTollMethod(delMetodeToll, data[rowIndex - 1][idxMetode], delCardToll);
     const delTollCard = resolveTollCard(delCardToll, delTollMethod, data[rowIndex - 1][idxMetode], cardId);
     const payState = {
       metodeBbm: data[rowIndex - 1][idxMetode], cardBbm: cardId, biayaBbm: biaya,
