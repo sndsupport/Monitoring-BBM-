@@ -95,12 +95,17 @@ function flazzEditDelta(oldState, nextState, cardId) {
 
 // Resolusi metode bayar tol. Nilai eksplisit dari form lebih diutamakan; bila tidak
 // dikirim (form lama), fallback: BBM FLAZZ dianggap tol ikut FLAZZ (semantik lama satu
-// metode untuk seluruh transaksi), selain itu TUNAI.
-function resolveTollMethod(explicitValue, bbmMethod) {
+// metode untuk seluruh transaksi), selain itu cek apakah ada kartu tol yang terisi
+// (jika ya, anggap FLAZZ), selain itu TUNAI.
+function resolveTollMethod(explicitValue, bbmMethod, explicitCard) {
   if (explicitValue !== undefined && explicitValue !== null && String(explicitValue) !== '') {
     return String(explicitValue);
   }
-  return (String(bbmMethod) === 'FLAZZ') ? 'FLAZZ' : 'TUNAI';
+  if (String(bbmMethod) === 'FLAZZ') return 'FLAZZ';
+  if (explicitCard !== undefined && explicitCard !== null && String(explicitCard).trim() !== '') {
+    return 'FLAZZ';
+  }
+  return 'TUNAI';
 }
 
 // Resolusi kartu tol ketika metode tol FLAZZ. Kartu eksplisit diutamakan; bila kosong
