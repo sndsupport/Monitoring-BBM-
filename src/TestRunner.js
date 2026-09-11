@@ -102,9 +102,7 @@ function __expectDenied(call, needle, label) {
   var res;
   try {
     res = call();
-    Logger.log('RAW[' + label + '] typeof=' + typeof res + ' val=' + (res !== null && typeof res === 'object' ? JSON.stringify(res) : String(res)));
   } catch (e) {
-    Logger.log('RAW[' + label + '] THREW ' + e.message);
     return __expectTrue(String(e.message).indexOf(needle) > -1, label + ' (dilempar: ' + e.message + ')');
   }
   if (res && typeof res === 'object' && res.success === false) {
@@ -120,16 +118,16 @@ function __runSecurityIsolationTests() {
   var results = [];
 
   // Reader SUPERADMIN-only menolak PIC & token palsu (pemalsuan role/cabang batal).
-  results.push(__expectDenied(function() { getAllUsers(picToken); }, 'SUPERADMIN', 'getAllUsers PIC -> ditolak'));
-  results.push(__expectDenied(function() { getCabangList(picToken); }, 'SUPERADMIN', 'getCabangList PIC -> ditolak'));
+  results.push(__expectDenied(function() { return getAllUsers(picToken); }, 'SUPERADMIN', 'getAllUsers PIC -> ditolak'));
+  results.push(__expectDenied(function() { return getCabangList(picToken); }, 'SUPERADMIN', 'getCabangList PIC -> ditolak'));
 
   // Reader token-based menolak token palsu — caller tidak lagi bisa memalsukan role/cabang.
-  results.push(__expectDenied(function() { getCabangList('token-palsu-xyz'); }, 'sesi tidak valid', 'getCabangList token palsu -> ditolak'));
-  results.push(__expectDenied(function() { getActiveVehicles('token-palsu-xyz'); }, 'sesi tidak valid', 'getActiveVehicles token palsu -> ditolak'));
-  results.push(__expectDenied(function() { getFlazzCards('token-palsu-xyz'); }, 'sesi tidak valid', 'getFlazzCards token palsu -> ditolak'));
-  results.push(__expectDenied(function() { getMonthlySummary('token-palsu-xyz', '2026-08', ''); }, 'sesi tidak valid', 'getMonthlySummary token palsu -> ditolak'));
-  results.push(__expectDenied(function() { getJalurByTanggal('2026-08-31', 'token-palsu-xyz', {}); }, 'sesi tidak valid', 'getJalurByTanggal token palsu -> ditolak'));
-  results.push(__expectDenied(function() { getPerformaSummary('token-palsu-xyz'); }, 'sesi tidak valid', 'getPerformaSummary token palsu -> ditolak'));
+  results.push(__expectDenied(function() { return getCabangList('token-palsu-xyz'); }, 'sesi tidak valid', 'getCabangList token palsu -> ditolak'));
+  results.push(__expectDenied(function() { return getActiveVehicles('token-palsu-xyz'); }, 'sesi tidak valid', 'getActiveVehicles token palsu -> ditolak'));
+  results.push(__expectDenied(function() { return getFlazzCards('token-palsu-xyz'); }, 'sesi tidak valid', 'getFlazzCards token palsu -> ditolak'));
+  results.push(__expectDenied(function() { return getMonthlySummary('token-palsu-xyz', '2026-08', ''); }, 'sesi tidak valid', 'getMonthlySummary token palsu -> ditolak'));
+  results.push(__expectDenied(function() { return getJalurByTanggal('2026-08-31', 'token-palsu-xyz', {}); }, 'sesi tidak valid', 'getJalurByTanggal token palsu -> ditolak'));
+  results.push(__expectDenied(function() { return getPerformaSummary('token-palsu-xyz'); }, 'sesi tidak valid', 'getPerformaSummary token palsu -> ditolak'));
 
   // Reader dengan token valid tetap berfungsi.
   try { results.push(__expectEqual(Array.isArray(getAllUsers(superToken)), true, 'getAllUsers token SUPERADMIN valid -> array')); }
@@ -138,46 +136,17 @@ function __runSecurityIsolationTests() {
   catch (e) { results.push(__expectTrue(false, 'getActiveVehicles PIC tidak melempar: ' + e.message)); }
 
   // PIC read-only: aksi operasional ditolak sebelum mutasi apa pun.
-  results.push(__expectDenied(function() { editDailyTransactionUnlocked({}, pic); }, 'SUPERADMIN', 'PIC edit laporan -> ditolak'));
-  results.push(__expectDenied(function() { deleteDailyTransactionUnlocked('###TAK-ADA###', pic); }, 'SUPERADMIN', 'PIC hapus laporan -> ditolak'));
-  results.push(__expectDenied(function() { saveFlazzTopUpUnlocked({ userInfo: pic }); }, 'SUPERADMIN', 'PIC top up Flazz -> ditolak'));
-  results.push(__expectDenied(function() { deleteFlazzTopUpUnlocked('###TAK-ADA###', pic); }, 'SUPERADMIN', 'PIC hapus top up Flazz -> ditolak'));
-  results.push(__expectDenied(function() { saveFlazzUsageUnlocked({ userInfo: pic }); }, 'SUPERADMIN', 'PIC serah kartu Flazz -> ditolak'));
-  results.push(__expectDenied(function() { updateJalur({ id: '###TAK-ADA###' }, pic); }, 'SUPERADMIN', 'PIC update jalur -> ditolak'));
-  results.push(__expectDenied(function() { deleteJalur('###TAK-ADA###', pic); }, 'SUPERADMIN', 'PIC hapus jalur -> ditolak'));
+  results.push(__expectDenied(function() { return editDailyTransactionUnlocked({}, pic); }, 'SUPERADMIN', 'PIC edit laporan -> ditolak'));
+  results.push(__expectDenied(function() { return deleteDailyTransactionUnlocked('###TAK-ADA###', pic); }, 'SUPERADMIN', 'PIC hapus laporan -> ditolak'));
+  results.push(__expectDenied(function() { return saveFlazzTopUpUnlocked({ userInfo: pic }); }, 'SUPERADMIN', 'PIC top up Flazz -> ditolak'));
+  results.push(__expectDenied(function() { return deleteFlazzTopUpUnlocked('###TAK-ADA###', pic); }, 'SUPERADMIN', 'PIC hapus top up Flazz -> ditolak'));
+  results.push(__expectDenied(function() { return saveFlazzUsageUnlocked({ userInfo: pic }); }, 'SUPERADMIN', 'PIC serah kartu Flazz -> ditolak'));
+  results.push(__expectDenied(function() { return updateJalur({ id: '###TAK-ADA###' }, pic); }, 'SUPERADMIN', 'PIC update jalur -> ditolak'));
+  results.push(__expectDenied(function() { return deleteJalur('###TAK-ADA###', pic); }, 'SUPERADMIN', 'PIC hapus jalur -> ditolak'));
 
   destroySession(superToken);
   destroySession(picToken);
   return __summarize(results);
-}
-
-// DIAGNOSTIK: cek binding runtime fungsi vs source file + apakah guard benar-benar melempar.
-function __runProbeDiagnostic() {
-  var pic = { user_id: 'U-PIC-TEST', username: 'pic-test', nama: 'PIC Test', role: 'PIC CABANG', cabang: 'CBG-JKT' };
-
-  function srcOf(fnName) {
-    var s;
-    try { s = (typeof this[fnName] === 'function') ? String(this[fnName]).substring(0, 220) : 'NOT-A-FUNCTION'; } catch (e) { s = 'ER: ' + e.message; }
-    Logger.log('SRC[' + fnName + '] ' + s);
-  }
-  ['getJalurByTanggal', 'editDailyTransactionUnlocked', 'deleteDailyTransactionUnlocked',
-   'saveFlazzTopUpUnlocked', 'deleteFlazzTopUpUnlocked', 'saveFlazzUsageUnlocked',
-   'updateJalur', 'deleteJalur', 'requireUser', 'assertSuperadminOnly'].forEach(srcOf);
-
-  function probe(label, fn) {
-    var res;
-    try { res = fn(); Logger.log('PROBE[' + label + '] typeof=' + typeof res + ' val=' + (res !== null && typeof res === 'object' ? JSON.stringify(res) : String(res))); }
-    catch (e) { Logger.log('PROBE[' + label + '] THREW msg=' + e.message + ' | line=' + (e.lineNumber || '?')); }
-  }
-
-  probe('requireUser(tokensemu)', function() { return requireUser('token-palsu-xyz'); });
-  probe('assertSuperadminOnly(pic)', function() { return assertSuperadminOnly(pic, 'tes'); });
-  probe('getJalurByTanggal', function() { return getJalurByTanggal('2026-08-31', 'token-palsu-xyz', {}); });
-  probe('editDailyTransactionUnlocked(pic)', function() { return editDailyTransactionUnlocked({}, pic); });
-  probe('deleteDailyTransactionUnlocked(pic)', function() { return deleteDailyTransactionUnlocked('###TAK-ADA###', pic); });
-  probe('saveFlazzTopUpUnlocked(pic)', function() { return saveFlazzTopUpUnlocked({ userInfo: pic }); });
-  probe('updateJalur(pic)', function() { return updateJalur({ id: '###TAK-ADA###' }, pic); });
-  Logger.log('==== PROBE DONE ====');
 }
 
 function __runAllTests() {
