@@ -362,14 +362,14 @@
   .photo-upload {
     border: 2px dashed var(--color-border-strong);
     border-radius: var(--radius-md);
-    padding: 24px;
+    padding: 12px;
     text-align: center;
     background: #f7faf8;
     cursor: pointer;
     transition: all var(--transition-fast);
-    min-height: 120px;
+    min-height: 48px;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     justify-content: center;
     gap: 8px;
@@ -386,7 +386,7 @@
     background: var(--color-primary-light);
   }
 
-  .photo-upload i { font-size: 32px; color: #a7b6ac; }
+  .photo-upload i { font-size: 24px; color: #a7b6ac; margin-bottom: 4px; }
 
   .photo-upload.has-image i { color: var(--color-success); }
 
@@ -597,7 +597,7 @@
   .btn-nav.bnd-item {
     flex: none;
     width: 100%;
-    flex-direction: row;
+    flex-direction: column;
     justify-content: flex-start;
     align-items: center;
     gap: 10px;

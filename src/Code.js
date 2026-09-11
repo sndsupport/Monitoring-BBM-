@@ -132,6 +132,7 @@ function getLastLaporanPrefill(token) {
     const ss = getDB();
     const sheet = ss.getSheetByName('Penggunaan_BBM');
     if (!sheet) return { pref: null };
+    ensurePenggunaBBMColumns();
     const data = sheet.getDataRange().getValues();
     if (data.length <= 1) return { pref: null };
     const role = user.role;
@@ -153,9 +154,8 @@ function getLastLaporanPrefill(token) {
         liter_bbm: parseFloat(row[18]) || 0,
         metode_pembayaran: row[27] || 'TUNAI',
         flazz_card_id: typeof resolveCanonicalCardId === 'function' ? resolveCanonicalCardId(row[28]) : (row[28] || ''),
-        metode_toll: resolveTollMethod(row[35], row[27], row[36]),
-        flazz_card_id_toll: typeof resolveCanonicalCardId === 'function' ? resolveCanonicalCardId(resolveTollCard(row[36], resolveTollMethod(row[35], row[27], row[36]), row[27], row[28])) : resolveTollCard(row[36], resolveTollMethod(row[35], row[27], row[36]), row[27], row[28]),
-        keterangan: row[33] || ''
+        metode_toll: resolveTollMethod(row[30], row[27], row[31]),
+        flazz_card_id_toll: typeof resolveCanonicalCardId === 'function' ? resolveCanonicalCardId(resolveTollCard(row[31], resolveTollMethod(row[30], row[27], row[31]), row[27], row[28])) : resolveTollCard(row[31], resolveTollMethod(row[30], row[27], row[31]), row[27], row[28])
       }};
     }
     return { pref: null };
@@ -222,10 +222,6 @@ function getPerformaData(token) {
 function processDailyImages(data, token) {
   try {
     var user = requireUser(token);
-    var gm = checkRate('gemini:' + user.user_id, 30, 24 * 60 * 60 * 1000);
-    if (!gm.allowed) {
-      return { success: false, error: 'Kuota deteksi BBM harian tercapai. Coba lagi besok.' };
-    }
     let result = { success: true, files: {} };
     let odoAwalFile = uploadImageToDrive(data.foto_odo_awal, data.foto_odo_awal_name, 'KM_Awal', user.cabang);
     if (!odoAwalFile.success) return { success: false, error: 'Upload foto KM awal gagal: ' + odoAwalFile.error };
@@ -238,22 +234,6 @@ function processDailyImages(data, token) {
     result.km_awal = data.km_awal_val;
     result.km_akhir = data.km_akhir_val;
 
-    if (data.foto_indikator) {
-      let indFile = uploadImageToDrive(data.foto_indikator, data.foto_indikator_name, 'Indikator_BBM', user.cabang);
-      result.files.indikator = indFile.success ? indFile.fileUrl : '';
-
-      if (!data.skip_ai_deteksi) {
-        try {
-          var deteksi = detectFuelLevel(data.foto_indikator);
-          result.level_bbm = deteksi.level;
-          result.confidence_bbm = deteksi.confidence_pct;
-          result.level_status = deteksi.status;
-          result.level_message = deteksi.message;
-        } catch (e) {
-          Logger.log('Deteksi indikator gagal: ' + e.toString());
-        }
-      }
-    }
     return result;
   } catch (e) {
     return { success: false, error: e.toString() };
@@ -574,8 +554,8 @@ function diagnoseOrphanPhotos() {
   if (!sheet) return { error: 'Sheet tidak ditemukan' };
 
   const data = sheet.getDataRange().getValues();
-  const fotoCols = [8, 12, 20, 22, 29]; // odo_awal, odo_akhir, struk_bbm, struk_toll, indikator
-  const fotoNames = ['foto_odo_awal', 'foto_odo_akhir', 'foto_struk_bbm', 'foto_struk_toll', 'foto_indikator'];
+  const fotoCols = [8, 12, 20, 22]; // odo_awal, odo_akhir, struk_bbm, struk_toll
+  const fotoNames = ['foto_odo_awal', 'foto_odo_akhir', 'foto_struk_bbm', 'foto_struk_toll'];
   const results = [];
   let totalWithPhoto = 0;
 

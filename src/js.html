@@ -641,100 +641,6 @@ document.getElementById('page-login').style.display = 'flex';
     }
   }
 
-  function validateStep(step) {
-    if (step === 1) {
-      let v = document.getElementById('vehicle');
-      let s = document.getElementById('nama_supir');
-      let t = document.getElementById('tanggal');
-      if (!v.checkValidity() || !s.checkValidity() || !t.checkValidity()) {
-        v.reportValidity();
-        s.reportValidity();
-        t.reportValidity();
-        return false;
-      }
-      if (typeof isSupirNameValid === 'function' && !isSupirNameValid()) {
-        showToast('Nama supir tidak valid, pilih dari daftar', 'error');
-        s.classList.add('is-invalid');
-        return false;
-      }
-      s.classList.remove('is-invalid');
-    } else if (step === 2) {
-      let ba = document.getElementById('bar_awal');
-      let bk = document.getElementById('bar_akhir');
-      let kmA = document.getElementById('km_awal_val');
-      let kmK = document.getElementById('km_akhir_val');
-      let fo = document.getElementById('foto_odo_awal');
-      let fa = document.getElementById('foto_odo_akhir');
-      if (!ba.checkValidity() || !bk.checkValidity() || !kmA.checkValidity() || !kmK.checkValidity() || !fo.checkValidity() || !fa.checkValidity()) {
-        ba.reportValidity();
-        bk.reportValidity();
-        kmA.reportValidity();
-        kmK.reportValidity();
-        fo.reportValidity();
-        fa.reportValidity();
-        return false;
-      }
-    }
-    return true;
-  }
-
-  function nextStep(currentStep) {
-    if (!validateStep(currentStep)) return;
-    document.getElementById('step-' + currentStep).style.display = 'none';
-    let next = currentStep + 1;
-    document.getElementById('step-' + next).style.display = 'block';
-    updateStepIndicator(next);
-  }
-
-  function prevStep(currentStep) {
-    document.getElementById('step-' + currentStep).style.display = 'none';
-    let prev = currentStep - 1;
-    document.getElementById('step-' + prev).style.display = 'block';
-    updateStepIndicator(prev);
-  }
-
-  function updateStepIndicator(step) {
-    let progress = step === 1 ? 0 : (step === 2 ? 50 : 100);
-    document.getElementById('step-progress').style.width = progress + '%';
-    
-    for(let i=1; i<=3; i++) {
-      let ind = document.getElementById('indicator-step-' + i);
-      if (!ind) continue;
-      let circle = ind.querySelector('.step-circle');
-      let text = ind.querySelector('small');
-      
-      if (i <= step) {
-        circle.className = 'step-circle bg-success text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-1 fw-bold shadow-sm border';
-        text.className = 'fw-bold text-success';
-      } else {
-        circle.className = 'step-circle bg-light text-muted rounded-circle d-flex align-items-center justify-content-center mx-auto mb-1 fw-bold border';
-        text.className = 'text-muted';
-      }
-    }
-  }
-
-  function toggleBBM(value) {
-    document.getElementById('isi_bensin').value = value;
-    document.getElementById('bbm-section').style.display = (value === 'Ya') ? 'block' : 'none';
-    document.querySelectorAll('#daily-form .toggle-group .toggle-btn').forEach(b => b.classList.remove('active'));
-    var activeBtn = document.querySelector('#daily-form .toggle-group button[data-bbm="' + value + '"]');
-    if (activeBtn) activeBtn.classList.add('active');
-    if (value === 'Ya') {
-      toggleFlazzCardSelection();
-      var tolSec = document.getElementById('tol-section');
-      if (tolSec) tolSec.style.display = 'block';
-      toggleTolFlazzCardSelection();
-    } else {
-      resetTolFields();
-      var tolSec2 = document.getElementById('tol-section');
-      if (tolSec2) tolSec2.style.display = 'none';
-      var flazzSec = document.getElementById('flazz-card-section');
-      if (flazzSec) flazzSec.style.display = 'none';
-      var tolFlazzSec = document.getElementById('tol-flazz-card-section');
-      if (tolFlazzSec) tolFlazzSec.style.display = 'none';
-    }
-  }
-
   function syncBensinTersirat() {
     var isi = document.getElementById('isi_bensin');
     if (!isi) return;
@@ -744,24 +650,29 @@ document.getElementById('page-login').style.display = 'flex';
   }
 
   function toggleFlazzCardSelection() {
-    var metode = document.getElementById('metode_pembayaran');
-    var isFlazz = (metode && metode.value === 'FLAZZ');
-    var flazzSec = document.getElementById('flazz-card-section');
+    var radios = document.getElementsByName('metode_pembayaran');
+    var isFlazz = false;
+    for (var r of radios) { if (r.checked && r.value === 'FLAZZ') { isFlazz = true; break; } }
+    var flazzSec = document.getElementById('flazz_card_id');
+    var strip = document.getElementById('flazz_card_id_strip');
     if (flazzSec) flazzSec.style.display = isFlazz ? 'block' : 'none';
+    if (strip) strip.style.display = isFlazz ? 'none' : 'inline';
   }
 
   function toggleTolFlazzCardSelection() {
-    var metodeTol = document.getElementById('metode_toll');
-    var isFlazzTol = (metodeTol && metodeTol.value === 'FLAZZ');
-    var tolFlazzSec = document.getElementById('tol-flazz-card-section');
+    var radios = document.getElementsByName('metode_toll');
+    var isFlazzTol = false;
+    for (var r of radios) { if (r.checked && r.value === 'FLAZZ') { isFlazzTol = true; break; } }
+    var tolFlazzSec = document.getElementById('flazz_card_id_toll');
+    var strip = document.getElementById('flazz_card_id_toll_strip');
     if (tolFlazzSec) tolFlazzSec.style.display = isFlazzTol ? 'block' : 'none';
+    if (strip) strip.style.display = isFlazzTol ? 'none' : 'inline';
   }
 
   function onTolCardSelect() {
     var cardSelect = document.getElementById('flazz_card_id_toll');
-    var metodeTol = document.getElementById('metode_toll');
-    if (cardSelect && cardSelect.value && metodeTol && metodeTol.value !== 'FLAZZ') {
-      metodeTol.value = 'FLAZZ';
+    if (cardSelect && cardSelect.value) {
+      document.querySelectorAll('input[name="metode_toll"]').forEach(function(r){ r.checked = (r.value === 'FLAZZ'); });
       toggleTolFlazzCardSelection();
     }
   }
@@ -771,10 +682,6 @@ document.getElementById('page-login').style.display = 'flex';
     if (t) t.value = '';
     var f = document.getElementById('foto_struk_toll');
     if (f) f.value = '';
-  }
-
-  function toggleSection(id, val) {
-    document.getElementById(id).style.display = (val === 'Ya') ? 'block' : 'none';
   }
 
   function confirmResetForm() {
@@ -787,10 +694,12 @@ document.getElementById('page-login').style.display = 'flex';
     document.getElementById('isi_bensin').value = 'Tidak';
     var bbmSec = document.getElementById('bbm-section');
     if (bbmSec) bbmSec.style.display = 'block';
-    document.getElementById('flazz-card-section').style.display = 'none';
+    document.querySelectorAll('input[name="metode_pembayaran"]').forEach(function(r){ r.checked = (r.value === 'TUNAI'); });
+    document.getElementById('flazz_card_id').style.display = 'none';
     var tolSec = document.getElementById('tol-section');
     if (tolSec) tolSec.style.display = 'block';
-    var tolFlazzSec = document.getElementById('tol-flazz-card-section');
+    document.querySelectorAll('input[name="metode_toll"]').forEach(function(r){ r.checked = (r.value === 'TUNAI'); });
+    var tolFlazzSec = document.getElementById('flazz_card_id_toll');
     if (tolFlazzSec) tolFlazzSec.style.display = 'none';
 
     var bAwalReset = document.getElementById('bar_awal');
@@ -823,7 +732,7 @@ document.getElementById('page-login').style.display = 'flex';
       if (chevron) chevron.className = 'bi bi-chevron-down me-2';
     }
 
-    ['preview-awal', 'preview-akhir', 'preview-indikator'].forEach(id => {
+    ['preview-awal', 'preview-akhir'].forEach(id => {
       const p = document.getElementById(id);
       if (!p) return;
       p.style.display = 'none';
@@ -847,6 +756,12 @@ document.getElementById('page-login').style.display = 'flex';
     if (typeof onVehicleChange === 'function') onVehicleChange();
 
     formDataPayload = {};
+    var fStrip = document.getElementById('flazz_card_id_strip');
+    if (fStrip) fStrip.style.display = 'inline';
+    var tStrip = document.getElementById('flazz_card_id_toll_strip');
+    if (tStrip) tStrip.style.display = 'inline';
+    if (typeof syncBensinTersirat === 'function') syncBensinTersirat();
+    if (typeof updateLiveSummary === 'function') updateLiveSummary();
   }
 
   function prefillFormFromLast(userInfo) {
@@ -871,16 +786,14 @@ document.getElementById('page-login').style.display = 'flex';
         if (bb) bb.value = p.biaya_bbm || '';
         var lit = document.getElementById('liter_bbm');
         if (lit) lit.value = p.liter_bbm || '';
-        var met = document.getElementById('metode_pembayaran');
-        if (met) met.value = p.metode_pembayaran || 'TUNAI';
+        var mpTarget = p.metode_pembayaran || 'TUNAI';
+        document.querySelectorAll('input[name="metode_pembayaran"]').forEach(function(r){ r.checked = (r.value === mpTarget); });
         var fc = document.getElementById('flazz_card_id');
         if (fc) fc.value = p.flazz_card_id || '';
-        var metTol = document.getElementById('metode_toll');
-        if (metTol) metTol.value = p.metode_toll || 'TUNAI';
+        var mtTarget = p.metode_toll || 'TUNAI';
+        document.querySelectorAll('input[name="metode_toll"]').forEach(function(r){ r.checked = (r.value === mtTarget); });
         var fcTol = document.getElementById('flazz_card_id_toll');
         if (fcTol) fcTol.value = p.flazz_card_id_toll || '';
-        var ket = document.getElementById('keterangan');
-        if (ket) ket.value = p.keterangan || '';
         if (typeof toggleFlazzCardSelection === 'function') toggleFlazzCardSelection();
         if (typeof toggleTolFlazzCardSelection === 'function') toggleTolFlazzCardSelection();
         var isiPrefill = document.getElementById('isi_bensin');
@@ -893,6 +806,7 @@ document.getElementById('page-login').style.display = 'flex';
           if (tolSecPrefill) tolSecPrefill.style.display = 'block';
         }
         if (typeof onVehicleChange === 'function') onVehicleChange();
+        if (typeof updateLiveSummary === 'function') updateLiveSummary();
       }).getLastLaporanPrefill(bbmToken());
   }
 
@@ -952,40 +866,67 @@ document.getElementById('page-login').style.display = 'flex';
     });
   }
 
+
+  function openReviewModal() {
+    if (!document.getElementById('daily-form').checkValidity()) {
+      document.getElementById('daily-form').reportValidity();
+      return;
+    }
+    if (typeof updateLiveSummary === 'function') updateLiveSummary();
+    var modal = new bootstrap.Modal(document.getElementById('modal-ringkasan'));
+    modal.show();
+  }
+
   async function processDailyReport() {
     if (window.__bbmSubmitting) {
       showToast('Laporan sedang diproses, harap tunggu...', 'warning');
       return;
     }
     window.__bbmSubmitting = true;
+    // Tutup modal ringkasan sebelum proses
+    try {
+      var modalEl = document.getElementById('modal-ringkasan');
+      if (modalEl) {
+        var existingModal = bootstrap.Modal.getInstance(modalEl);
+        if (existingModal) existingModal.hide();
+      }
+    } catch(e) {}
 
     let odoAwal = document.getElementById('foto_odo_awal').files[0];
     let odoAkhir = document.getElementById('foto_odo_akhir').files[0];
-    let fotoIndikator = document.getElementById('foto_indikator') ? document.getElementById('foto_indikator').files[0] : null;
 
     if (!document.getElementById('daily-form').checkValidity()) {
       document.getElementById('daily-form').reportValidity();
+      window.__bbmSubmitting = false;
       return;
     }
     
     let isiBensinVal = document.getElementById('isi_bensin') ? document.getElementById('isi_bensin').value : 'Ya';
     let biaya_bbmSubmit = document.getElementById('biaya_bbm') ? (parseFloat(document.getElementById('biaya_bbm').value) || 0) : 0;
-    let metode_pembayaran = document.getElementById('metode_pembayaran') ? document.getElementById('metode_pembayaran').value : 'TUNAI';
+    var __mpRadios = document.getElementsByName('metode_pembayaran');
+      var __mpVal = 'TUNAI';
+      for (var r of __mpRadios) { if (r.checked) { __mpVal = r.value; break; } }
+      let metode_pembayaran = __mpVal;
     if (isiBensinVal !== 'Ya' || biaya_bbmSubmit <= 0) metode_pembayaran = '';
     let flazz_card_id = document.getElementById('flazz_card_id') ? document.getElementById('flazz_card_id').value : '';
-    let metode_toll = document.getElementById('metode_toll') ? document.getElementById('metode_toll').value : 'TUNAI';
+    var __mtRadios = document.getElementsByName('metode_toll');
+      var __mtVal = 'TUNAI';
+      for (var r of __mtRadios) { if (r.checked) { __mtVal = r.value; break; } }
+      let metode_toll = __mtVal;
     let flazz_card_id_toll = document.getElementById('flazz_card_id_toll') ? document.getElementById('flazz_card_id_toll').value : '';
     let biaya_tollSubmit = document.getElementById('biaya_toll') ? (parseFloat(document.getElementById('biaya_toll').value) || 0) : 0;
     
     if (document.getElementById('isi_bensin').value === 'Ya' && metode_pembayaran === 'FLAZZ' && !flazz_card_id) {
        showToast('Harap pilih Kartu Flazz jika metode pembayaran menggunakan Flazz.', 'error');
+       window.__bbmSubmitting = false;
        return;
     }
     if (biaya_tollSubmit > 0 && metode_toll === 'FLAZZ' && !flazz_card_id_toll) {
        showToast('Pilih kartu Flazz untuk pembayaran tol, atau ubah metode pembayaran tol menjadi Tunai.', 'error');
+       window.__bbmSubmitting = false;
        return;
     }
-    if (!isSupirNameValid()) { showToast('Nama supir tidak valid, pilih dari daftar', 'error'); return; }
+    if (!isSupirNameValid()) { showToast('Nama supir tidak valid, pilih dari daftar', 'error'); window.__bbmSubmitting = false; return; }
 
     let btn = document.getElementById('btn-process');
     let originalText = btn.innerHTML;
@@ -1002,6 +943,7 @@ document.getElementById('page-login').style.display = 'flex';
       saveTokens.done = true;
       btn.disabled = false;
       btn.innerHTML = originalText;
+      window.__bbmSubmitting = false;
       showToast('Proses melebihi 2 menit. Muat ulang halaman atau cek spreadsheet agar data tidak ganda.', 'error');
     }, 120000);
     function finalizeSaving() {
@@ -1058,7 +1000,6 @@ document.getElementById('page-login').style.display = 'flex';
 
       var odoAwalC = await compressPhoto(odoAwal);
       var odoAkhirC = await compressPhoto(odoAkhir);
-      var fotoIndC = await compressPhoto(fotoIndikator);
 
       if ((odoAwal && !odoAwalC) || (odoAkhir && !odoAkhirC)) {
         btn.disabled = false;
@@ -1088,12 +1029,6 @@ document.getElementById('page-login').style.display = 'flex';
         foto_odo_awal_name: odoAwalC ? odoAwalC.name : (odoAwal ? odoAwal.name : null),
         foto_odo_akhir: odoAkhirC ? odoAkhirC.dataUrl : null,
         foto_odo_akhir_name: odoAkhirC ? odoAkhirC.name : (odoAkhir ? odoAkhir.name : null),
-        foto_indikator: fotoIndC ? fotoIndC.dataUrl : null,
-        foto_indikator_name: fotoIndC ? fotoIndC.name : (fotoIndikator ? fotoIndikator.name : null),
-        level_bbm: document.getElementById('level_bbm') ? document.getElementById('level_bbm').value : '',
-        confidence_bbm: document.getElementById('confidence_bbm') ? document.getElementById('confidence_bbm').value : '',
-        keterangan: document.getElementById('keterangan') ? document.getElementById('keterangan').value : '',
-        skip_ai_deteksi: isJarumSubmit,
         km_tanpa_estimasi: kmTanpaEstimasi
       };
 
@@ -1103,13 +1038,7 @@ document.getElementById('page-login').style.display = 'flex';
                formDataPayload.serverData = res;
                delete formDataPayload.foto_odo_awal;
                delete formDataPayload.foto_odo_akhir;
-               delete formDataPayload.foto_indikator;
-               delete formDataPayload.foto_indikator_name;
-               if (res.level_bbm !== undefined && res.level_bbm !== null && res.level_bbm !== '') {
-                   formDataPayload.level_bbm = res.level_bbm;
-                   formDataPayload.confidence_bbm = res.confidence_bbm;
-               }
-               
+
                formDataPayload.km_awal_confirmed = formDataPayload.km_awal_val;
                formDataPayload.km_akhir_confirmed = formDataPayload.km_akhir_val;
                formDataPayload.km_awal_broken = document.getElementById('chk_km_awal') ? document.getElementById('chk_km_awal').checked : false;
@@ -1319,7 +1248,7 @@ document.getElementById('page-login').style.display = 'flex';
     let galleryEl = document.getElementById('dash-gallery-content');
     let allData = (res && res.transactions) ? res.transactions : [];
     window.__dashData = allData;
-    let items = allData.filter(r => r.foto_odo_awal || r.foto_odo_akhir || r.foto_struk_bbm || r.foto_struk_toll || r.foto_indikator);
+    let items = allData.filter(r => r.foto_odo_awal || r.foto_odo_akhir || r.foto_struk_bbm || r.foto_struk_toll);
     items = items.slice(0, 6);
     let html = '';
     if (items.length === 0) {
@@ -1331,8 +1260,7 @@ document.getElementById('page-login').style.display = 'flex';
         else if (row.foto_odo_akhir) imgHtml = "<img src='" + escUrl(row.foto_odo_akhir_thumb || row.foto_odo_akhir) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
         else if (row.foto_struk_bbm) imgHtml = "<img src='" + escUrl(row.foto_struk_bbm_thumb || row.foto_struk_bbm) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
         else if (row.foto_struk_toll) imgHtml = "<img src='" + escUrl(row.foto_struk_toll_thumb || row.foto_struk_toll) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
-        else if (row.foto_indikator) imgHtml = "<img src='" + escUrl(row.foto_indikator_thumb || row.foto_indikator) + "' class='card-img-top' style='aspect-ratio:4/3; object-fit:cover;'>";
-        let link = row.foto_odo_awal || row.foto_odo_akhir || row.foto_struk_bbm || row.foto_struk_toll || row.foto_indikator;
+        let link = row.foto_odo_awal || row.foto_odo_akhir || row.foto_struk_bbm || row.foto_struk_toll;
         html += "<div class='col-6 col-md-2'>" +
           "<a href='" + escUrl(link) + "' target='_blank' class='text-decoration-none'>" +
             "<div class='card border-0 shadow-sm h-100'>" +
@@ -1605,8 +1533,7 @@ document.getElementById('page-login').style.display = 'flex';
       if (filterType === 'odo_akhir') return !!r.foto_odo_akhir;
       if (filterType === 'struk_bbm') return !!r.foto_struk_bbm;
       if (filterType === 'struk_toll') return !!r.foto_struk_toll;
-      if (filterType === 'indikator') return !!r.foto_indikator;
-      return r.foto_odo_awal || r.foto_odo_akhir || r.foto_struk_bbm || r.foto_struk_toll || r.foto_indikator;
+      return r.foto_odo_awal || r.foto_odo_akhir || r.foto_struk_bbm || r.foto_struk_toll;
     });
 
     if (all.length === 0) {
@@ -1657,14 +1584,8 @@ document.getElementById('page-login').style.display = 'flex';
                   "<small class='d-block mb-1 text-muted'>Struk Tol</small>" +
                   (row.foto_struk_toll ? "<a href='" + escUrl(row.foto_struk_toll) + "' target='_blank'><img src='" + escUrl(row.foto_struk_toll_thumb || row.foto_struk_toll) + "' class='img-fluid rounded shadow-sm border' style='aspect-ratio:3/4; object-fit:cover;' loading='lazy'></a>" : "<span class='text-muted small'>-</span>") +
                 "</div>";
-      }
-      if (filterType === 'all' || filterType === 'indikator') {
-        html += "<div class='" + (filterType === 'all' ? 'col-4 mt-2' : 'col-12') + " text-center'>" +
-                  "<small class='d-block mb-1 text-muted'>Indikator BBM</small>" +
-                  (row.foto_indikator ? "<a href='" + escUrl(row.foto_indikator) + "' target='_blank'><img src='" + escUrl(row.foto_indikator_thumb || row.foto_indikator) + "' class='img-fluid rounded shadow-sm border' style='aspect-ratio:4/3; object-fit:cover;' loading='lazy'></a>" : "<span class='text-muted small'>-</span>") +
-                "</div>";
-      }
-      
+}
+
       html += "</div></div></div>";
       galCol.innerHTML = html;
       galleryContent.appendChild(galCol);
@@ -2250,6 +2171,7 @@ document.getElementById('page-login').style.display = 'flex';
     })[editId ? 'updateMasterSupir' : 'saveMasterSupir'](data, bbmToken());
   }
 
+
   function calcLiter() {
     let sel = document.getElementById('jenis_bbm');
     let hrg = parseFloat(sel.value) || 0;
@@ -2672,4 +2594,71 @@ document.getElementById('page-login').style.display = 'flex';
     }).join('');
   }
 
+
+
+  function updateLiveSummary() {
+    var txtTgl = document.getElementById('tanggal') ? document.getElementById('tanggal').value : '';
+    document.getElementById('sum_tanggal').innerText = txtTgl || '-';
+    
+    var supir = document.getElementById('nama_supir') ? document.getElementById('nama_supir').value : '';
+    document.getElementById('sum_supir').innerText = supir ? supir : '-';
+    
+    var vehObj = document.getElementById('vehicle');
+    document.getElementById('sum_kendaraan').innerText = vehObj && vehObj.selectedIndex > 0 ? vehObj.options[vehObj.selectedIndex].text : '-';
+
+    var kmAwal = parseFloat(document.getElementById('km_awal_val').value) || 0;
+    var kmAkhir = parseFloat(document.getElementById('km_akhir_val').value) || 0;
+    document.getElementById('sum_km_awal').innerText = kmAwal ? kmAwal : '-';
+    document.getElementById('sum_km_akhir').innerText = kmAkhir ? kmAkhir : '-';
+    
+    if (kmAkhir > 0 && kmAkhir >= kmAwal) {
+      document.getElementById('sum_jarak').innerText = (kmAkhir - kmAwal) + ' km';
+    } else {
+      document.getElementById('sum_jarak').innerText = '-';
+    }
+
+    var bAwal = document.getElementById('bar_awal').value;
+    var bAkhir = document.getElementById('bar_akhir').value;
+    document.getElementById('sum_bar_awal').innerText = bAwal ? bAwal + ' bar' : '-';
+    document.getElementById('sum_bar_akhir').innerText = bAkhir ? bAkhir + ' bar' : '-';
+
+    var biayaBbm = parseFloat(document.getElementById('biaya_bbm').value) || 0;
+    var literBbm = parseFloat(document.getElementById('liter_bbm').value) || 0;
+    document.getElementById('sum_bbm').innerText = 'Rp ' + biayaBbm.toLocaleString('id-ID');
+    document.getElementById('sum_liter').innerText = literBbm > 0 ? literBbm.toFixed(2) + ' L' : '0 L';
+    
+    if (biayaBbm > 0) {
+      var __mbR = document.getElementsByName('metode_pembayaran');
+      var metodeBbm = 'TUNAI';
+      for (var r of __mbR) { if (r.checked) { metodeBbm = r.value; break; } }
+      if (metodeBbm === 'FLAZZ') {
+        var fCard = document.getElementById('flazz_card_id');
+        document.getElementById('sum_bayar_bbm').innerText = fCard && fCard.selectedIndex > 0 ? fCard.options[fCard.selectedIndex].text : 'Kartu Flazz';
+      } else {
+        document.getElementById('sum_bayar_bbm').innerText = 'Tunai';
+      }
+    } else {
+      document.getElementById('sum_bayar_bbm').innerText = '-';
+    }
+
+    var biayaTol = parseFloat(document.getElementById('biaya_toll').value) || 0;
+    document.getElementById('sum_tol').innerText = 'Rp ' + biayaTol.toLocaleString('id-ID');
+    
+    if (biayaTol > 0) {
+      var __mtR = document.getElementsByName('metode_toll');
+      var metodeTol = 'TUNAI';
+      for (var r of __mtR) { if (r.checked) { metodeTol = r.value; break; } }
+      if (metodeTol === 'FLAZZ') {
+        var fTolCard = document.getElementById('flazz_card_id_toll');
+        document.getElementById('sum_bayar_tol').innerText = fTolCard && fTolCard.selectedIndex > 0 ? fTolCard.options[fTolCard.selectedIndex].text : 'Kartu Flazz';
+      } else {
+        document.getElementById('sum_bayar_tol').innerText = 'Tunai';
+      }
+    } else {
+      document.getElementById('sum_bayar_tol').innerText = '-';
+    }
+
+    var total = biayaBbm + biayaTol;
+    document.getElementById('sum_total').innerText = 'Rp ' + total.toLocaleString('id-ID');
+  }
 </script>

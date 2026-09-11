@@ -140,6 +140,25 @@ function saveTransactionEndOfDayUnlocked(payload) {
     }
   }
 
+  // Syarat mutlak: laporan harian hanya bisa disimpan jika sudah ada Jalur Pengiriman
+  // dengan status BELUM_DIISI untuk kendaraan+supir+cabang pada tanggal tersebut.
+  // Cek dijalankan SEBELUM menulis apa pun ke sheet, agar laporan yang ditolak
+  // tidak meninggalkan data parsial (baris tersimpan / saldo Flazz terpotong).
+  try {
+    const matchedJalur = findJalurByCriteria({
+      tanggal: payload.tanggal,
+      vehicle_id: payload.vehicle_id,
+      nama_driver: payload.nama_supir,
+      kode_cabang: trxCabang
+    });
+    if (!matchedJalur || matchedJalur.status !== 'BELUM_DIISI') {
+      return { success: false, error: 'Anda harus membuat Jalur Pengiriman terlebih dahulu (status BELUM DIISI) untuk kendaraan dan supir ini pada tanggal tersebut sebelum menginput laporan harian.' };
+    }
+    updateJalurStatus(matchedJalur.id, 'SUDAH_LAPORAN', transaction_id);
+  } catch (e) {
+    Logger.log('Gagal update status jalur: ' + e.toString());
+  }
+
   // Indikator jarum: level tangki dicatat sebagai persen (0-100), bukan jumlah bar.
   if (isJarum) jumlahBar = 100;
 
@@ -173,7 +192,6 @@ function saveTransactionEndOfDayUnlocked(payload) {
       if (km_akhir <= 0) km_akhir = anchor;
       km_tempuh = Math.max(0, km_akhir - km_awal);
       km_sumber = 'ESTIMASI';
-      payload.keterangan = ((payload.keterangan || '') + ' | KM tidak tercatat (odometer rusak, tanpa data BBM)').trim();
     } else {
       if (standarKmL <= 0) {
         throw new Error('KM tidak terbaca tapi estimasi tidak tersedia: Standar KM/L kendaraan belum diisi di Master Kendaraan. Harap isi dulu atau input KM asli.');
@@ -212,10 +230,6 @@ function saveTransactionEndOfDayUnlocked(payload) {
     (payload.serverData && payload.serverData.files && payload.serverData.files.struk_toll) || '',
     efisiensi, 'COMPLETED', warning, payload.nama_supir,
     storeMetodeBbm, payload.flazz_card_id || '',
-    (payload.serverData && payload.serverData.files && payload.serverData.files.indikator) || '',
-    payload.level_bbm || '', payload.confidence_bbm || '',
-    (payload.serverData && payload.serverData.level_status) || (payload.level_bbm ? 'SUCCESS' : ''),
-    payload.keterangan || '',
     km_sumber,
     effMetodeToll,
     effCardToll
@@ -257,21 +271,6 @@ function saveTransactionEndOfDayUnlocked(payload) {
     } catch (e) {
       Logger.log("Gagal memproses flazz: " + e.toString());
     }
-  }
-
-  // Update status jalur pengiriman terkait laporan yang baru disimpan
-  try {
-    const matchedJalur = findJalurByCriteria({
-      tanggal: payload.tanggal,
-      vehicle_id: payload.vehicle_id,
-      nama_driver: payload.nama_supir,
-      kode_cabang: trxCabang
-    });
-    if (matchedJalur && matchedJalur.status !== 'SELESAI') {
-      updateJalurStatus(matchedJalur.id, 'SUDAH_LAPORAN', transaction_id);
-    }
-  } catch (e) {
-    Logger.log('Gagal update status jalur: ' + e.toString());
   }
 
   logAudit(payload.userInfo, 'CREATE', 'transaksi', 'TRX ' + transaction_id, null, {
@@ -623,7 +622,8 @@ function getRecentTransactions(role, userCabang) {
   const sheet = ss.getSheetByName('Penggunaan_BBM');
   if (!sheet) return [];
   if (role !== 'SUPERADMIN' && !userCabang) return [];
-  
+  ensurePenggunaBBMColumns();
+
   const data = readLastRows(sheet, 2000);
 
   let kendaraanMap = {};
@@ -750,21 +750,19 @@ function getRecentTransactions(role, userCabang) {
       biaya_bbm: parseFloat(row[19]) || 0,
       metode_pembayaran: (parseFloat(row[19]) || 0) > 0 ? (row[27] || 'TUNAI') : (row[27] || ''),
       flazz_card_id: typeof resolveCanonicalCardId === 'function' ? resolveCanonicalCardId(row[28]) : (row[28] || ''),
-      metode_toll: resolveTollMethod(row[35], row[27], row[36]),
-      flazz_card_id_toll: typeof resolveCanonicalCardId === 'function' ? resolveCanonicalCardId(resolveTollCard(row[36], resolveTollMethod(row[35], row[27], row[36]), row[27], row[28])) : resolveTollCard(row[36], resolveTollMethod(row[35], row[27], row[36]), row[27], row[28]),
+      metode_toll: resolveTollMethod(row[30], row[27], row[31]),
+      flazz_card_id_toll: typeof resolveCanonicalCardId === 'function' ? resolveCanonicalCardId(resolveTollCard(row[31], resolveTollMethod(row[30], row[27], row[31]), row[27], row[28])) : resolveTollCard(row[31], resolveTollMethod(row[30], row[27], row[31]), row[27], row[28]),
       km_awal: parseFloat(row[10]) || 0,
       km_akhir: parseFloat(row[14]) || 0,
-      km_sumber: row[34] ? String(row[34]) : 'AKTUAL',
+      km_sumber: row[29] ? String(row[29]) : 'AKTUAL',
       foto_odo_awal: row[8],
       foto_odo_akhir: row[12],
       foto_struk_bbm: row[20],
       foto_struk_toll: row[22],
-      foto_indikator: row[29],
       foto_odo_awal_thumb: driveThumbnail(row[8]),
       foto_odo_akhir_thumb: driveThumbnail(row[12]),
       foto_struk_bbm_thumb: driveThumbnail(row[20]),
-      foto_struk_toll_thumb: driveThumbnail(row[22]),
-      foto_indikator_thumb: driveThumbnail(row[29])
+      foto_struk_toll_thumb: driveThumbnail(row[22])
     });
   }
   
@@ -1634,10 +1632,41 @@ function setUserStatus(userId, status, userInfo) {
   return { msg: status === 'Aktif' ? 'Pengguna Berhasil Diaktifkan Kembali' : 'Pengguna Berhasil Dinonaktifkan' };
 }
 
+// Kolom lama yang dihapus dari pipeline laporan BBM.
+// Migrasi menghapus kolom-kolom ini dari sheet Penggunaan_BBM bila masih ada,
+// agar ukuran layout sesuai DATABASE_SCHEMA (single source of truth).
+var PBBM_DROPPED_COLUMNS = ['keterangan', 'level_status', 'confidence_bbm', 'level_bbm', 'foto_indikator'];
+
+function dropDeprecatedPenggunaanBBMColumns() {
+  try {
+    const ss = getDB();
+    const sheet = ss.getSheetByName('Penggunaan_BBM');
+    if (!sheet) return;
+    // Hapus kanan-ke-kiri; setelah tiap penghapusan header dibaca ulang agar
+    // indeks kolom yang dihapus selalu akurat terhadap posisi aktual.
+    let deleted = true;
+    while (deleted) {
+      deleted = false;
+      const headersNow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+      for (let c = headersNow.length; c >= 1; c--) {
+        if (PBBM_DROPPED_COLUMNS.indexOf(String(headersNow[c - 1] || '')) > -1) {
+          sheet.deleteColumn(c);
+          Logger.log('Kolom dihapus dari Penggunaan_BBM: ' + headersNow[c - 1]);
+          deleted = true;
+          break;
+        }
+      }
+    }
+  } catch (e) {
+    Logger.log('dropDeprecatedPenggunaanBBMColumns gagal: ' + e.toString());
+  }
+}
+
 function ensurePenggunaBBMColumns() {
   const ss = getDB();
   const sheet = ss.getSheetByName('Penggunaan_BBM');
   if (!sheet) return;
+  dropDeprecatedPenggunaanBBMColumns();
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   if (headers.indexOf('km_sumber') === -1) {
     const newCol = sheet.getLastColumn() + 1;

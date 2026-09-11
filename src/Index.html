@@ -30,7 +30,7 @@
     </nav>
 
     <!-- HALAMAN LOGIN -->
-    <div class='container d-flex flex-column' id='page-login' style='display:none; min-height:calc(100vh - 56px);'>
+    <div class='container flex-column' id='page-login' style='display:none; min-height:calc(100vh - 56px);'>
       <div class='row justify-content-center w-100 my-auto'>
         <div class='col-12 col-md-5 col-lg-4'>
           <div class='card shadow-sm'>
@@ -204,290 +204,309 @@
 
       <!-- HALAMAN 1: FORMULIR INPUT -->
       <div id='page-form' style='display:none;'>
-        <div class='card mb-4'>
-          <div class='card-body p-4'>
-            <h4 class='text-center mb-3'>
-              <i class='bi bi-pencil-square me-2'></i> Laporan Operasional Harian
-            </h4>
-            <div id='role-alert' class='alert alert-info text-center'>
-              <small>Anda login sebagai Admin. Anda hanya memasukkan laporan untuk kendaraan dan supir di warehouse Anda.</small>
-            </div>
-            
-            <form id='daily-form' onsubmit='return false;'>
+        <div id='role-alert' class='alert alert-info text-center mb-3'>
+          <small>Anda login sebagai Admin. Anda hanya memasukkan laporan untuk kendaraan dan supir di warehouse Anda.</small>
+        </div>
 
-                <div id="step-1" class="form-step">
-                  <div id='input-cabang-filter' class='card shadow-sm border-0 rounded-4 mb-3' style='display:none;'>
-                    <div class='card-body'>
+        
+        <div class='mb-4 mt-2'>
+          <h4 class='fw-bold mb-1'>Input Laporan Pengiriman</h4>
+          <p class='text-muted small mb-0'>Lengkapi data pengiriman, Foto dashboard awal dan akhir, transaksi bbm dan tol</p>
+        </div>
+<form id='daily-form' onsubmit='return false;'>
+          <div class='row'>
+            <!-- KOLOM KIRI: FORM UTAMA -->
+            <div class='col-12'>
+              
+              <!-- 1. Identitas Perjalanan -->
+              <div class='card shadow-sm border-0 rounded-4 mb-3'>
+                <div class='card-header bg-white border-bottom-0 pt-3 pb-0'>
+                  <h6 class='mb-0 text-primary fw-bold'><i class='bi bi-person-vcard me-2'></i>Informasi Pengirim dan Kendaraan</h6>
+                </div>
+                <div class='card-body'>
+                  <div id='input-cabang-filter' class='mb-3' style='display:none;'>
                     <label class='form-label fw-bold text-muted small text-uppercase'>Pilih Warehouse</label>
-                    <select id='input-cabang' class='form-select' onchange='filterFormByCabang()'>
+                    <select id='input-cabang' class='form-select form-select-sm' onchange='filterFormByCabang()'>
                       <option value=''>Semua Warehouse</option>
                     </select>
                   </div>
-                </div>
-  
-                <div class='card shadow-sm border-0 rounded-4 mb-4'>
-                  <div class='card-header bg-white border-bottom-0 pt-4 pb-0'>
-                    <h5 class='mb-0 text-primary fw-bold'><i class='bi bi-car-front me-2'></i>Data Kendaraan & Supir</h5>
-                  </div>
-                  <div class='card-body'>
-                    <div class='row'>
-                      <div class='col-md-6 mb-3'>
-                        <label class='form-label fw-bold text-muted small text-uppercase'>Nama Supir</label>
-                        <input id='nama_supir' class='form-control' list='supir-datalist' required autocomplete='off' placeholder='Ketik nama supir...' oninput='onSupirChange()' onchange='this.classList.remove("is-invalid")'>
-                        <datalist id='supir-datalist'></datalist>
-                      </div>
-                      <div class='col-md-6 mb-3'>
-                        <label class='form-label fw-bold text-muted small text-uppercase'>Pilih Kendaraan</label>
-                        <select id='vehicle' class='form-select' required onchange='onVehicleChange()'></select>
-                      </div>
+                  <div class='row'>
+                    <div class='col-md-4 mb-3'>
+                      <label class='form-label fw-bold text-muted small text-uppercase'>Nama Supir</label>
+                      <input id='nama_supir' class='form-control form-control-sm' list='supir-datalist' required autocomplete='off' placeholder='Ketik nama supir...' oninput='onSupirChange()' onchange='this.classList.remove("is-invalid"); updateLiveSummary()'>
+                      <datalist id='supir-datalist'></datalist>
                     </div>
-                    <div class='mb-0'>
-                      <label class='form-label fw-bold text-muted small text-uppercase'>Tanggal Operasional</label>
-                      <div class='input-group'>
-                        <span class='input-group-text bg-light border-end-0'><i class='bi bi-calendar-date'></i></span>
-                        <input type='date' id='tanggal' class='form-control border-start-0' required>
-                      </div>
+                    <div class='col-md-4 mb-3'>
+                      <label class='form-label fw-bold text-muted small text-uppercase'>Kendaraan</label>
+                      <select id='vehicle' class='form-select form-select-sm' required onchange='onVehicleChange(); updateLiveSummary()'></select>
+                    </div>
+                    <div class='col-md-4 mb-3'>
+                      <label class='form-label fw-bold text-muted small text-uppercase'>Tanggal</label>
+                      <input type='date' id='tanggal' class='form-control form-control-sm' required onchange='updateLiveSummary()'>
                     </div>
                   </div>
                 </div>
-                </div> <!-- End Step 1 -->
+              </div>
 
-                <div id="step-2" class="form-step">
-                <div class='row'>
-                  <div class='col-md-6'>
-                    <div class='card shadow-sm border-0 rounded-4 mb-4 h-100'>
-                      <div class='card-header bg-white border-bottom-0 pt-4 pb-0'>
-                        <h5 class='mb-0 text-primary fw-bold'><i class='bi bi-arrow-right-circle me-2'></i>Keberangkatan</h5>
+              <!-- 2 & 3. Kondisi Awal & Akhir Perjalanan (2 kolom simetris) -->
+              <div class='card shadow-sm border-0 rounded-4 mb-3'>
+                <div class='card-header bg-white border-bottom-0 pt-3 pb-0'>
+                  <h6 class='mb-0 text-success fw-bold'><i class='bi bi-box-arrow-right me-2'></i>Panel Instrumen Kendaraan</h6>
+                </div>
+                <div class='card-body'>
+                  <div class='row g-3'>
+                    <!-- KOLOM KIRI: AWAL -->
+                    <div class='col-6 border-end'>
+                      <h6 class='mb-2 text-success fw-bold'><i class='bi bi-dashboard me-2'></i>Panel Instrumen Awal</h6>
+                      <label class='form-label fw-bold text-muted small text-uppercase'>Foto Dashboard Awal</label>
+                      <div class='photo-upload rounded-3 py-1 text-center' role='button' tabindex='0' onclick='document.getElementById("foto_odo_awal").click()' style='max-width:100%;'>
+                        <i class='bi bi-camera fs-5 text-secondary me-1'></i>
+                        <span class='text-muted' style='font-size:0.7rem'>Upload foto</span>
+                        <input type='file' id='foto_odo_awal' accept='image/*' required style='display:none;' onchange='previewPhoto(this, "preview-awal")'>
                       </div>
-                      <div class='card-body'>
-                        <div class='mb-4' id='bar-awal-group'>
-                          <label class='form-label fw-bold text-muted small text-uppercase' id='label-bar-awal'>Bar Bensin Awal</label>
-                          <div class='input-group'>
-                            <span class='input-group-text bg-light border-end-0'><i class='bi bi-speedometer2'></i></span>
-                            <input type='number' id='bar_awal' class='form-control border-start-0' min='0' required placeholder='Misal: 8'>
-                          </div>
-                          <div class='mt-2' id='level-slider-jarum-awal' style='display:none;'>
-                            <div class='d-flex justify-content-between align-items-center mb-1'>
-                              <span class='text-danger small fw-bold'>E</span>
-                              <span class='small fw-bold text-primary' id='bar_awal_slider_val'>0%</span>
-                              <span class='text-success small fw-bold'>F</span>
-                            </div>
-                            <input type='range' id='bar_awal_slider' class='form-range' min='0' max='100' value='0' oninput='levelSlider("awal", this.value)'>
-                            <small class='text-muted' style='font-size: 0.75rem;'>*Geser sesuai posisi jarum: 0 = E/kosong, 100 = F/penuh (berlaku utk indikator jarum).</small>
-                          </div>
-                          <small class='text-muted' style='font-size: 0.75rem;' id='hint-bar-awal'>*Hitung bar/jarak indikator bahan bakar digital. Tidak berlaku untuk indikator jarum.</small>
-                        </div>
-                        <div class='mb-4'>
+                      <div id='preview-awal' class='mt-2 text-center' style='display:none;'>
+                        <img src='' alt='Preview Awal' class='img-fluid rounded-3 shadow-sm' style='max-height:220px; max-width:100%; object-fit:contain;'>
+                      </div>
+                      <div class='row g-2 mt-2'>
+                        <div class='col-6'>
                           <label class='form-label fw-bold text-muted small text-uppercase'>KM Awal</label>
-                          <div class='input-group'>
-                            <span class='input-group-text bg-light border-end-0'><i class='bi bi-123'></i></span>
-                            <input type='number' id='km_awal_val' class='form-control border-start-0' required placeholder='Misal: 15000'>
+                          <div class='input-group input-group-sm'>
+                            <input type='number' id='km_awal_val' class='form-control' required placeholder='Cth: 15000' oninput='updateLiveSummary()'>
+                            <span class='input-group-text'>km</span>
                           </div>
-                          <div class='form-check mt-2' id='odometer-rusak-awal' style='display:none;'>
-                            <input class='form-check-input' type='checkbox' id='chk_km_awal' onchange='toggleOdoBroken("awal")'>
-                            <label class='form-check-label' for='chk_km_awal'><small>Odometer tidak terbaca (rusak) - km dihitung estimasi</small></label>
+                          <div class='form-check mt-1' id='odometer-rusak-awal' style='display:none;'>
+                            <input class='form-check-input' type='checkbox' id='chk_km_awal' onchange='toggleOdoBroken("awal"); updateLiveSummary()'>
+                            <label class='form-check-label' for='chk_km_awal' style='font-size:0.7rem'>Rusak (Estimasi)</label>
                           </div>
                         </div>
-                        <div class='mb-0'>
-                          <label class='form-label fw-bold text-muted small text-uppercase'>Foto Dasbor Awal</label>
-                          <div class='photo-upload rounded-3' role='button' tabindex='0' onclick='document.getElementById("foto_odo_awal").click()' onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();document.getElementById("foto_odo_awal").click();}'>
-                            <i class='bi bi-camera fs-3 text-secondary mb-2'></i>
-                            <span class='text-muted small'>Tap untuk upload foto</span>
-                            <input type='file' id='foto_odo_awal' accept='image/*' required style='display:none;' onchange='previewPhoto(this, "preview-awal")'>
+                        <div class='col-6' id='bar-awal-group'>
+                          <label class='form-label fw-bold text-muted small text-uppercase' id='label-bar-awal'>Bar BBM Awal</label>
+                          <div class='input-group input-group-sm'>
+                            <input type='number' id='bar_awal' class='form-control' min='0' required placeholder='Cth: 8' oninput='updateLiveSummary()'>
+                            <span class='input-group-text'>bar</span>
                           </div>
-                          <div id='preview-awal' class='mt-2 text-center' style='display:none;'>
-                            <img src='' alt='Preview' class='img-fluid rounded-3 shadow-sm'>
+                          <div class='mt-1' id='level-slider-jarum-awal' style='display:none;'>
+                            <div class='d-flex justify-content-between align-items-center mb-1'>
+                              <span class='text-danger fw-bold' style='font-size:0.7rem'>E</span>
+                              <span class='fw-bold text-primary' id='bar_awal_slider_val' style='font-size:0.7rem'>0%</span>
+                              <span class='text-success fw-bold' style='font-size:0.7rem'>F</span>
+                            </div>
+                            <input type='range' id='bar_awal_slider' class='form-range' min='0' max='100' value='0' oninput='levelSlider("awal", this.value); updateLiveSummary()'>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                  <div class='col-md-6'>
-                    <div class='card shadow-sm border-0 rounded-4 mb-4 h-100 mt-4 mt-md-0'>
-                      <div class='card-header bg-white border-bottom-0 pt-4 pb-0'>
-                        <h5 class='mb-0 text-success fw-bold'><i class='bi bi-arrow-left-circle me-2'></i>Kepulangan</h5>
+                    <!-- KOLOM KANAN: AKHIR -->
+                    <div class='col-6'>
+                      <h6 class='mb-2 text-danger fw-bold'><i class='bi bi-dashboard me-2'></i>Panel Instrumen Akhir</h6>
+                      <label class='form-label fw-bold text-muted small text-uppercase'>Foto Dashboard Akhir</label>
+                      <div class='photo-upload rounded-3 py-1 text-center' role='button' tabindex='0' onclick='document.getElementById("foto_odo_akhir").click()' style='max-width:100%;'>
+                        <i class='bi bi-camera fs-5 text-secondary me-1'></i>
+                        <span class='text-muted' style='font-size:0.7rem'>Upload foto</span>
+                        <input type='file' id='foto_odo_akhir' accept='image/*' required style='display:none;' onchange='previewPhoto(this, "preview-akhir")'>
                       </div>
-                      <div class='card-body'>
-                        <div class='mb-4' id='bar-akhir-group'>
-                          <label class='form-label fw-bold text-muted small text-uppercase' id='label-bar-akhir'>Bar Bensin Akhir</label>
-                          <div class='input-group'>
-                            <span class='input-group-text bg-light border-end-0'><i class='bi bi-speedometer2'></i></span>
-                            <input type='number' id='bar_akhir' class='form-control border-start-0' min='0' required placeholder='Misal: 5'>
-                          </div>
-                          <div class='mt-2' id='level-slider-jarum-akhir' style='display:none;'>
-                            <div class='d-flex justify-content-between align-items-center mb-1'>
-                              <span class='text-danger small fw-bold'>E</span>
-                              <span class='small fw-bold text-primary' id='bar_akhir_slider_val'>0%</span>
-                              <span class='text-success small fw-bold'>F</span>
-                            </div>
-                            <input type='range' id='bar_akhir_slider' class='form-range' min='0' max='100' value='0' oninput='levelSlider("akhir", this.value)'>
-                            <small class='text-muted' style='font-size: 0.75rem;'>*Geser sesuai posisi jarum: 0 = E/kosong, 100 = F/penuh (berlaku utk indikator jarum).</small>
-                          </div>
-                          <small class='text-muted' style='font-size: 0.75rem;' id='hint-bar-akhir'>*Hitung bar/jarak indikator bahan bakar digital. Tidak berlaku untuk indikator jarum.</small>
-                        </div>
-                        <div class='mb-4'>
+                      <div id='preview-akhir' class='mt-2 text-center' style='display:none;'>
+                        <img src='' alt='Preview Akhir' class='img-fluid rounded-3 shadow-sm' style='max-height:220px; max-width:100%; object-fit:contain;'>
+                      </div>
+                      <div class='row g-2 mt-2'>
+                        <div class='col-6'>
                           <label class='form-label fw-bold text-muted small text-uppercase'>KM Akhir</label>
-                          <div class='input-group'>
-                            <span class='input-group-text bg-light border-end-0'><i class='bi bi-123'></i></span>
-                            <input type='number' id='km_akhir_val' class='form-control border-start-0' required placeholder='Misal: 15050'>
+                          <div class='input-group input-group-sm'>
+                            <input type='number' id='km_akhir_val' class='form-control' required placeholder='Cth: 15050' oninput='updateLiveSummary()'>
+                            <span class='input-group-text'>km</span>
                           </div>
-                          <div class='form-check mt-2' id='odometer-rusak-akhir' style='display:none;'>
-                            <input class='form-check-input' type='checkbox' id='chk_km_akhir' onchange='toggleOdoBroken("akhir")'>
-                            <label class='form-check-label' for='chk_km_akhir'><small>Odometer tidak terbaca (rusak) - km dihitung estimasi</small></label>
+                          <div class='form-check mt-1' id='odometer-rusak-akhir' style='display:none;'>
+                            <input class='form-check-input' type='checkbox' id='chk_km_akhir' onchange='toggleOdoBroken("akhir"); updateLiveSummary()'>
+                            <label class='form-check-label' for='chk_km_akhir' style='font-size:0.7rem'>Rusak (Estimasi)</label>
                           </div>
                         </div>
-                        <div class='mb-0'>
-                          <label class='form-label fw-bold text-muted small text-uppercase'>Foto Dasbor Akhir</label>
-                          <div class='photo-upload rounded-3' role='button' tabindex='0' onclick='document.getElementById("foto_odo_akhir").click()' onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();document.getElementById("foto_odo_akhir").click();}'>
-                            <i class='bi bi-camera fs-3 text-secondary mb-2'></i>
-                            <span class='text-muted small'>Tap untuk upload foto</span>
-                            <input type='file' id='foto_odo_akhir' accept='image/*' required style='display:none;' onchange='previewPhoto(this, "preview-akhir")'>
+                        <div class='col-6' id='bar-akhir-group'>
+                          <label class='form-label fw-bold text-muted small text-uppercase' id='label-bar-akhir'>Bar BBM Akhir</label>
+                          <div class='input-group input-group-sm'>
+                            <input type='number' id='bar_akhir' class='form-control' min='0' required placeholder='Cth: 5' oninput='updateLiveSummary()'>
+                            <span class='input-group-text'>bar</span>
                           </div>
-                          <div id='preview-akhir' class='mt-2 text-center' style='display:none;'>
-                            <img src='' alt='Preview' class='img-fluid rounded-3 shadow-sm'>
+                          <div class='mt-1' id='level-slider-jarum-akhir' style='display:none;'>
+                            <div class='d-flex justify-content-between align-items-center mb-1'>
+                              <span class='text-danger fw-bold' style='font-size:0.7rem'>E</span>
+                              <span class='fw-bold text-primary' id='bar_akhir_slider_val' style='font-size:0.7rem'>0%</span>
+                              <span class='text-success fw-bold' style='font-size:0.7rem'>F</span>
+                            </div>
+                            <input type='range' id='bar_akhir_slider' class='form-range' min='0' max='100' value='0' oninput='levelSlider("akhir", this.value); updateLiveSummary()'>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
-                </div> <!-- End Step 2 -->
+              </div>
 
-                <div id="step-3" class="form-step">
-                <div class='row'>
-                  <div class='col-12'>
-                    <div class='card shadow-sm border-0 rounded-4 mb-4 h-100'>
-                      <div class='card-header bg-white border-bottom-0 pt-4 pb-0'>
-                        <h5 class='mb-0 text-warning fw-bold'><i class='bi bi-fuel-pump me-2'></i>Pengeluaran BBM</h5>
-                      </div>
-                      <div class='card-body'>
-                        <input type='hidden' id='isi_bensin' value='Tidak'>
-                        <div id='bbm-section' class='fade-in'>
-                          <div class='mb-3'>
-                            <label class='form-label fw-bold text-muted small text-uppercase'>Jenis BBM</label>
-                            <select id='jenis_bbm' class='form-select' onchange='calcLiter()'></select>
-                          </div>
-                          <div class='mb-3'>
-                            <label class='form-label fw-bold text-muted small text-uppercase'>Total Biaya BBM</label>
-                            <div class='input-group'>
-                              <span class='input-group-text bg-light border-end-0 fw-bold'>Rp</span>
-                              <input type='number' id='biaya_bbm' class='form-control border-start-0' oninput='calcLiter(); syncBensinTersirat()' placeholder='150000'>
+              <!-- 4. Transaksi BBM & Tol -->
+              <div class='card shadow-sm border-0 rounded-4 mb-3'>
+                <div class='card-header bg-white border-bottom-0 pt-3 pb-0 d-flex justify-content-between align-items-center'>
+                  <h6 class='mb-0 text-warning fw-bold'><i class='bi bi-fuel-pump me-2'></i>Transaksi BBM & Pembayaran Tol</h6>
+                  <button type='button' class='btn btn-sm btn-outline-secondary py-0' onclick='resetTolFields(); document.getElementById("biaya_bbm").value=""; calcLiter(); updateLiveSummary();' title='Kosongkan transaksi'><i class='bi bi-x'></i> Reset</button>
+                </div>
+                <div class='card-body p-0'>
+                  <input type='hidden' id='isi_bensin' value='Tidak'>
+                  <div class='table-responsive'>
+                    <table class='table table-borderless align-middle mb-0 text-center' style='font-size: 13px; min-width: 650px;'>
+                      <thead class='table-light text-muted border-bottom'>
+                        <tr>
+                          <th width='4%' class='fw-bold'>No</th>
+                          <th width='18%' class='fw-bold text-start'>Item Transaksi</th>
+                          <th width='16%' class='fw-bold'>Nominal (Rp)</th>
+                          <th width='10%' class='fw-bold'>Liter</th>
+                          <th width='16%' class='fw-bold'>Metode Bayar</th>
+                          <th width='36%' class='fw-bold'>Kartu Flazz</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <!-- Baris BBM -->
+                        <tr class='border-bottom'>
+                          <td>1</td>
+                          <td class='text-start'>
+                            <select id='jenis_bbm' class='form-select form-select-sm' onchange='calcLiter(); updateLiveSummary()'></select>
+                          </td>
+                          <td>
+                            <div class='input-group input-group-sm'>
+                              <span class='input-group-text bg-light border-end-0'>Rp</span>
+                              <input type='number' id='biaya_bbm' class='form-control border-start-0' oninput='calcLiter(); syncBensinTersirat(); updateLiveSummary()' placeholder='0' min='0'>
                             </div>
-                          </div>
-                          <div class='mb-3'>
-                            <label class='form-label fw-bold text-muted small text-uppercase'>Jumlah Liter BBM</label>
-                            <div class='input-group'>
-                              <input type='number' id='liter_bbm' class='form-control border-end-0 bg-light' step='0.01' readonly placeholder='0.00'>
-                              <span class='input-group-text bg-light border-start-0 text-muted'>Liter</span>
+                          </td>
+                          <td>
+                            <div class='input-group input-group-sm'>
+                              <input type='number' id='liter_bbm' class='form-control bg-light' step='0.01' readonly tabindex='-1' placeholder='0'>
+                              <span class='input-group-text px-1'>L</span>
                             </div>
-                          </div>
-                          <div class='mb-3'>
-                            <label class='form-label fw-bold text-muted small text-uppercase'>Metode Pembayaran BBM</label>
-                            <select id='metode_pembayaran' class='form-select' onchange='toggleFlazzCardSelection()'>
-                              <option value='TUNAI'>Tunai</option>
-                              <option value='FLAZZ'>Kartu Flazz</option>
-                            </select>
-                          </div>
-                          <div class='mb-3' id='flazz-card-section' style='display:none;'>
-                            <label class='form-label fw-bold text-muted small text-uppercase'>Pilih Kartu Flazz untuk BBM</label>
-                            <select id='flazz_card_id' class='form-select'>
+                          </td>
+                          <td>
+                            <div class='d-flex flex-column gap-1'>
+                              <div class='form-check mb-0'>
+                                <input class='form-check-input' type='radio' name='metode_pembayaran' id='mp_tunai' value='TUNAI' checked onchange='toggleFlazzCardSelection(); updateLiveSummary()'>
+                                <label class='form-check-label small' for='mp_tunai'>Tunai</label>
+                              </div>
+                              <div class='form-check mb-0'>
+                                <input class='form-check-input' type='radio' name='metode_pembayaran' id='mp_flazz' value='FLAZZ' onchange='toggleFlazzCardSelection(); updateLiveSummary()'>
+                                <label class='form-check-label small' for='mp_flazz'>Flazz</label>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <select id='flazz_card_id' class='form-select form-select-sm' style='display:none;' onchange='updateLiveSummary()'>
                               <option value=''>Pilih Kartu...</option>
                             </select>
-                          </div>
-                          <div id='tol-section' class='tol-block fade-in'>
-                            <hr>
-                            <div class='d-flex align-items-center justify-content-between mb-2'>
-                              <label class='form-label fw-bold text-muted small text-uppercase mb-0'>Pengeluaran Tol (Total Hari Ini)</label>
-                              <button type='button' class='btn btn-sm btn-outline-secondary' onclick='resetTolFields()' title='Kosongkan tol' aria-label='Kosongkan pengeluaran tol'><i class='bi bi-x-circle'></i></button>
+                            <span id='flazz_card_id_strip' class='text-muted'>-</span>
+                          </td>
+                        </tr>
+                        
+                        <!-- Baris Tol -->
+                        <tr>
+                          <td>2</td>
+                          <td class='text-start fw-bold text-secondary ps-3'><i class='bi bi-sign-turn-right me-1'></i> Tol</td>
+                          <td>
+                            <div class='input-group input-group-sm'>
+                              <span class='input-group-text bg-light border-end-0'>Rp</span>
+                              <input type='number' id='biaya_toll' class='form-control border-start-0' min='0' placeholder='0' oninput='syncBensinTersirat(); updateLiveSummary()'>
                             </div>
-                            <div class='mb-3'>
-                              <label class='form-label fw-bold text-muted small'>Total Biaya Tol</label>
-                              <div class='input-group'>
-                                <span class='input-group-text bg-light border-end-0 fw-bold'>Rp</span>
-                                <input type='number' id='biaya_toll' class='form-control border-start-0' min='0' placeholder='35000' oninput='syncBensinTersirat()'>
+                          </td>
+                          <td>
+                            <span class='text-muted'>-</span>
+                          </td>
+                          <td>
+                            <div class='d-flex flex-column gap-1'>
+                              <div class='form-check mb-0'>
+                                <input class='form-check-input' type='radio' name='metode_toll' id='mt_tunai' value='TUNAI' checked onchange='toggleTolFlazzCardSelection(); updateLiveSummary()'>
+                                <label class='form-check-label small' for='mt_tunai'>Tunai</label>
                               </div>
-                              <small class='text-muted' style='font-size:0.75rem'>Total seluruh gerbang tol hari ini. Bukti fisik disimpan.</small>
+                              <div class='form-check mb-0'>
+                                <input class='form-check-input' type='radio' name='metode_toll' id='mt_flazz' value='FLAZZ' onchange='toggleTolFlazzCardSelection(); updateLiveSummary()'>
+                                <label class='form-check-label small' for='mt_flazz'>Flazz</label>
+                              </div>
                             </div>
-                            <div class='mb-3'>
-                              <label class='form-label fw-bold text-muted small text-uppercase'>Metode Pembayaran Tol</label>
-                              <select id='metode_toll' class='form-select' onchange='toggleTolFlazzCardSelection()'>
-                                <option value='TUNAI'>Tunai</option>
-                                <option value='FLAZZ'>Kartu Flazz</option>
-                              </select>
-                            </div>
-                            <div class='mb-3' id='tol-flazz-card-section' style='display:none;'>
-                              <label class='form-label fw-bold text-muted small text-uppercase'>Pilih Kartu Flazz untuk Tol</label>
-                              <select id='flazz_card_id_toll' class='form-select'>
-                                <option value=''>Pilih Kartu...</option>
-                              </select>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                          </td>
+                          <td>
+                            <select id='flazz_card_id_toll' class='form-select form-select-sm' style='display:none;' onchange='updateLiveSummary()'>
+                              <option value=''>Pilih Kartu...</option>
+                            </select>
+                            <span id='flazz_card_id_toll_strip' class='text-muted'>-</span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
+              </div>
 
-                <button type="button" class="btn btn-outline-info rounded-4 fw-bold mb-3 w-100 d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#lanjutan-collapse" aria-expanded="false" aria-controls="lanjutan-collapse">
-                  <span><i class='bi bi-chevron-down me-2' id='lanjutan-chevron'></i>Lanjutan (opsional)</span>
-                  <span class='badge bg-info-subtle text-info'>foto indikator, level, keterangan</span>
+            </div>
+
+            <!-- TOMBOL SUBMIT - di bawah form kiri -->
+            <div class='col-12 mt-3 d-flex gap-2 justify-content-end'>
+              <button type="button" class="btn btn-outline-danger rounded-3 fw-bold px-4" onclick="confirmResetForm()">
+                <i class='bi bi-x-circle me-1'></i> Batal
+              </button>
+              <button id='btn-review' class='btn btn-primary rounded-3 fw-bold px-4' onclick='openReviewModal()'>
+                <i class='bi bi-eye me-1'></i> Tinjau & Simpan
+              </button>
+            </div>
+
+          </div>
+        </form>
+
+        <!-- MODAL RINGKASAN PERJALANAN -->
+        <div class='modal fade' id='modal-ringkasan' tabindex='-1' aria-labelledby='modal-ringkasan-label' aria-hidden='true'>
+          <div class='modal-dialog modal-dialog-centered modal-md'>
+            <div class='modal-content border-0 rounded-4 shadow'>
+              <div class='modal-header bg-primary text-white rounded-top-4 border-0'>
+                <h5 class='modal-title fw-bold' id='modal-ringkasan-label'><i class='bi bi-receipt me-2'></i>Ringkasan Perjalanan</h5>
+                <button type='button' class='btn-close btn-close-white' data-bs-dismiss='modal' aria-label='Close'></button>
+              </div>
+              <div class='modal-body p-0'>
+                <!-- Info Perjalanan -->
+                <div class='p-3 border-bottom'>
+                  <p class='mb-2 fw-bold text-dark small text-uppercase text-muted'>Informasi Perjalanan</p>
+                  <div class='d-flex justify-content-between mb-1'><span class='text-muted small'>Tanggal</span><span class='fw-bold small' id='sum_tanggal'>-</span></div>
+                  <div class='d-flex justify-content-between mb-1'><span class='text-muted small'>Driver</span><span class='fw-bold small' id='sum_supir'>-</span></div>
+                  <div class='d-flex justify-content-between'><span class='text-muted small'>Kendaraan</span><span class='fw-bold small' id='sum_kendaraan'>-</span></div>
+                </div>
+                <!-- Jarak & Bensin -->
+                <div class='p-3 border-bottom bg-light'>
+                  <p class='mb-2 fw-bold text-dark small text-uppercase text-muted'>Jarak & Bensin</p>
+                  <div class='d-flex justify-content-between mb-1'><span class='text-muted small'>KM Awal</span><span class='fw-bold small' id='sum_km_awal'>-</span></div>
+                  <div class='d-flex justify-content-between mb-1'><span class='text-muted small'>KM Akhir</span><span class='fw-bold small' id='sum_km_akhir'>-</span></div>
+                  <div class='d-flex justify-content-between mb-1 text-primary'><span class='fw-bold small'>Jarak Tempuh</span><span class='fw-bold small' id='sum_jarak'>-</span></div>
+                  <div class='d-flex justify-content-between mb-1'><span class='text-muted small'>Bar BBM Awal</span><span class='fw-bold small' id='sum_bar_awal'>-</span></div>
+                  <div class='d-flex justify-content-between'><span class='text-muted small'>Bar BBM Akhir</span><span class='fw-bold small' id='sum_bar_akhir'>-</span></div>
+                </div>
+                <!-- BBM & Tol -->
+                <div class='p-3 border-bottom'>
+                  <p class='mb-2 fw-bold text-dark small text-uppercase text-muted'>BBM & Tol</p>
+                  <div class='d-flex justify-content-between mb-1'><span class='text-muted small'>Total BBM</span><span class='fw-bold small' id='sum_bbm'>Rp 0</span></div>
+                  <div class='d-flex justify-content-between mb-1'><span class='text-muted small'>Total Liter</span><span class='fw-bold small' id='sum_liter'>0 L</span></div>
+                  <div class='d-flex justify-content-between mb-2'><span class='text-muted small'>Bayar BBM</span><span class='fw-bold small' id='sum_bayar_bbm'>Tunai</span></div>
+                  <div class='d-flex justify-content-between mb-1'><span class='text-muted small'>Total Tol</span><span class='fw-bold small' id='sum_tol'>Rp 0</span></div>
+                  <div class='d-flex justify-content-between'><span class='text-muted small'>Bayar Tol</span><span class='fw-bold small' id='sum_bayar_tol'>Tunai</span></div>
+                </div>
+                <!-- Total -->
+                <div class='p-3 bg-primary bg-opacity-10'>
+                  <div class='d-flex justify-content-between align-items-center'>
+                    <span class='fw-bold text-primary'>Total Pengeluaran</span>
+                    <span class='fw-bold fs-5 text-primary' id='sum_total'>Rp 0</span>
+                  </div>
+                </div>
+              </div>
+              <div class='modal-footer border-0 pt-0 pb-3 px-3 gap-2'>
+                <button type='button' class='btn btn-outline-secondary rounded-3 flex-fill' data-bs-dismiss='modal'>
+                  <i class='bi bi-pencil me-1'></i> Edit Lagi
                 </button>
-                <div class='collapse mb-3' id='lanjutan-collapse'>
-                <div class='card shadow-sm border-0 rounded-4'>
-                  <div class='card-header bg-white border-bottom-0 pt-4 pb-0'>
-                    <h5 class='mb-0 text-info fw-bold'><i class='bi bi-fuel-pump-diesel me-2'></i>Indikator BBM & Keterangan</h5>
-                  </div>
-                  <div class='card-body'>
-                    <div class='row'>
-                      <div class='col-md-4'>
-                        <div class='mb-3'>
-                          <label class='form-label fw-bold text-muted small text-uppercase'>Foto Indikator BBM</label>
-                          <div class='photo-upload rounded-3' role='button' tabindex='0' onclick='document.getElementById("foto_indikator").click()' onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();document.getElementById("foto_indikator").click();}'>
-                            <i class='bi bi-speedometer2 fs-3 text-secondary mb-2'></i>
-                            <span class='text-muted small'>Tap untuk upload foto</span>
-                            <input type='file' id='foto_indikator' accept='image/*' style='display:none;' onchange='previewPhoto(this, "preview-indikator")'>
-                          </div>
-                          <div id='preview-indikator' class='mt-2 text-center' style='display:none;'>
-                            <img src='' alt='Preview' class='img-fluid rounded-3 shadow-sm'>
-                          </div>
-                        </div>
-                      </div>
-                      <div class='col-md-4'>
-                        <div class='mb-3'>
-                          <label class='form-label fw-bold text-muted small text-uppercase'>Level BBM (%)</label>
-                          <input type='number' id='level_bbm' class='form-control' step='1' min='0' max='100' placeholder='cth: 50'>
-                          <small class='text-muted' style='font-size: 0.75rem;'>Hasil pembacaan indikator (opsional). Liter BBM tetap dari bukti pembelian.</small>
-                        </div>
-                        <div class='mb-3'>
-                          <label class='form-label fw-bold text-muted small text-uppercase'>Confidence (%)</label>
-                          <input type='number' id='confidence_bbm' class='form-control' step='1' min='0' max='100' placeholder='cth: 93'>
-                          <small class='text-muted' style='font-size: 0.75rem;'>Keyakinan pembacaan (opsional).</small>
-                        </div>
-                      </div>
-                      <div class='col-md-4'>
-                        <div class='mb-3'>
-                          <label class='form-label fw-bold text-muted small text-uppercase'>Keterangan</label>
-                          <textarea id='keterangan' class='form-control' rows='4' placeholder='Catatan tambahan operasional hari ini...'></textarea>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                </div> <!-- End Lanjutan collapse -->
-
-                <div class="d-flex gap-2 mt-2 mb-2">
-                  <button type="button" class="btn btn-outline-danger rounded-4 fw-bold" style="flex:1 1 0;" onclick="confirmResetForm()">Batal</button>
-                  <button id='btn-process' class='btn btn-success rounded-4 shadow-sm fw-bold' style='flex:1 1 0;' onclick='processDailyReport()'>
-                    <i class='bi bi-cloud-arrow-up me-1'></i> Simpan
-                  </button>
-                </div>
-                </div> <!-- End Step 3 -->
-
-              </form>
+                <button id='btn-process' type='button' class='btn btn-primary rounded-3 flex-fill fw-bold' onclick='processDailyReport()'>
+                  <i class='bi bi-check2-circle me-1'></i> Konfirmasi & Simpan
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-      
       <!-- FILTER BERSAMA UNTUK DASHBOARD & GALERI -->
       <div id='shared-filter-card' class='card mb-3' style='display:none;'>
         <div class='card-body p-3'>
@@ -696,7 +715,6 @@
                   <option value='odo_akhir'>KM Akhir</option>
                   <option value='struk_bbm'>Struk BBM</option>
                   <option value='struk_toll'>Struk Tol</option>
-                  <option value='indikator'>Indikator BBM</option>
                 </select>
               </div>
             </div>
