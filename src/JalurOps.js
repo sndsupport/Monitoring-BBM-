@@ -364,12 +364,12 @@ function saveJalur(payload, userInfo) {
 
 function updateJalur(data, userInfo) {
   try {
+    assertSuperadminOnly(userInfo, 'memperbarui jadwal pengiriman');
     const sheet = jalurSheet();
     if (!sheet) throw new Error('Sheet Jalur_Pengiriman tidak ditemukan.');
     const found = findJalurRow(sheet, data.id);
     if (!found) throw new Error('Jadwal tidak ditemukan.');
     const idx = found.idx;
-    assertSuperadminOnly(userInfo, 'memperbarui jadwal pengiriman');
     const oldCard = (idx['flazz_card_id'] !== undefined) ? String(found.row[idx['flazz_card_id']] || '') : '';
     const newCard = data.etoll_card_id !== undefined ? String(data.etoll_card_id || '') : oldCard;
     if (data.tanggal !== undefined) sheet.getRange(found.rowIndex, idx['tanggal'] + 1).setValue(data.tanggal);
@@ -418,12 +418,12 @@ function updateJalur(data, userInfo) {
 
 function deleteJalur(id, userInfo) {
   try {
+    assertSuperadminOnly(userInfo, 'menghapus jadwal pengiriman');
     const sheet = jalurSheet();
     if (!sheet) throw new Error('Sheet Jalur_Pengiriman tidak ditemukan.');
     const found = findJalurRow(sheet, id);
     if (!found) throw new Error('Jadwal tidak ditemukan.');
     const idx = found.idx;
-    assertSuperadminOnly(userInfo, 'menghapus jadwal pengiriman');
     const cardId = (idx['flazz_card_id'] !== undefined) ? String(found.row[idx['flazz_card_id']] || '') : '';
     // Kembalikan kartu etoll yang diserahkan agar tidak menggantung
     if (cardId) returnFlazzUsage(cardId);
