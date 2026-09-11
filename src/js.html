@@ -724,6 +724,14 @@ populateSupirDatalist();
     if (fcReset) fcReset.value = '';
     var fcTolReset = document.getElementById('flazz_card_id_toll');
     if (fcTolReset) fcTolReset.value = '';
+    var vehReset = document.getElementById('vehicle');
+    if (vehReset) vehReset.value = '';
+    var jenisReset = document.getElementById('jenis_bbm');
+    if (jenisReset) jenisReset.value = '';
+    var biayaReset = document.getElementById('biaya_bbm');
+    if (biayaReset) biayaReset.value = '';
+    var literReset = document.getElementById('liter_bbm');
+    if (literReset) literReset.value = '';
 
     var isiBensinReset = document.getElementById('isi_bensin');
     if (isiBensinReset) isiBensinReset.value = 'Tidak';
@@ -766,6 +774,8 @@ populateSupirDatalist();
     if (fStrip) fStrip.style.display = 'inline';
     var tStrip = document.getElementById('flazz_card_id_toll_strip');
     if (tStrip) tStrip.style.display = 'inline';
+    if (typeof resetTolFields === 'function') resetTolFields();
+    if (typeof calcLiter === 'function') calcLiter();
     if (typeof syncBensinTersirat === 'function') syncBensinTersirat();
     if (typeof updateLiveSummary === 'function') updateLiveSummary();
   }
