@@ -44,7 +44,9 @@ function authenticateUser(username, password) {
   return { success: false, msg: 'Username atau Password salah!' };
 }
 
-function getCabangList() {
+function getCabangList(token) {
+  const u = requireUser(token);
+  assertSuperadminOnly(u, 'melihat daftar warehouse');
   const ss = getDB();
   const sheet = ss.getSheetByName('Cabang');
   if (!sheet) return [];
@@ -58,7 +60,10 @@ function getCabangList() {
   return list;
 }
 
-function getActiveVehicles(role, userCabang) {
+function getActiveVehicles(token) {
+  const u = requireUser(token);
+  const role = u.role;
+  const userCabang = u.cabang;
   const ss = getDB();
   if (!ss) return [];
   const sheet = ss.getSheetByName('Kendaraan');
@@ -138,6 +143,11 @@ function saveTransactionEndOfDayUnlocked(payload) {
         break;
       }
     }
+  }
+
+  // Validate non-super PIC can only save reports for vehicles in their cabang
+  if (payload.userInfo.role !== 'SUPERADMIN') {
+    assertOwnWarehouse(payload.userInfo, trxCabang);
   }
 
   // Syarat mutlak: laporan harian hanya bisa disimpan jika sudah ada Jalur Pengiriman
@@ -533,7 +543,10 @@ function hitungEfisiensi7Riwayat(trxs, currIdx, literPerBar) {
   };
 }
 
-function getPerformaSummary(role, userCabang) {
+function getPerformaSummary(token) {
+  const u = requireUser(token);
+  const role = u.role;
+  const userCabang = u.cabang;
   const ss = getDB();
   const sheet = ss.getSheetByName('Penggunaan_BBM');
   if (!sheet) return [];
@@ -625,7 +638,10 @@ function getPerformaSummary(role, userCabang) {
   return result;
 }
 
-function getRecentTransactions(role, userCabang) {
+function getRecentTransactions(token) {
+  const u = requireUser(token);
+  const role = u.role;
+  const userCabang = u.cabang;
   const ss = getDB();
   const sheet = ss.getSheetByName('Penggunaan_BBM');
   if (!sheet) return [];
@@ -801,6 +817,7 @@ function shouldAutoCreateUsageOnEdit(wasFlazz, isFlazz) {
 
 function editDailyTransactionUnlocked(payload, userInfo) {
   try {
+    assertSuperadminOnly(userInfo, 'mengedit laporan BBM');
     const ss = getDB();
     const sheet = ss.getSheetByName('Penggunaan_BBM');
     if (!sheet) throw new Error('Sheet Penggunaan_BBM tidak ditemukan.');
@@ -1058,6 +1075,7 @@ function deleteDailyTransaction(transactionId, userInfo) {
 
 function deleteDailyTransactionUnlocked(transactionId, userInfo) {
   try {
+    assertSuperadminOnly(userInfo, 'menghapus laporan BBM');
     const ss = getDB();
     const sheet = ss.getSheetByName('Penggunaan_BBM');
     if (!sheet) throw new Error('Sheet Penggunaan_BBM tidak ditemukan.');
@@ -1229,7 +1247,10 @@ function insertKendaraan(data, userInfo) {
   return { msg: 'Kendaraan Berhasil Ditambahkan' };
 }
 
-function getActiveDrivers(role, userCabang) {
+function getActiveDrivers(token) {
+  const u = requireUser(token);
+  const role = u.role;
+  const userCabang = u.cabang;
   const ss = getDB();
   if (!ss) return [];
   const sheet = ss.getSheetByName('Supir');
@@ -1294,7 +1315,9 @@ function getActiveBBM() {
   return list;
 }
 
-function getActiveBBMForCabang(cabang) {
+function getActiveBBMForCabang(token) {
+  const u = requireUser(token);
+  const cabang = u.cabang;
   const ss = getDB();
   const sheet = ss.getSheetByName('BBM');
   if (!sheet) return [];
@@ -1511,7 +1534,9 @@ function deleteBBMById(id, userInfo) {
 // PENGGUNA (AKUN) CRUD
 // ==========================================
 
-function getAllUsers() {
+function getAllUsers(token) {
+  const u = requireUser(token);
+  assertSuperadminOnly(u, 'melihat daftar pengguna');
   const ss = getDB();
   const sheet = ss.getSheetByName('Pengguna');
   if (!sheet) return [];
@@ -1711,7 +1736,8 @@ function ensureFlazzUsageRefColumns() {
   }
 }
 
-function migrateLegacyPasswords() {
+function migrateLegacyPasswords(token) {
+  if (token) assertSuperadminOnly(requireUser(token), 'migrasi password legacy');
   const ss = getDB();
   const sheet = ss.getSheetByName('Pengguna');
   if (!sheet) throw new Error('Sheet Pengguna tidak ditemukan');

@@ -96,11 +96,58 @@ function __runMasterGuardTests() {
   return __summarize(results);
 }
 
+function __runSecurityIsolationTests() {
+  var pic = { user_id: 'U-PIC-TEST', username: 'pic-test', nama: 'PIC Test', role: 'PIC CABANG', cabang: 'CBG-JKT' };
+  var superToken = createSession({ user_id: 'U-SUP-TEST', username: 'super-test', nama: 'Super Test', role: 'SUPERADMIN', cabang: '' });
+  var picToken = createSession(pic);
+  var results = [];
+  function throwsSesi(call, label) {
+    try { call(); results.push(__expectTrue(false, label + ' (tidak melempar)')); }
+    catch (e) { results.push(__expectTrue(e.message.indexOf('sesi tidak valid') > -1, label)); }
+  }
+  function throwsSuperAdmin(call, label) {
+    try { call(); results.push(__expectTrue(false, label + ' (tidak melempar)')); }
+    catch (e) { results.push(__expectTrue(e.message.indexOf('SUPERADMIN') > -1, label)); }
+  }
+
+  // Reader SUPERADMIN-only menolak PIC & token palsu (pemalsuan role/cabang batal).
+  throwsSuperAdmin(function() { getAllUsers(picToken); }, 'getAllUsers PIC -> Error SUPERADMIN');
+  throwsSuperAdmin(function() { getCabangList(picToken); }, 'getCabangList PIC -> Error SUPERADMIN');
+
+  // Reader token-based menolak token palsu — caller tidak lagi bisa memalsukan role/cabang.
+  throwsSesi(function() { getCabangList('token-palsu-xyz'); }, 'getCabangList token palsu -> Error sesi tidak valid');
+  throwsSesi(function() { getActiveVehicles('token-palsu-xyz'); }, 'getActiveVehicles token palsu -> Error sesi tidak valid');
+  throwsSesi(function() { getFlazzCards('token-palsu-xyz'); }, 'getFlazzCards token palsu -> Error sesi tidak valid');
+  throwsSesi(function() { getMonthlySummary('token-palsu-xyz', '2026-08', ''); }, 'getMonthlySummary token palsu -> Error sesi tidak valid');
+  throwsSesi(function() { getJalurByTanggal('2026-08-31', 'token-palsu-xyz', {}); }, 'getJalurByTanggal token palsu -> Error sesi tidak valid');
+  throwsSesi(function() { getPerformaSummary('token-palsu-xyz'); }, 'getPerformaSummary token palsu -> Error sesi tidak valid');
+
+  // Reader dengan token valid tetap berfungsi.
+  try { results.push(__expectEqual(Array.isArray(getAllUsers(superToken)), true, 'getAllUsers token SUPERADMIN valid -> array')); }
+  catch (e) { results.push(__expectTrue(false, 'getAllUsers SUPERADMIN tidak melempar: ' + e.message)); }
+  try { results.push(__expectEqual(Array.isArray(getActiveVehicles(picToken)), true, 'getActiveVehicles token PIC valid -> array')); }
+  catch (e) { results.push(__expectTrue(false, 'getActiveVehicles PIC tidak melempar: ' + e.message)); }
+
+  // PIC read-only: aksi operasional -> Error SUPERADMIN.
+  throwsSuperAdmin(function() { editDailyTransactionUnlocked({}, pic); }, 'PIC edit laporan -> Error SUPERADMIN');
+  throwsSuperAdmin(function() { deleteDailyTransactionUnlocked('###TAK-ADA###', pic); }, 'PIC hapus laporan -> Error SUPERADMIN');
+  throwsSuperAdmin(function() { saveFlazzTopUpUnlocked({ userInfo: pic }); }, 'PIC top up Flazz -> Error SUPERADMIN');
+  throwsSuperAdmin(function() { deleteFlazzTopUpUnlocked('###TAK-ADA###', pic); }, 'PIC hapus top up Flazz -> Error SUPERADMIN');
+  throwsSuperAdmin(function() { saveFlazzUsageUnlocked({ userInfo: pic }); }, 'PIC serah kartu Flazz -> Error SUPERADMIN');
+  throwsSuperAdmin(function() { updateJalur({ id: '###TAK-ADA###' }, pic); }, 'PIC update jalur -> Error SUPERADMIN');
+  throwsSuperAdmin(function() { deleteJalur('###TAK-ADA###', pic); }, 'PIC hapus jalur -> Error SUPERADMIN');
+
+  destroySession(superToken);
+  destroySession(picToken);
+  return __summarize(results);
+}
+
 function __runAllTests() {
   var r = __runAuthTests();
   r = __runBackupSheetTests();
   r = __runEditUsageTests();
   r = __runMasterGuardTests();
+  r = __runSecurityIsolationTests();
   Logger.log('==== ALL TESTS DONE ====');
   return r;
 }

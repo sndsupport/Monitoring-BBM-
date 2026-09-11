@@ -10,7 +10,8 @@ function spreadsheetId() {
   return id || PROD_SPREADSHEET_ID;
 }
 
-function configureSpreadsheet(id) {
+function configureSpreadsheet(id, token) {
+  if (token) assertSuperadminOnly(requireUser(token), 'konfigurasi spreadsheet');
   if (!id) return { success: false, msg: 'ID kosong' };
   PropertiesService.getScriptProperties().setProperty('SPREADSHEET_ID', String(id).trim());
   return { success: true, msg: 'Spreadsheet aktif diubah ke ' + id };

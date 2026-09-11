@@ -200,6 +200,18 @@ function jalurDriverNameById(driverId) {
   return '';
 }
 
+function driverBranchById(driverId) {
+  if (!driverId) return '';
+  const ss = getDB();
+  const s = ss.getSheetByName('Supir');
+  if (!s) return '';
+  const data = s.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(driverId)) return String(data[i][2] || '');
+  }
+  return '';
+}
+
 function jalurVehicleById(vehicleId) {
   const ss = getDB();
   const s = ss.getSheetByName('Kendaraan');
@@ -214,6 +226,7 @@ function jalurVehicleById(vehicleId) {
         plat_nomor: data[i][ci['plat_nomor']],
         nama: data[i][ci['nama_kendaraan']],
         jenis: data[i][ci['jenis_kendaraan']] || 'Mobil',
+        cabang: (ci['kode_cabang'] !== undefined) ? data[i][ci['kode_cabang']] : '',
         tanggal_pajak: (ci['tanggal_pajak'] !== undefined) ? data[i][ci['tanggal_pajak']] : '',
         tanggal_pajak_5: (ci['tanggal_pajak_5_tahunan'] !== undefined) ? data[i][ci['tanggal_pajak_5_tahunan']] : '',
         tanggal_kir: (ci['tanggal_kir'] !== undefined) ? data[i][ci['tanggal_kir']] : ''
@@ -276,15 +289,30 @@ function saveJalur(payload, userInfo) {
       throw new Error('Jalur baru diblokir: ' + detail);
     }
     const createdBy = (userInfo && (userInfo.nama || userInfo.username)) || '';
-    const kodeCabang = (userInfo && userInfo.cabang) || '';
+    const isSuper = role === 'SUPERADMIN';
     const now = new Date();
     let saved = 0;
+    let auditCabang = (userInfo && userInfo.cabang) || '';
     const warnings = [];
     rows.forEach(r => {
       if (!r || !r.driver_id || !r.vehicle_id || !String(r.rute_tujuan || '').trim()) return;
       const vid = r.vehicle_id;
       const v = jalurVehicleById(vid);
       const namaDriver = jalurDriverNameById(r.driver_id);
+      // Validasi referensi asing: PIC hanya boleh membuat jalur untuk kendaraan/supir
+      // dan kartu etoll milik cabangnya sendiri. SUPERADMIN bebas lintas cabang.
+      if (!isSuper) {
+        assertOwnWarehouse(userInfo, (v && v.cabang) ? v.cabang : vehicleBranchById(vid));
+        assertOwnWarehouse(userInfo, driverBranchById(r.driver_id));
+        if (r.driver2_id) assertOwnWarehouse(userInfo, driverBranchById(r.driver2_id));
+      }
+      if (r.etoll_card_id) {
+        assertFlazzAccess(userInfo, flazzCardBranch(r.etoll_card_id));
+      }
+      // Jalur buatan SUPERADMIN di-stempel kode_cabang dari kendaraan (bukan userInfo.cabang
+      // yang kosong), agar gate laporan BELUM_DIISI tetap cocok dengan cabang kendaraan.
+      const kodeCabang = (isSuper && v && v.cabang) ? v.cabang : ((userInfo && userInfo.cabang) || '');
+      if (kodeCabang) auditCabang = kodeCabang;
       const row = new Array(Object.keys(idx).length).fill('');
       const jalurId = 'JLR-' + now.getTime() + '-' + (saved);
       saved++;
@@ -324,7 +352,7 @@ function saveJalur(payload, userInfo) {
       }
     });
     if (saved > 0) {
-      logAudit(userInfo, 'CREATE', 'jalur', tanggal + ' (' + saved + ' baris)', null, { tanggal: tanggal, kode_cabang: kodeCabang, jumlah: saved });
+      logAudit(userInfo, 'CREATE', 'jalur', tanggal + ' (' + saved + ' baris)', null, { tanggal: tanggal, kode_cabang: auditCabang, jumlah: saved });
     }
     const result = { success: true, msg: saved + ' jadwal pengiriman berhasil disimpan.', saved: saved };
     if (warnings.length) result.warnings = warnings;
@@ -341,11 +369,7 @@ function updateJalur(data, userInfo) {
     const found = findJalurRow(sheet, data.id);
     if (!found) throw new Error('Jadwal tidak ditemukan.');
     const idx = found.idx;
-    const role = assertMasterAccess(userInfo, 'memperbarui jadwal pengiriman');
-    if (role !== 'SUPERADMIN') {
-      const rowCabang = (idx['kode_cabang'] !== undefined) ? String(found.row[idx['kode_cabang']] || '') : '';
-      assertOwnWarehouse(userInfo, rowCabang);
-    }
+    assertSuperadminOnly(userInfo, 'memperbarui jadwal pengiriman');
     const oldCard = (idx['flazz_card_id'] !== undefined) ? String(found.row[idx['flazz_card_id']] || '') : '';
     const newCard = data.etoll_card_id !== undefined ? String(data.etoll_card_id || '') : oldCard;
     if (data.tanggal !== undefined) sheet.getRange(found.rowIndex, idx['tanggal'] + 1).setValue(data.tanggal);
@@ -399,11 +423,7 @@ function deleteJalur(id, userInfo) {
     const found = findJalurRow(sheet, id);
     if (!found) throw new Error('Jadwal tidak ditemukan.');
     const idx = found.idx;
-    const role = assertMasterAccess(userInfo, 'menghapus jadwal pengiriman');
-    if (role !== 'SUPERADMIN') {
-      const rowCabang = (idx['kode_cabang'] !== undefined) ? String(found.row[idx['kode_cabang']] || '') : '';
-      assertOwnWarehouse(userInfo, rowCabang);
-    }
+    assertSuperadminOnly(userInfo, 'menghapus jadwal pengiriman');
     const cardId = (idx['flazz_card_id'] !== undefined) ? String(found.row[idx['flazz_card_id']] || '') : '';
     // Kembalikan kartu etoll yang diserahkan agar tidak menggantung
     if (cardId) returnFlazzUsage(cardId);
@@ -422,9 +442,10 @@ function deleteJalur(id, userInfo) {
   }
 }
 
-function getJalurByTanggal(tanggal, userInfo, opts) {
+function getJalurByTanggal(tanggal, token, opts) {
   try {
     opts = opts || {};
+    const userInfo = requireUser(token);
     const sheet = jalurSheet();
     if (!sheet) return { success: false, msg: 'Sheet Jalur_Pengiriman tidak ditemukan.' };
     const data = sheet.getDataRange().getValues();
@@ -527,7 +548,8 @@ function getJalurByTanggal(tanggal, userInfo, opts) {
   }
 }
 
-function backfillJalurStatus() {
+function backfillJalurStatus(token) {
+  if (token) assertSuperadminOnly(requireUser(token), 'backfill status jalur');
   try {
     const ss = getDB();
     const jalurSheetRef = ss.getSheetByName('Jalur_Pengiriman');

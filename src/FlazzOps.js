@@ -113,7 +113,8 @@ function assertFlazzAccess(userInfo, branchId) {
 }
 
 // Backfill nama kartu ke semua jalur pengiriman yang memakai kartu etoll ini.
-function backfillFlazzCardName(cardId, cardName) {
+function backfillFlazzCardName(cardId, cardName, token) {
+  if (token) assertSuperadminOnly(requireUser(token), 'backfill nama kartu Flazz');
   try {
     const ss = getDB();
     const sheet = ss.getSheetByName('Jalur_Pengiriman');
@@ -145,7 +146,10 @@ function flazzCardBranch(cardId) {
 }
 
 // Helper: Mendapatkan semua kartu Flazz
-function getFlazzCards(userRole, cabangId) {
+function getFlazzCards(token) {
+  const u = requireUser(token);
+  const userRole = u.role;
+  const cabangId = u.cabang;
   const ss = getDB();
   const sheet = ss.getSheetByName('Flazz_Card');
   if (!sheet) return [];
@@ -274,6 +278,7 @@ function saveFlazzTopUp(payload) {
 
 function saveFlazzTopUpUnlocked(payload) {
   try {
+    assertSuperadminOnly(payload.userInfo, 'mencatat top up Flazz');
     const ss = getDB();
     const sheet = ss.getSheetByName('Flazz_TopUp');
     const cardSheet = ss.getSheetByName('Flazz_Card');
@@ -326,6 +331,7 @@ function editFlazzTopUp(payload, userInfo) {
 
 function editFlazzTopUpUnlocked(payload, userInfo) {
   try {
+    assertSuperadminOnly(userInfo, 'mengedit top up Flazz');
     const ss = getDB();
     const sheet = ss.getSheetByName('Flazz_TopUp');
     if (!sheet) throw new Error('Sheet Flazz_TopUp tidak ditemukan.');
@@ -394,6 +400,7 @@ function deleteFlazzTopUp(id, userInfo) {
 
 function deleteFlazzTopUpUnlocked(id, userInfo) {
   try {
+    assertSuperadminOnly(userInfo, 'menghapus top up Flazz');
     const ss = getDB();
     const sheet = ss.getSheetByName('Flazz_TopUp');
     if (!sheet) throw new Error('Sheet Flazz_TopUp tidak ditemukan.');
@@ -441,6 +448,7 @@ function saveFlazzTol(payload) {
 
 function saveFlazzTolUnlocked(payload) {
   try {
+    assertSuperadminOnly(payload.userInfo, 'mencatat tol Flazz');
     const ss = getDB();
     const sheet = ss.getSheetByName('Flazz_Tol');
     const cardSheet = ss.getSheetByName('Flazz_Card');
@@ -499,6 +507,7 @@ function editFlazzTol(payload, userInfo) {
 
 function editFlazzTolUnlocked(payload, userInfo) {
   try {
+    assertSuperadminOnly(userInfo, 'mengedit tol Flazz');
     const ss = getDB();
     const sheet = ss.getSheetByName('Flazz_Tol');
     if (!sheet) throw new Error('Sheet Flazz_Tol tidak ditemukan.');
@@ -566,6 +575,7 @@ function deleteFlazzTol(id, userInfo) {
 
 function deleteFlazzTolUnlocked(id, userInfo) {
   try {
+    assertSuperadminOnly(userInfo, 'menghapus tol Flazz');
     const ss = getDB();
     const sheet = ss.getSheetByName('Flazz_Tol');
     if (!sheet) throw new Error('Sheet Flazz_Tol tidak ditemukan.');
@@ -813,6 +823,7 @@ function saveFlazzRecon(payload) {
 
 function saveFlazzReconUnlocked(payload) {
   try {
+    assertSuperadminOnly(payload.userInfo, 'melakukan rekonsiliasi Flazz');
     const ss = getDB();
     const sheet = ss.getSheetByName('Flazz_Reconciliation');
     const cardSheet = ss.getSheetByName('Flazz_Card');
@@ -1165,6 +1176,7 @@ function saveFlazzUsage(payload) {
 
 function saveFlazzUsageUnlocked(payload) {
   try {
+    assertSuperadminOnly(payload.userInfo, 'memberikan kartu Flazz secara manual');
     const ss = getDB();
     const sheet = ss.getSheetByName('Flazz_Usage');
     const cardSheet = ss.getSheetByName('Flazz_Card');
@@ -1329,7 +1341,10 @@ function returnFlazzUsageForRef(refType, refId) {
   }
 }
 
-function getFlazzDashboardData(userRole, cabangId) {
+function getFlazzDashboardData(token) {
+  const u = requireUser(token);
+  const userRole = u.role;
+  const cabangId = u.cabang;
   const ss = getDB();
   
   function getSheetData(sheetName) {
@@ -1602,13 +1617,7 @@ function deleteFlazzBBMUnlocked(transactionId, mode, userInfo) {
       if (stampCell instanceof Date && !isNaN(stampCell.getTime())) txStampMs = stampCell.getTime();
     }
 
-    if (isFlazz && cardId) {
-      assertFlazzAccess(userInfo, flazzCardBranch(cardId));
-    } else if (delTollMethod === 'FLAZZ' && delTollCard) {
-      assertFlazzAccess(userInfo, flazzCardBranch(delTollCard));
-    } else {
-      assertMasterAccess(userInfo, 'menghapus transaksi BBM');
-    }
+    assertSuperadminOnly(userInfo, 'menghapus transaksi BBM Flazz');
 
     if (mode === 'detach') {
       sheet.getRange(rowIndex, idxMetode + 1).setValue('');

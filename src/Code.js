@@ -173,21 +173,33 @@ function getMasterData(token) {
   // NON-SUPERADMIN hanya boleh menerima warehouse miliknya sendiri &
   // BBM (termasuk harga override) milik cabangnya, bukan seluruh data cabang.
   var payload = {
-    vehicles: safeList(function() { return getActiveVehicles(user.role, user.cabang); }),
-    drivers: safeList(function() { return getActiveDrivers(user.role, user.cabang); }),
+    vehicles: safeList(function() { return getActiveVehicles(token); }),
+    drivers: safeList(function() { return getActiveDrivers(token); }),
     cabangList: safeList(function() {
-      if (isSuper) return getCabangList();
+      if (isSuper) return getCabangList(token);
+      // PIC hanya melihat cabang miliknya; tidak memanggil getCabangList (SUPERADMIN-only).
       var mine = String(user.cabang || '');
-      var all = getCabangList();
-      var own = all.filter(function(c) { return String(c.kode) === mine; });
-      return own.length ? own : [{ kode: mine, nama: mine }];
+      var own = [{ kode: mine, nama: mine }];
+      try {
+        var cSheet = getDB().getSheetByName('Cabang');
+        if (cSheet) {
+          var cData = cSheet.getDataRange().getValues();
+          for (var ci = 1; ci < cData.length; ci++) {
+            if (String(cData[ci][0]) === mine && cData[ci][3] === 'Aktif') {
+              own = [{ kode: cData[ci][0], nama: cData[ci][1] }];
+              break;
+            }
+          }
+        }
+      } catch (cx) { /* fallback ke kode saja */ }
+      return own;
     }),
     bbmList: safeList(function() {
       if (isSuper) return getActiveBBM();
-      return getActiveBBMForCabang(user.cabang);
+      return getActiveBBMForCabang(token);
     }),
-    flazzCards: safeList(function() { return getFlazzCards(user.role, user.cabang); }),
-    penggunaList: isSuper ? safeList(function() { return getAllUsers(); }) : []
+    flazzCards: safeList(function() { return getFlazzCards(token); }),
+    penggunaList: isSuper ? safeList(function() { return getAllUsers(token); }) : []
   };
   var out = cleanSerializable(payload);
   cachePut(ck, out, 120);
@@ -196,14 +208,14 @@ function getMasterData(token) {
 
 function getDashboardData(token) {
   var user = requireUser(token);
-  var trans = getRecentTransactions(user.role, user.cabang);
+  var trans = getRecentTransactions(token);
   var periode = periodKey(new Date());
   var monthly = [];
   try {
     if (user.role === 'SUPERADMIN') {
-      getCabangList().forEach(function(c) { monthly.push(getMonthlySummary(c.kode, periode)); });
+      getCabangList(token).forEach(function(c) { monthly.push(getMonthlySummary(token, periode, c.kode)); });
     } else {
-      monthly.push(getMonthlySummary(user.cabang, periode));
+      monthly.push(getMonthlySummary(token, periode, user.cabang));
     }
   } catch (e) { monthly = []; }
   return { transactions: trans, monthly: monthly.filter(function(x) { return !!x; }) };
@@ -214,7 +226,7 @@ function getPerformaData(token) {
   var ck = performaCacheKey(user.role, user.cabang);
   var hit = cacheGet(ck);
   if (hit) return hit;
-  var out = getPerformaSummary(user.role, user.cabang);
+  var out = getPerformaSummary(token);
   cachePut(ck, out, 300);
   return out;
 }
@@ -299,7 +311,7 @@ function apiGetBBMForCabang(token) {
   var ck = 'bbm:' + (user.cabang || 'SUPERADMIN');
   var hit = cacheGet(ck);
   if (hit) return hit;
-  var out = getActiveBBMForCabang(user.cabang);
+  var out = getActiveBBMForCabang(token);
   cachePut(ck, out, 120);
   return out;
 }
@@ -350,10 +362,14 @@ function apiSaveFlazzCard(payload, token) {
 function apiSaveFlazzTopUp(payload, token) { payload.userInfo = requireUser(token); return saveFlazzTopUp(payload); }
 function apiSaveFlazzTol(payload, token) { payload.userInfo = requireUser(token); return saveFlazzTol(payload); }
 function apiSaveFlazzRecon(payload, token) { payload.userInfo = requireUser(token); return saveFlazzRecon(payload); }
-function apiCheckReconGate(cardId, token) { requireUser(token); return checkReconGate(cardId); }
+function apiCheckReconGate(cardId, token) {
+  var user = requireUser(token);
+  assertFlazzAccess(user, flazzCardBranch(cardId));
+  return checkReconGate(cardId);
+}
 function apiSaveFlazzUsage(payload, token) { payload.userInfo = requireUser(token); return saveFlazzUsage(payload); }
 
-function apiGetFlazzDashboardData(token) { var user = requireUser(token); return getFlazzDashboardData(user.role, user.cabang); }
+function apiGetFlazzDashboardData(token) { return getFlazzDashboardData(token); }
 function apiDeleteFlazzCard(cardId, token) {
   var res = deleteFlazzCard(cardId, requireUser(token));
   if (res && res.msg) invalidateMaster('SUPERADMIN', '');
@@ -408,7 +424,7 @@ function apiDeleteDailyTransaction(transactionId, token) {
 function apiSaveJalur(payload, token) { return saveJalur(payload, requireUser(token)); }
 function apiUpdateJalur(data, token) { return updateJalur(data, requireUser(token)); }
 function apiDeleteJalur(id, token) { return deleteJalur(id, requireUser(token)); }
-function apiGetJalurByTanggal(tanggal, token, opts) { var user = requireUser(token); return getJalurByTanggal(tanggal, user, opts || {}); }
+function apiGetJalurByTanggal(tanggal, token, opts) { return getJalurByTanggal(tanggal, token, opts || {}); }
 
 // ==========================================
 // GEMINI FUEL GAUGE (indikator BBM) DETECTION
@@ -591,7 +607,8 @@ function diagnoseOrphanPhotos() {
   return { total: totalWithPhoto, orphanCount: orphan.length, orphans: orphan };
 }
 
-function cleanupOrphanPhotos() {
+function cleanupOrphanPhotos(token) {
+  if (token) assertSuperadminOnly(requireUser(token), 'menjalankan utilitas pembersihan foto');
   const ss = getDB();
   const sheet = ss.getSheetByName('Penggunaan_BBM');
   if (!sheet) return { error: 'Sheet tidak ditemukan' };
@@ -628,7 +645,8 @@ function cleanupOrphanPhotos() {
 // Jalankan dari editor Apps Script: debugFlazzCard("0145 0082 0168 3827")
 // lalu salin output dari tab "Execution log". Dibaca di: Code.js.
 // ==========================================
-function debugFlazzCard(input) {
+function debugFlazzCard(input, token) {
+  if (token) assertSuperadminOnly(requireUser(token), 'debug kartu Flazz');
   const ss = getDB();
   const key = String(input || '').trim();
   const keyDig = key.replace(/[^0-9]/g, '');

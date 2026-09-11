@@ -61,8 +61,12 @@ function recomputeMonthlySummary(cabang, periode) {
   return { cabang: cabang, periode: periode, total_transaksi: trx, total_liter: liter, total_biaya_bbm: biaya, total_toll: toll };
 }
 
-function getMonthlySummary(cabang, periode) {
-  if (!cabang || !periode) return null;
+function getMonthlySummary(token, periode, cabang) {
+  const u = requireUser(token);
+  if (!periode) return null;
+  // PIC hanya bisa membaca ringkasan cabang sesi; hanya SUPERADMIN boleh lintas cabang.
+  if (u.role !== 'SUPERADMIN') cabang = u.cabang;
+  if (!cabang) return null;
   const ck = 'sum:' + cabang + ':' + periode;
   const hit = cacheGet(ck);
   if (hit) return hit;
