@@ -180,7 +180,7 @@
     font-family: 'bootstrap-icons';
     font-size: 1.1rem;
   }
-  #user-info { font-size: 13px; opacity: 0.95; white-space: nowrap; }
+  #user-info { font-size: 13px; opacity: 0.95; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 
   .navbar-logout-btn {
     width: 40px;
@@ -801,6 +801,42 @@
     .top-tabs { display: none !important; }
     #main-app { padding-bottom: 84px; }
     .card { margin-left: -16px; margin-right: -16px; border-radius: 0; }
+  }
+
+  @media (max-width: 576px) {
+    html { font-size: 80%; }
+  }
+
+  /* ===== Mobile: bottom-nav 7 tombol SUPERADMIN tetap reachable ===== */
+  @media (max-width: 576px) {
+    .bottom-nav > div { overflow-x: auto; justify-content: flex-start; }
+    .bottom-nav-drawer-wrap { overflow-x: hidden; }
+    .btn-nav { min-width: 52px; }
+  }
+
+  @media (max-width: 420px) {
+    .btn-nav span { display: none; }
+    .btn-nav { flex: 0 0 auto; width: 58px; padding: 8px 0; gap: 0; }
+    .btn-nav.active::after { width: 24px; }
+  }
+
+  /* ===== Mobile: cegah scrollbar horizontal dari margin negatif .card ===== */
+  @media (max-width: 768px) {
+    .app-shell { overflow-x: hidden; }
+  }
+
+  /* ===== Mobile: header kartu dengan pencarian ===== */
+  #master-flazz .card-header { flex-wrap: wrap; }
+  .flazz-search-wrap { width: 260px; }
+  @media (max-width: 768px) {
+    #master-flazz .card-header .input-group { flex-grow: 1; }
+    .flazz-search-wrap { width: 100%; }
+    #flazz-master-search { min-width: 0; }
+  }
+
+  /* ===== Mobile: border kanan hanya pada md+ ===== */
+  @media (min-width: 768px) {
+    .border-md-end { border-right: 1px solid var(--color-border) !important; }
   }
 
   /* ============ LOGIN ============ */
