@@ -233,22 +233,13 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
         });
         
         let selectSupir = document.getElementById('nama_supir');
-        let filterSupir = document.getElementById('filter-supir');
         selectSupir.innerHTML = '';
-        if (filterSupir) filterSupir.innerHTML = '<option value="">Semua Supir</option>';
         if (data.drivers) {
           data.drivers.forEach(d => {
             let opt = document.createElement('option');
             opt.value = d.nama;
             opt.text = d.nama; // Sembunyikan ID agar lebih rapi
             selectSupir.appendChild(opt);
-            
-            if (filterSupir) {
-              let opt2 = document.createElement('option');
-              opt2.value = d.nama;
-              opt2.text = d.nama;
-              filterSupir.appendChild(opt2);
-            }
           });
         }
 
@@ -354,7 +345,8 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
         if (data.cabangList) window.masterData.cabang = data.cabangList;
         if (data.bbmList) window.masterData.bbm = data.bbmList;
         if (data.flazzCards) window.masterData.flazzCards = data.flazzCards;
-        populateSupirDatalist();
+populateSupirDatalist();
+        refreshSupirFilter();
 
         loadAppSettings();
         switchTab('dashboard');
@@ -1865,6 +1857,36 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     if(document.getElementById('filter-supir')) document.getElementById('filter-supir').value = '';
     if(document.getElementById('filter-date-start')) document.getElementById('filter-date-start').value = '';
     if(document.getElementById('filter-date-end')) document.getElementById('filter-date-end').value = '';
+    refreshSupirFilter();
+    loadDashboard();
+  }
+
+  // Filter supir di history/gallery mengikuti cabang yang dipilih (nama -> kode).
+  function refreshSupirFilter() {
+    var fSel = document.getElementById('filter-supir');
+    if (!fSel) return;
+    var prev = fSel.value;
+    var cabNama = document.getElementById('filter-cabang') ? document.getElementById('filter-cabang').value : '';
+    var cabKode = '';
+    if (cabNama && window.masterData && window.masterData.cabang) {
+      var hit = window.masterData.cabang.find(function(c) { return String(c.nama) === String(cabNama); });
+      if (hit) cabKode = String(hit.kode);
+    }
+    fSel.innerHTML = '<option value="">Semua Supir</option>';
+    (allDrivers || []).forEach(function(d) {
+      if (cabKode && String(d.cabang) !== cabKode) return;
+      var o = document.createElement('option');
+      o.value = d.nama;
+      o.text = d.nama;
+      fSel.appendChild(o);
+    });
+    if (prev && Array.prototype.some.call(fSel.options, function(o) { return String(o.value) === String(prev); })) {
+      fSel.value = prev;
+    }
+  }
+
+  function onCabangFilterChange() {
+    refreshSupirFilter();
     loadDashboard();
   }
 
