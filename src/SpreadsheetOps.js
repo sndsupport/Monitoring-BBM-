@@ -144,19 +144,19 @@ function saveTransactionEndOfDayUnlocked(payload) {
   // dengan status BELUM_DIISI untuk kendaraan+supir+cabang pada tanggal tersebut.
   // Cek dijalankan SEBELUM menulis apa pun ke sheet, agar laporan yang ditolak
   // tidak meninggalkan data parsial (baris tersimpan / saldo Flazz terpotong).
+  let matchedJalur = null;
   try {
-    const matchedJalur = findJalurByCriteria({
+    matchedJalur = findJalurByCriteria({
       tanggal: payload.tanggal,
       vehicle_id: payload.vehicle_id,
       nama_driver: payload.nama_supir,
       kode_cabang: trxCabang
     });
-    if (!matchedJalur || matchedJalur.status !== 'BELUM_DIISI') {
-      return { success: false, error: 'Anda harus membuat Jalur Pengiriman terlebih dahulu (status BELUM DIISI) untuk kendaraan dan supir ini pada tanggal tersebut sebelum menginput laporan harian.' };
-    }
-    updateJalurStatus(matchedJalur.id, 'SUDAH_LAPORAN', transaction_id);
   } catch (e) {
-    Logger.log('Gagal update status jalur: ' + e.toString());
+    Logger.log('Gagal mencari jalur untuk laporan: ' + e.toString());
+  }
+  if (!matchedJalur || matchedJalur.status !== 'BELUM_DIISI') {
+    return { success: false, error: 'Anda harus membuat Jalur Pengiriman terlebih dahulu (status BELUM DIISI) untuk kendaraan dan supir ini pada tanggal tersebut sebelum menginput laporan harian.' };
   }
 
   // Indikator jarum: level tangki dicatat sebagai persen (0-100), bukan jumlah bar.
@@ -271,6 +271,14 @@ function saveTransactionEndOfDayUnlocked(payload) {
     } catch (e) {
       Logger.log("Gagal memproses flazz: " + e.toString());
     }
+  }
+
+  // Tandai jalur SUDAH_LAPORAN hanya setelah baris laporan benar-benar tersimpan,
+  // agar status jalur tidak berubah bila penyimpanan/Flazz gagal di tengah jalan.
+  try {
+    updateJalurStatus(matchedJalur.id, 'SUDAH_LAPORAN', transaction_id);
+  } catch (e) {
+    Logger.log('Gagal update status jalur: ' + e.toString());
   }
 
   logAudit(payload.userInfo, 'CREATE', 'transaksi', 'TRX ' + transaction_id, null, {

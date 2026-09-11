@@ -9,7 +9,7 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - **PIC CABANG:** Hanya bisa mengelola laporan untuk kendaraan dan supir di cabangnya sendiri.
 - **Pembatasan Data per Cabang (Server-side):** Enforce tambahan di sisi server (Google Apps Script) — untuk pengguna **selain SUPERADMIN** yang tidak mengirimkan `cabang` yang valid pada request, endpoint data Flazz, Jalur, dan ringkasan transaksi menolak/bahkan mengembalikan daftar kosong (mis. `getFlazzCards`, `getFlazzDashboardData`, `getJalurByTanggal`, `getRecentTransactions`, `getPerformaSummary`). Ini mencegah kebocoran data antar cabang meskipun payload client diubah-ubah.
 - **Pembatasan dropdown cabang (frontend):** pada formulir Master (**Kendaraan** & **Supir**), dropdown pilih cabang hanya menampilkan cabang miliknya bagi **PIC CABANG**; SUPERADMIN melihat semua cabang. Server tetap memverifikasi (`assertOwnWarehouse`) sehingga request dengan cabang asing ditolak.
-- **Foto dibatasi per cabang:** upload foto bukti (odometer, struk, indikator) diverifikasi jenis file (MIME gambar) dan disimpan ke folder Drive sesuai cabang transaksi; PIC tidak dapat menyimpan foto ke cabang lain.
+- **Foto dibatasi per cabang:** upload foto bukti (odometer, struk) diverifikasi jenis file (MIME gambar) dan disimpan ke folder Drive sesuai cabang transaksi; PIC tidak dapat menyimpan foto ke cabang lain.
 - **Pengaman hapus master (anti kehilangan data):** menghapus **Supir/BBM/Cabang** kini **soft-delete** (status menjadi `Non-Aktif`; baris tetap tersimpan) agar riwayat penggunaan yang sudah tercatat tidak kehilangan referensi. Menghapus **Cabang** diblo-kir selama masih ada data terkait (Kendaraan, Supir, BBM, Pengguna, Penggunaan_BBM, Jalur_Pengiriman, Flazz_Card) yang merujuk kode cabang tersebut.
 - **Kode cabang immutable:** mengubah kode cabang (primary key) pada edit master ditolak server - hanya nama/lokasi yang boleh diubah; kode duplikat juga ditolak.
 - **Validasi kartu pada Edit Top-Up/Tol:** bila posisi Top-Up/Tol dipindahkan ke kartu lain, server memverifikasi kartu tujuan benar ada di master **dan** (untuk PIC) berada dalam cabang yang boleh diakses; kartu tak dikenal/tak berhak ditolak sebelum saldo dipindahkan.
@@ -81,16 +81,17 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - **Tindakan pada Selisih (Adjust / Abai):** form Rekonsiliasi menyediakan pilihan **"Ubah saldo sistem mengikuti saldo fisik (Adjust)"** atau **"Abaikan selisih (Saldo sistem tetap)"**; saat status `SESUAI` tindakan otomatis **Abai**, saat ada selisih otomatis **Adjust**. Selisih ≤ Rp1 dianggap sesuai. Bila Adjust/SESUAI, saldo kartu diset ke saldo fisik; setelah rekonsiliasi kartu kembali `TERSEDIA` dan supir pemegang dipulihkan ke nilai default.
 
 ### Input KM & Laporan Cepat
+- **Syarat Jalur Pengiriman (BELUM_DIISI):** laporan harian **hanya bisa disimpan** jika sudah ada entri Jalur Pengiriman berstatus **BELUM_DIISI** untuk kombinasi kendaraan + supir + cabang pada tanggal yang sama. Cek dijalankan **paling awal** — sebelum baris apa pun ditulis ke sheet / saldo Flazz dipotong — sehingga laporan yang ditolak tidak meninggalkan data parsial. Jalur ditandai **SUDAH_LAPORAN** hanya setelah baris laporan benar-benar tersimpan dan proses Flazz selesai.
 - Upload foto odometer awal dan akhir secara langsung di formulir Input Laporan.
 - **Input Fleksibel:** Pengguna dapat mengisi kolom KM manual tanpa harus melewati modal konfirmasi OCR. Aplikasi tidak lagi mengunci alur dengan mewajibkan klik tombol konfirmasi OCR.
 - **Bebas Upload Struk:** Tidak perlu lagi repot mengunggah foto fisik struk BBM dan Tol di setiap laporan harian. Cukup ketik nominalnya.
 - **Odometer Tidak Terbaca (Rusak):** pada kendaraan `ANALOG_JARUM` muncul checkbox **"Odometer tidak terbaca (rusak)"** terpisah untuk KM Awal dan KM Akhir. Jika dicentang, KM itu dihitung otomatis: `akhir = awal + estKm`, `awal = akhir − estKm`, atau bila kedua sisi rusak, me-referensi `km_akhir` transaksi terakhir sebagai anchor lalu ditambah `estKm`.
-- **Konfirmasi Simpan Tanpa KM:** jika estimasi tidak mungkin dihitung (Standar KM/L kendaraan kosong **ATAU** tidak ada penurunan level dan tidak ada liter BBM), aplikasi meminta **konfirmasi** terlebih dahulu. Bila disetujui, laporan tetap tersimpan dengan `km_tempuh = 0` + catatan di keterangan; bila dibatalkan, simpan dibatalkan.
+- **Konfirmasi Simpan Tanpa KM:** jika estimasi tidak mungkin dihitung (Standar KM/L kendaraan kosong **ATAU** tidak ada penurunan level dan tidak ada liter BBM), aplikasi meminta **konfirmasi** terlebih dahulu. Bila disetujui, laporan tetap tersimpan dengan `km_tempuh = 0` dan penanda `km_sumber = 'ESTIMASI'`; bila dibatalkan, simpan dibatalkan.
 - **Pesan Error Spesifik:** kegagalan simulasi KM dibedakan penyebabnya ("Standar KM/L belum diisi" vs "liter BBM kosong") agar mudah diperbaiki.
-- **Busy State + Watchdog:** tombol *Simpan* menampilkan **"Memproses..."** (spinner + dinonaktifkan saat RPC berjalan, mencegah double-submit). Safety timer 2 menit otomatis mengembalikan tombol + memperingatkan pengguna bila proses macet — mencegah "loading forever" meskipun analisis AI lambat.
+- **Busy State + Watchdog:** tombol *Simpan* menampilkan **"Memproses..."** (spinner + dinonaktifkan saat RPC berjalan, mencegah double-submit). Safety timer 2 menit otomatis mengembalikan tombol, me-reset flag anti double-submit (`__bbmSubmitting`), dan memperingatkan pengguna bila proses macet — mencegah "loading forever".
 
 ### Galeri Foto Operasional
-- Menampilkan foto odometer, struk BBM, struk tol, dan indikator BBM.
+- Menampilkan foto odometer serta struk BBM/tol (foto indikator BBM dihapus dari alur laporan).
 - **Filter Pintar:** Terdapat filter dropdown untuk menyeleksi dan memfokuskan tampilan pada jenis foto tertentu secara cerdas.
 - **Pembersihan Foto Orphan:** Jika foto di Google Drive sudah dihapus tetapi URL-nya masih tersisa di kolom sheet (sehingga foto "hantu" masih tampil di galeri), jalankan fungsi **`cleanupOrphanPhotos`** di editor Apps Script untuk mengosongkan kolom foto yang file-nya tidak lagi ditemukan di Drive. Gunakan **`diagnoseOrphanPhotos`** terlebih dahulu untuk melihat daftar baris yang terdampak sebelum membersihkan.
 - **Validasi & Kompresi Foto:** foto di-compress di sisi client (skala maks. 1280px, kualitas JPEG ~0.7) sebelum dikirim untuk menghemat storage dan mempercepat upload; server menolak file non-gambar (validasi MIME) sehingga ekstensi berbahaya tidak tersimpan.
@@ -105,10 +106,10 @@ Aplikasi berbasis web (Google Apps Script) untuk memudahkan pencatatan dan peman
 - **Screenshot Praktis:** tombol *Screenshot* merender tabel *summary* menjadi pratinjau gambar (menggunakan *html2canvas* lokal) yang bisa **disalin (Ctrl+C)** dan ditempel (Ctrl+V) langsung ke WhatsApp; tersedia pula tombol **bagi ke WA** yang menyusun ringkasan teks per baris (`wa.me`).
 - **Reminder Dokumen Lengkap:** Mengintegrasikan 3 data jatuh tempo dokumen dari master Kendaraan: **Pajak Tahunan**, **Pajak 5 Tahunan**, dan **KIR** (khusus mobil). Listing/summary memunculkan *badge* status (**TIDAK_ADA / LEWAT / KRITIS / WASPADA / AMAN**) untuk setiap kendaraan yang bertugas.
 
-### Deteksi Level BBM (AI/Gemini)
-- Foto **indikator bensin analog** dianalisis otomatis dengan **Gemini API** untuk menentukan level BBM dan tingkat keyakinan (confidence), dengan status kesesuaian.
-- **Skip untuk kendaraan jarum:** untuk indikator `ANALOG_JARUM` deteksi otomatis dilewati (posisi jarum tidak bisa dibaca terukur dari foto), sehingga proses simpan lebih cepat; level dibaca manual via slider.
-- **Config:** Simpan kunci API pada **Script Properties** dengan key `GEMINI_API_KEY` (tidak disimpan di repositori). Model yang digunakan: `gemini-3.6-flash`.
+### Deteksi Level BBM (AI/Gemini) — dihapus dari alur laporan
+- Foto **indikator bensin** + deteksi AI (Gemini) **tidak lagi menjadi bagian dari alur *Input Laporan* harian**. Kolom `foto_indikator`, `level_bbm`, `confidence_bbm`, `level_status`, dan `keterangan` dihapus dari sheet `Penggunaan_BBM` beserta seluruh pipeline-nya (upload, deteksi, pre-fill, galeri, filter).
+- Pencatatan level kini **murni manual & terstruktur per jenis indikator**: **Digital Bar** pakai input Bar Awal/Akhir, **ANALOG_JARUM** pakai slider Level 0-100% (lihat *Auto-Calculate BBM & Efisiensi Pintar*).
+- Fungsi backend `detectFuelLevel`/`apiDetectFuelLevel` masih tersedia di kode untuk penggunaan manual/editor (kunci `GEMINI_API_KEY` di Script Properties), tetapi **tidak dipanggil dari UI laporan**.
 
 ### Pengaturan Aplikasi (Superadmin)
 - Upload logo aplikasi (tersimpan di Google Drive).
@@ -142,7 +143,7 @@ Setelah semua kode berada di Editor Apps Script:
 1. Buka file **`DatabaseSetup.js`** di Editor Apps Script.
 2. Pilih fungsi **`setupDatabase`** pada menu dropdown di atas editor, lalu tekan tombol **Run**.
    > Sistem akan membuat semua sheet: `Cabang`, `Supir`, `BBM`, `Pengguna`, `Kendaraan` (termasuk kolom `tanggal_pajak`), `Penggunaan_BBM`, `Pengisian_BBM`, `Foto_Evidence`, `Audit_Log`, `Konfigurasi`, `Dashboard`, `Pengaturan`, sheet modul Flazz (`Flazz_Card`, `Flazz_Usage`, `Flazz_TopUp`, `Flazz_Tol`, `Flazz_Reconciliation`), serta sheet `Jalur_Pengiriman`.
-   > `setupDatabase` bersifat **idempotent**: untuk sheet yang sudah ada, ia hanya menambahkan kolom yang belum ada (mis. `card_name`, `card_role`, `is_deleted`) di ujung kanan tanpa menggeser data lama. Jalankan ulang setelah setiap pembaruan skema untuk menerapkan kolom baru ke sheet lama.
+   > `setupDatabase` bersifat **idempotent**: untuk sheet yang sudah ada, ia hanya menambahkan kolom yang belum ada (mis. `card_name`, `card_role`, `is_deleted`) di ujung kanan tanpa menggeser data lama. Khusus sheet `Penggunaan_BBM`, kolom yang sudah di-deprecate (`foto_indikator`, `level_bbm`, `confidence_bbm`, `level_status`, `keterangan`) **otomatis dihapus**; migrasi ini idempotent dan juga dipicu otomatis oleh `ensurePenggunaBBMColumns` saat penyimpanan/inisialisasi pertama.
 3. Pilih fungsi **`createSuperadmin`** pada menu dropdown di atas editor, lalu klik **Run** untuk membuat akun **SUPERADMIN pertama**, lalu isi `user_id`, `username`, `nama`, dan `password` (tersimpan sebagai hash SHA-256) saat diminta.
    > (`seedDummyData` kini **hanya membuat akun PIC cabang** — akun SUPERADMIN `admin` tidak lagi bagian dari seed. Gunakan `createSuperadmin` untuk membangun akun admin dari nol.)
 4. (Opsional) Jalankan **`seedDummyData`** untuk mengisi data percobaan.
@@ -197,7 +198,7 @@ Akun SUPERADMIN dibuat terpisah lewat `createSuperadmin()` (bukan dari seed). Ak
 
 | File | Deskripsi |
 |------|-----------|
-| `Code.js` | Backend utama; wrapper API berbasis token, deteksi level BBM (Gemini), pre-fill formulir (`getLastLaporanPrefill`), dan `doGet` merender UI (tanpa meta CSP karena tidak didukung GAS). |
+| `Code.js` | Backend utama; wrapper API berbasis token, pre-fill formulir (`getLastLaporanPrefill`), dan `doGet` merender UI (tanpa meta CSP karena tidak didukung GAS). |
 | `AuditOps.js` | Pencatatan audit terpusat (login/logout, update akun, galat signifikan) ke sheet `Audit_Log`. |
 | `BackupOperations.js` | Backup harian otomatis: `runDailyBackup()` (menyalin **seluruh sheet database** lewat `getBackupSheets()`, sumber nama dari `DATABASE_SHEETS`), `performBackup` (pure), `pruneBackups`, `diagnoseBackup`, dan `setupBackupTrigger`. |
 | `CacheUtil.js` | Util cache `CacheService` + anti-race (single-flight) untuk data master/lookup; dipakai `SheetRead` & endpoint ringkasan. |
@@ -211,7 +212,7 @@ Akun SUPERADMIN dibuat terpisah lewat `createSuperadmin()` (bukan dari seed). Ak
 | `RateLimit.js` | Rate limiting login (5×/5 menit) & deteksi Gemini (30×/24 jam). |
 | `SessionAuth.js` | Token sesi server (`requireUser`, `SESSION_TTL_SECONDS`), hash password `SHA-256` + salt, migrasi password legacy. |
 | `SheetRead.js` | Helper `readRowsCols` (baca kolom terbatas) agar cache konsisten & hemat kuota. |
-| `SpreadsheetOps.js` | CRUD ke Google Sheets + enforcement cabang server-side (`assertOwnWarehouse`) + harga BBM per cabang. |
+| `SpreadsheetOps.js` | CRUD ke Google Sheets + enforcement cabang server-side (`assertOwnWarehouse`) + harga BBM per cabang + penerapan syarat Jalur Pengiriman `BELUM_DIISI` sebelum laporan harian disimpan. |
 | `SummaryOps.js` | Materialisasi ringkasan bulanan per cabang ke tab `Dashboard` (sumber halaman dashboard & performa). |
 | `TestRunner.js` | Test suite internal untuk verifikasi fungsi backend dari editor. |
 | `Index.html` | Struktur UI utama (Bootstrap 5 + mobile-first): halaman Dashboard Umum, sidebar desktop + bottom nav mobile (grup/drawer), & navigasi. |
@@ -260,7 +261,7 @@ Maksimal **24 jam** — data yang hilang tidak dapat dipulihkan melebihi rentang
 
 | Key | Lokasi | Keterangan |
 |-----|--------|------------|
-| `GEMINI_API_KEY` | **Script Properties** | Kunci API Gemini untuk deteksi level BBM (model `gemini-3.6-flash`). Tidak boleh disimpan di repositori. |
+| `GEMINI_API_KEY` | **Script Properties** | Kunci API Gemini untuk util deteksi level BBM manual/editor (model `gemini-3.6-flash`); **tidak lagi dipakai alur Input Laporan**. Tidak boleh disimpan di repositori. |
 
 **Spreadsheet ID** dikonfigurasi di `Config.gs` (`PROD_SPREADSHEET_ID`), dipakai `getDB()` via `spreadsheetId()` dan nilainya bisa diganti sementara dengan `configureSpreadsheet(ID)`.
 
