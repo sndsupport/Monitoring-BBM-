@@ -314,8 +314,10 @@ function jalurShowListing() {
             '<td>' + esc(it.flazz_card_name || '-') + '</td>' +
             '<td>' + jalurStatusBadge(it.status) + '</td>' +
             '<td>' + jalurPajakBadge(it.status_pajak, it.sisa_hari_pajak) + '</td>' +
-            '<td class="text-end"><button class="btn btn-sm btn-outline-primary me-1" title="Edit Jadwal" aria-label="Edit jadwal" onclick="jalurEdit(\'' + it.id + '\')"><i class="bi bi-pencil"></i></button>' +
-            '<button class="btn btn-sm btn-outline-danger" title="Hapus Jadwal" aria-label="Hapus jadwal" onclick="jalurDelete(\'' + it.id + '\')"><i class="bi bi-trash"></i></button></td>' +
+            '<td class="text-end">' + (typeof userRole !== 'undefined' && userRole === 'SUPERADMIN'
+              ? '<button class="btn btn-sm btn-outline-primary me-1" title="Edit Jadwal" aria-label="Edit jadwal" onclick="jalurEdit(\'' + it.id + '\')"><i class="bi bi-pencil"></i></button>' +
+                '<button class="btn btn-sm btn-outline-danger" title="Hapus Jadwal" aria-label="Hapus jadwal" onclick="jalurDelete(\'' + it.id + '\')"><i class="bi bi-trash"></i></button>'
+              : '-') + '</td>' +
           '</tr>';
         }).join('');
         tbody.innerHTML = rows;
@@ -462,7 +464,7 @@ function jalurStatusBadge(status) {
   var s = String(status || 'BELUM_DIISI');
   if (s === 'SELESAI') return '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Selesai</span>';
   if (s === 'SUDAH_LAPORAN') return '<span class="badge bg-info text-dark"><i class="bi bi-clipboard-check me-1"></i>Sudah Laporan</span>';
-  return '<span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>Belum Diisi</span>';
+  return '<span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>Terjadwal</span>';
 }
 
 function jalurPajakBadge(status, days, label) {
@@ -475,6 +477,7 @@ function jalurPajakBadge(status, days, label) {
 }
 
 function jalurEdit(id) {
+  if (typeof userRole !== 'undefined' && userRole !== 'SUPERADMIN') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
   const tanggalInput = document.getElementById('jalur-listing-filter-tanggal');
   const tanggal = tanggalInput ? tanggalInput.value : '';
   const flEnd = document.getElementById('jalur-listing-filter-tanggal-akhir');
@@ -518,6 +521,7 @@ function jalurEdit(id) {
 }
 
 function jalurSaveEdit() {
+  if (typeof userRole !== 'undefined' && userRole !== 'SUPERADMIN') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
   const etollEl = document.getElementById('jalur-edit-etoll');
   const etollId = document.getElementById('jalur-edit-etoll-id');
   const etollOpt = etollEl && etollEl.selectedIndex > -1 ? etollEl.options[etollEl.selectedIndex] : null;
@@ -548,7 +552,8 @@ function jalurSaveEdit() {
 }
 
 function jalurDelete(id) {
-  if (!confirm('Yakin ingin menghapus jadwal ini?')) return;
+  if (typeof userRole !== 'undefined' && userRole !== 'SUPERADMIN') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
+  showConfirmModal({ message: 'Yakin ingin menghapus jadwal ini?' }, function() {
   google.script.run
     .withSuccessHandler(function(res) {
       showToast(res.msg, res.success ? 'success' : 'error');
@@ -556,6 +561,7 @@ function jalurDelete(id) {
     })
     .withFailureHandler(function(err) { showToast('Gagal menghapus: ' + err.message, 'error'); })
     .apiDeleteJalur(id, bbmToken());
+  });
 }
 
 function jalurSummaryText() {

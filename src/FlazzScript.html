@@ -495,42 +495,45 @@ function saveFlazzCardForm(e) {
 
 function saveFlazzTopUpForm(e) {
   e.preventDefault();
+  if (typeof userRole !== 'undefined' && userRole !== 'SUPERADMIN') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
   var kard = (document.getElementById('t_card_id') || {}).selectedOptions;
   var kardLabel = kard && kard[0] ? kard[0].text : '-';
   var amount = document.getElementById('t_amount').value;
   var tglTxt = document.getElementById('t_date').value;
-  if (!confirm('Konfirmasi Top Up:\nKartu: ' + kardLabel + '\nNominal: ' + formatCurrency(amount) + '\nTanggal: ' + tglTxt + '\n\nLanjutkan?')) return;
-  let btn = document.getElementById('btn-save-topup');
-  let orig = btn.innerHTML;
-  btn.dataset.origHtml = orig;
-  btn.disabled = true;
-  btn.innerHTML = 'Memproses...';
+  showConfirmModal({ message: 'Konfirmasi Top Up:\nKartu: ' + kardLabel + '\nNominal: ' + formatCurrency(amount) + '\nTanggal: ' + tglTxt + '\n\nLanjutkan?' }, function() {
+    let btn = document.getElementById('btn-save-topup');
+    let orig = btn.innerHTML;
+    btn.dataset.origHtml = orig;
+    btn.disabled = true;
+    btn.innerHTML = 'Memproses...';
 
-  let payload = {
-    card_id: document.getElementById('t_card_id').value,
-    amount: document.getElementById('t_amount').value,
-    tanggal: transTimestamp(document.getElementById('t_date').value),
-    notes: document.getElementById('t_notes').value,
-    foto_bukti: null,
-    foto_bukti_name: null
-  };
+    let payload = {
+      card_id: document.getElementById('t_card_id').value,
+      amount: document.getElementById('t_amount').value,
+      tanggal: transTimestamp(document.getElementById('t_date').value),
+      notes: document.getElementById('t_notes').value,
+      foto_bukti: null,
+      foto_bukti_name: null
+    };
 
-  google.script.run
-   .withSuccessHandler(res => {
-      btn.disabled = false;
-      btn.innerHTML = orig;
-      if(res.success) {
-        showToast(res.msg, 'success');
-        document.getElementById('form-flazz-topup').reset();
-        loadFlazzDataWrapper(true);
-      } else showToast(res.msg, 'error');
-   })
-   .withFailureHandler(flazzFailHandler('Menyimpan top up', ['btn-save-topup']))
-   .apiSaveFlazzTopUp(payload, bbmToken());
+    google.script.run
+     .withSuccessHandler(res => {
+        btn.disabled = false;
+        btn.innerHTML = orig;
+        if(res.success) {
+          showToast(res.msg, 'success');
+          document.getElementById('form-flazz-topup').reset();
+          loadFlazzDataWrapper(true);
+        } else showToast(res.msg, 'error');
+     })
+     .withFailureHandler(flazzFailHandler('Menyimpan top up', ['btn-save-topup']))
+     .apiSaveFlazzTopUp(payload, bbmToken());
+  });
 }
 
 function saveFlazzReconForm(e) {
   e.preventDefault();
+  if (typeof userRole !== 'undefined' && userRole !== 'SUPERADMIN') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
   let cardId = document.getElementById('r_card_id').value;
   if (!cardId) {
     showToast('Pilih kartu terlebih dahulu.', 'error');
@@ -688,8 +691,10 @@ function renderHistSection(type) {
         <td><a href="${escUrl(t.evidence_url)}" target="_blank">Lihat Bukti</a></td>
         <td>${esc(t.notes)}</td>
         <td class="text-end text-nowrap">
-          <button class="btn btn-sm btn-outline-primary" title="Edit Top Up" aria-label="Edit top up" onclick="editTopUp('${t.id}')"><i class="bi bi-pencil"></i></button>
-          <button class="btn btn-sm btn-outline-danger" title="Hapus Top Up" aria-label="Hapus top up" onclick="deleteTopUp('${t.id}')"><i class="bi bi-trash"></i></button>
+          ${(typeof userRole !== 'undefined' && userRole === 'SUPERADMIN')
+            ? `<button class="btn btn-sm btn-outline-primary" title="Edit Top Up" aria-label="Edit top up" onclick="editTopUp('${t.id}')"><i class="bi bi-pencil"></i></button>
+               <button class="btn btn-sm btn-outline-danger" title="Hapus Top Up" aria-label="Hapus top up" onclick="deleteTopUp('${t.id}')"><i class="bi bi-trash"></i></button>`
+            : '<span class="text-muted">-</span>'}
         </td>
       </tr>`;
     } else if (type === 'tol') {
@@ -701,8 +706,10 @@ function renderHistSection(type) {
         : "<span class='text-muted'>-</span>";
       let aksi = isDaily
         ? "<span class='text-muted small'>Dari laporan harian</span>"
-        : `<button class="btn btn-sm btn-outline-primary" title="Edit Tol" aria-label="Edit tol" onclick="editTol('${t.id}')"><i class="bi bi-pencil"></i></button> ` +
-          `<button class="btn btn-sm btn-outline-danger" title="Hapus Tol" aria-label="Hapus tol" onclick="deleteTol('${t.id}')"><i class="bi bi-trash"></i></button>`;
+        : (typeof userRole !== 'undefined' && userRole === 'SUPERADMIN')
+          ? `<button class="btn btn-sm btn-outline-primary" title="Edit Tol" aria-label="Edit tol" onclick="editTol('${t.id}')"><i class="bi bi-pencil"></i></button> ` +
+            `<button class="btn btn-sm btn-outline-danger" title="Hapus Tol" aria-label="Hapus tol" onclick="deleteTol('${t.id}')"><i class="bi bi-trash"></i></button>`
+          : '<span class="text-muted">-</span>';
       tbody.innerHTML += `<tr>
         <td>${formatDateShort(t.date)}${srcBadge}</td>
         <td>${esc(cardStr)}</td>
@@ -730,7 +737,9 @@ function renderHistSection(type) {
         <td class="fw-bold text-danger">-${formatCurrency(t.amount)}</td>
         <td><a href="${escUrl(t.evidence)}" target="_blank">Struk BBM</a></td>
         <td class="text-end">
-          <button class="btn btn-sm btn-outline-danger" title="Hapus transaksi BBM" aria-label="Hapus transaksi BBM" onclick="deleteBBMFlazz('${t.transaction_id}')"><i class="bi bi-trash"></i></button>
+          ${(typeof userRole !== 'undefined' && userRole === 'SUPERADMIN')
+            ? `<button class="btn btn-sm btn-outline-danger" title="Hapus transaksi BBM" aria-label="Hapus transaksi BBM" onclick="deleteBBMFlazz('${t.transaction_id}')"><i class="bi bi-trash"></i></button>`
+            : '<span class="text-muted">-</span>'}
         </td>
       </tr>`;
     } else if (type === 'recon') {
@@ -796,6 +805,7 @@ function histGotoPage(type, n) {
 }
 
 function editTopUp(id) {
+  if (typeof userRole !== 'undefined' && userRole !== 'SUPERADMIN') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
   let t = (flazzDataCache && flazzDataCache.topups || []).find(x => x.id === id);
   if(!t) return showToast('Data tidak ditemukan', 'error');
   let cards = ((flazzDataCache && flazzDataCache.cards) || []).filter(c => c.status !== 'NONAKTIF');
@@ -809,6 +819,7 @@ function editTopUp(id) {
 }
 function saveEditTopUp(e) {
   e.preventDefault();
+  if (typeof userRole !== 'undefined' && userRole !== 'SUPERADMIN') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
   let btn = document.getElementById('btn-save-et');
   let orig = btn.innerHTML;
   btn.disabled = true;
@@ -832,13 +843,16 @@ function saveEditTopUp(e) {
   }).apiEditFlazzTopUp(payload, bbmToken());
 }
 function deleteTopUp(id) {
-  if(!confirm('Yakin menghapus top up ini? Saldo kartu akan dikurangi nominal tersebut.')) return;
+  if (typeof userRole !== 'undefined' && userRole !== 'SUPERADMIN') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
+  showConfirmModal({ message: 'Yakin menghapus top up ini? Saldo kartu akan dikurangi nominal tersebut.' }, function() {
   google.script.run.withSuccessHandler(res => {
     if(res.success){ showToast(res.msg, 'success'); loadFlazzDataWrapper(true); }
     else showToast(res.msg, 'error');
   }).withFailureHandler(flazzFailHandler('Menghapus top up', [])).apiDeleteFlazzTopUp(id, bbmToken());
+});
 }
 function editTol(id) {
+  if (typeof userRole !== 'undefined' && userRole !== 'SUPERADMIN') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
   let t = (flazzDataCache && flazzDataCache.tols || []).find(x => x.id === id);
   if(!t) return showToast('Data tidak ditemukan', 'error');
   let cards = ((flazzDataCache && flazzDataCache.cards) || []).filter(c => c.status !== 'NONAKTIF');
@@ -852,6 +866,7 @@ function editTol(id) {
 }
 function saveEditTol(e) {
   e.preventDefault();
+  if (typeof userRole !== 'undefined' && userRole !== 'SUPERADMIN') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
   let btn = document.getElementById('btn-save-etol');
   let orig = btn.innerHTML;
   btn.disabled = true;
@@ -875,26 +890,31 @@ function saveEditTol(e) {
   }).apiEditFlazzTol(payload, bbmToken());
 }
 function deleteTol(id) {
-  if(!confirm('Yakin menghapus tol ini? Saldo kartu akan dikembalikan nominal tersebut.')) return;
+  if (typeof userRole !== 'undefined' && userRole !== 'SUPERADMIN') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
+  showConfirmModal({ message: 'Yakin menghapus tol ini? Saldo kartu akan dikembalikan nominal tersebut.' }, function() {
   google.script.run.withSuccessHandler(res => {
     if(res.success){ showToast(res.msg, 'success'); loadFlazzDataWrapper(true); }
     else showToast(res.msg, 'error');
   }).withFailureHandler(flazzFailHandler('Menghapus tol', [])).apiDeleteFlazzTol(id, bbmToken());
+});
 }
 function deleteRecon(id) {
   if(typeof userRole === 'undefined' || userRole !== 'SUPERADMIN'){ showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
-  if(!confirm('Yakin menghapus rekonsiliasi ini?\n\nSaldo kartu akan DIKEMBALIKAN ke saldo awal, status kartu jadi SEDANG_DIGUNAKAN, dan jalur pengiriman kembali SUDAH_LAPORAN.\n\nCatatan: hanya rekon TERAKHIR per kartu yang bisa dihapus, dan tidak boleh ada aktivitas Flazz baru setelah rekon ini.')) return;
+  showConfirmModal({ message: 'Yakin menghapus rekonsiliasi ini?\n\nSaldo kartu akan DIKEMBALIKAN ke saldo awal, status kartu jadi SEDANG_DIGUNAKAN, dan jalur pengiriman kembali SUDAH_LAPORAN.\n\nCatatan: hanya rekon TERAKHIR per kartu yang bisa dihapus, dan tidak boleh ada aktivitas Flazz baru setelah rekon ini.' }, function() {
   google.script.run.withSuccessHandler(res => {
     if(res.success){ showToast(res.msg, 'success'); loadFlazzDataWrapper(true); }
     else showToast(res.msg, 'error');
   }).withFailureHandler(flazzFailHandler('Menghapus rekonsiliasi', [])).apiDeleteFlazzRecon(id, bbmToken());
+});
 }
 function deleteBBMFlazz(trxId) {
-  if(!confirm('Lepas transaksi BBM ini dari Flazz? Laporan harian tetap tersimpan, saldo kartu dikembalikan.')) return;
+  if (typeof userRole !== 'undefined' && userRole !== 'SUPERADMIN') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
+  showConfirmModal({ message: 'Lepas transaksi BBM ini dari Flazz? Laporan harian tetap tersimpan, saldo kartu dikembalikan.' }, function() {
   google.script.run.withSuccessHandler(res => {
     if(res.success){ showToast(res.msg, 'success'); loadFlazzDataWrapper(true); }
     else showToast(res.msg, 'error');
   }).withFailureHandler(flazzFailHandler('Melepas BBM dari Flazz', [])).apiDeleteFlazzBBM(trxId, 'detach', bbmToken());
+});
 }
 
 function transTimestamp(val) {
@@ -961,7 +981,7 @@ function editFlazzCard(id) {
 </script>
 <script>
 function deleteFlazzCardClient(id) {
-  if(!confirm('Anda yakin ingin menonaktifkan kartu ini? Pastikan saldo 0 dan tidak sedang digunakan. Kartu tidak akan terhapus permanen.')) return;
+  showConfirmModal({ message: 'Anda yakin ingin menonaktifkan kartu ini? Pastikan saldo 0 dan tidak sedang digunakan. Kartu tidak akan terhapus permanen.' }, function() {
   google.script.run
     .withSuccessHandler(res => {
        if(res.success) { showToast(res.msg, 'success'); loadFlazzDataWrapper(true); }
@@ -969,10 +989,11 @@ function deleteFlazzCardClient(id) {
     })
     .withFailureHandler(flazzFailHandler('Menonaktifkan kartu', []))
     .apiDeleteFlazzCard(id, bbmToken());
+  });
 }
 
 function activateFlazzCardClient(id) {
-  if(!confirm('Anda yakin ingin mengaktifkan kembali kartu ini? Status akan menjadi TERSEDIA.')) return;
+  showConfirmModal({ message: 'Anda yakin ingin mengaktifkan kembali kartu ini? Status akan menjadi TERSEDIA.' }, function() {
   google.script.run
     .withSuccessHandler(res => {
        if(res.success) { showToast(res.msg, 'success'); loadFlazzDataWrapper(true); }
@@ -980,6 +1001,7 @@ function activateFlazzCardClient(id) {
     })
     .withFailureHandler(flazzFailHandler('Mengaktifkan kartu', []))
     .apiActivateFlazzCard(id, bbmToken());
+  });
 }
 </script>
 <script>
@@ -1181,15 +1203,15 @@ function showFlazzDetailModal(cardId) {
 
   // Top Up table
   html += '<h6 class="text-primary fw-bold mt-2">Top Up</h6>';
-  html += '<table class="table table-sm align-middle"><thead class="table-light"><tr><th>Tanggal</th><th>Nominal</th><th>Bukti</th><th>Catatan</th></tr></thead><tbody id="tb-detail-topup"></tbody><tfoot id="tf-detail-topup" class="table-light fw-bold"></tfoot></table>';
+  html += '<div class="table-responsive"><table class="table table-sm align-middle"><thead class="table-light"><tr><th>Tanggal</th><th>Nominal</th><th>Bukti</th><th>Catatan</th></tr></thead><tbody id="tb-detail-topup"></tbody><tfoot id="tf-detail-topup" class="table-light fw-bold"></tfoot></table></div>';
 
   // Pengeluaran table (Tol + BBM gabungan)
   html += '<h6 class="text-primary fw-bold mt-4">Rincian Pengeluaran</h6>';
-  html += '<table class="table table-sm align-middle"><thead class="table-light"><tr><th>Tanggal</th><th>Jenis</th><th>Supir/Kendaraan</th><th>Nominal</th></tr></thead><tbody id="tb-detail-pengeluaran"></tbody><tfoot id="tf-detail-pengeluaran" class="table-light fw-bold"></tfoot></table>';
+  html += '<div class="table-responsive"><table class="table table-sm align-middle"><thead class="table-light"><tr><th>Tanggal</th><th>Jenis</th><th>Supir/Kendaraan</th><th>Nominal</th></tr></thead><tbody id="tb-detail-pengeluaran"></tbody><tfoot id="tf-detail-pengeluaran" class="table-light fw-bold"></tfoot></table></div>';
 
   // Reconciliation table
   html += '<h6 class="text-primary fw-bold mt-4">Rekonsiliasi Harian</h6>';
-  html += '<table class="table table-sm align-middle"><thead class="table-light"><tr><th>Tanggal</th><th>Saldo Awal</th><th>Top Up</th><th>BBM+Tol</th><th>Saldo Sistem</th><th>Saldo Fisik</th><th>Selisih</th><th>Status</th></tr></thead><tbody id="tb-detail-recon"></tbody></table>';
+  html += '<div class="table-responsive"><table class="table table-sm align-middle"><thead class="table-light"><tr><th>Tanggal</th><th>Saldo Awal</th><th>Top Up</th><th>BBM+Tol</th><th>Saldo Sistem</th><th>Saldo Fisik</th><th>Selisih</th><th>Status</th></tr></thead><tbody id="tb-detail-recon"></tbody></table></div>';
 
   document.getElementById('flazz-detail-body').innerHTML = html;
 

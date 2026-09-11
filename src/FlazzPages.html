@@ -7,7 +7,7 @@
         <button type='button' class='btn-close btn-close-white' data-bs-dismiss='modal' aria-label='Tutup'></button>
       </div>
       <div class='modal-body p-4'>
-        <form id='form-flazz-card' onsubmit='saveFlazzCardForm(event)'>
+        <form id='form-flazz-card' novalidate onsubmit='saveFlazzCardForm(event)'>
           <input type='hidden' id='f_card_id'>
           <div class='mb-3'>
             <label class='form-label text-muted small fw-bold'>Nomor Kartu</label>
@@ -66,7 +66,7 @@
           <h4 class='mb-0 text-success fw-bold'><i class='bi bi-wallet2 me-2'></i>Top Up Saldo Flazz</h4>
         </div>
         <div class="card-body p-4">
-          <form id='form-flazz-topup' onsubmit='saveFlazzTopUpForm(event)'>
+          <form id='form-flazz-topup' novalidate onsubmit='saveFlazzTopUpForm(event)'>
             <div class='mb-3'>
               <label class='form-label text-muted small fw-bold'>Pilih Kartu</label>
               <select id='t_card_id' class='form-select' required></select>
@@ -105,7 +105,7 @@
           <p class="text-muted small mt-1">Form untuk mengembalikan kartu dari supir, mengecek sisa saldo fisik, dan menetralkan kembali kartu.</p>
         </div>
         <div class="card-body p-4 pt-2">
-          <form id='form-flazz-recon' onsubmit='saveFlazzReconForm(event)'>
+          <form id='form-flazz-recon' novalidate onsubmit='saveFlazzReconForm(event)'>
             <div class='mb-3'>
               <label class='form-label text-muted small fw-bold'>Kartu (Yang Sedang Digunakan)</label>
               <select id='r_card_id' class='form-select' onchange='onReconCardSelect()' required></select>
@@ -267,7 +267,7 @@
       <div class="modal-content">
         <div class="modal-header bg-primary text-white"><h5 class="modal-title">Edit Top Up</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label='Tutup'></button></div>
-        <form onsubmit="saveEditTopUp(event)">
+        <form novalidate onsubmit="saveEditTopUp(event)">
           <div class="modal-body">
             <input type="hidden" id="et_id">
             <div class="mb-2"><label class="form-label small">Kartu</label>
@@ -294,7 +294,7 @@
       <div class="modal-content">
         <div class="modal-header bg-primary text-white"><h5 class="modal-title">Edit Tol</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label='Tutup'></button></div>
-        <form onsubmit="saveEditTol(event)">
+        <form novalidate onsubmit="saveEditTol(event)">
           <div class="modal-body">
             <input type="hidden" id="etol_id">
             <div class="mb-2"><label class="form-label small">Kartu</label>

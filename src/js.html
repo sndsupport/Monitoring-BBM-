@@ -182,10 +182,14 @@ document.getElementById('page-login').style.display = 'flex';
                 if (btnCabang) btnCabang.parentElement.style.display = 'none';
                 let btnBBM = masterTabs.querySelector('button[data-tab="bbm"]');
                 if (btnBBM) btnBBM.parentElement.style.display = 'none';
-                let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
-                if (btnPengguna) btnPengguna.parentElement.style.display = 'none';
-             }
-          }
+let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
+              if (btnPengguna) btnPengguna.parentElement.style.display = 'none';
+           }
+           let tabFlazzTopup = document.getElementById('tab-flazz-topup');
+           if (tabFlazzTopup) tabFlazzTopup.style.display = 'none';
+           let tabFlazzRecon = document.getElementById('tab-flazz-recon');
+           if (tabFlazzRecon) tabFlazzRecon.style.display = 'none';
+         }
         }
 
         if (userRole === 'SUPERADMIN') {
@@ -439,6 +443,9 @@ document.getElementById('page-login').style.display = 'flex';
     var drawer = document.getElementById('bottom-nav-drawer');
     if (!drawer) return;
     var items = BOTTOM_NAV_DRAWERS[key] || [];
+    if (key === 'flazz' && userRole !== 'SUPERADMIN') {
+      items = items.filter(function(it) { return it.tab !== 'flazz-topup' && it.tab !== 'flazz-recon'; });
+    }
     drawer.innerHTML = items.map(function(it) {
       return "<button class='btn-nav bnd-item' data-tab='" + it.tab + "' onclick='switchTab(\"" + it.tab + "\")'>" +
         "<i class='bi " + it.icon + "'></i><span>" + it.label + '</span></button>';
@@ -522,6 +529,10 @@ document.getElementById('page-login').style.display = 'flex';
 
   function switchTab(tab) {
     closeBottomDrawer();
+    if ((tab === 'flazz-topup' || tab === 'flazz-recon') && userRole !== 'SUPERADMIN') {
+      showToast('Akses ditolak: hanya SUPERADMIN.', 'error');
+      return;
+    }
     document.getElementById('page-form').style.display = 'none';
     document.getElementById('page-dashboard').style.display = 'none';
     document.getElementById('page-dashboard-history').style.display = 'none';
@@ -685,8 +696,7 @@ document.getElementById('page-login').style.display = 'flex';
   }
 
   function confirmResetForm() {
-    if (!confirm('Laporan yang sudah diisi akan dihapus. Lanjutkan?')) return;
-    resetDailyForm();
+    showConfirmModal({ message: 'Laporan yang sudah diisi akan dihapus. Lanjutkan?' }, function() { resetDailyForm(); });
   }
 
   function resetDailyForm() {
@@ -867,11 +877,33 @@ document.getElementById('page-login').style.display = 'flex';
   }
 
 
-  function openReviewModal() {
-    if (!document.getElementById('daily-form').checkValidity()) {
-      document.getElementById('daily-form').reportValidity();
-      return;
+  function validateDailyForm() {
+    var form = document.getElementById('daily-form');
+    if (!form) return true;
+    var fields = form.querySelectorAll('[required]');
+    for (var i = 0; i < fields.length; i++) {
+      var el = fields[i];
+      if (el.disabled || el.style.display === 'none') continue;
+      if (!el.checkValidity()) {
+        var label = '';
+        if (el.id) {
+          var lblEl = form.querySelector('label[for="' + el.id + '"]');
+          if (!lblEl && el.closest('.input-group')) {
+            var prev = el.closest('.mb-3') || el.closest('.col');
+            lblEl = prev ? prev.querySelector('label') : null;
+          }
+          if (lblEl) label = lblEl.textContent.trim();
+        }
+        showToast('Lengkapi bidang: ' + (label || 'wajib diisi') + '.', 'warning');
+        el.focus();
+        return false;
+      }
     }
+    return true;
+  }
+
+  function openReviewModal() {
+    if (!validateDailyForm()) return;
     if (typeof updateLiveSummary === 'function') updateLiveSummary();
     var modal = new bootstrap.Modal(document.getElementById('modal-ringkasan'));
     modal.show();
@@ -895,8 +927,7 @@ document.getElementById('page-login').style.display = 'flex';
     let odoAwal = document.getElementById('foto_odo_awal').files[0];
     let odoAkhir = document.getElementById('foto_odo_akhir').files[0];
 
-    if (!document.getElementById('daily-form').checkValidity()) {
-      document.getElementById('daily-form').reportValidity();
+    if (!validateDailyForm()) {
       window.__bbmSubmitting = false;
       return;
     }
@@ -988,7 +1019,8 @@ document.getElementById('page-login').style.display = 'flex';
         var litKonsumsiSubmit = litSubmit + ((bAwalSubmit - bAkhirSubmit) * litPerBarSubmit);
         if (litKonsumsiSubmit <= 0) litKonsumsiSubmit = litSubmit;
         if (standarSubmit <= 0 || litKonsumsiSubmit <= 0) {
-          if (!confirm('KM tidak terbaca dan estimasi tidak tersedia (Standar KM/L belum diisi, atau tidak ada penurunan level BBM / liter). Simpan laporan tanpa KM?')) {
+          var confirmedNoKm = await confirmModalAsync({ message: 'KM tidak terbaca dan estimasi tidak tersedia (Standar KM/L belum diisi, atau tidak ada penurunan level BBM / liter). Simpan laporan tanpa KM?' });
+          if (!confirmedNoKm) {
             btn.disabled = false;
             btn.innerHTML = originalText;
             window.__bbmSubmitting = false;
@@ -1441,8 +1473,10 @@ document.getElementById('page-login').style.display = 'flex';
         "<td class='text-center text-nowrap'>" + (row.isi_bbm > 0 ? esc(row.isi_bbm) + " L" : "-") + "</td>" +
         "<td class='text-center'>" + (row.status_efisiensi === 'Data Belum Cukup' ? efisiensiBadge(row.status_efisiensi) : (row.efisiensi ? esc(row.efisiensi) + " KM/L" + (row.efisiensi_label ? " <small class='text-muted'>(" + esc(row.efisiensi_label) + ")</small>" : "") + efisiensiBadge(row.status_efisiensi) : "-")) + "</td>" +
         "<td class='text-end text-nowrap'>" +
-          "<button class='btn btn-sm btn-outline-primary' title='Edit Laporan' aria-label='Edit laporan' onclick='editDaily(" + JSON.stringify(row.transaction_id) + ")'><i class='bi bi-pencil'></i></button> " +
-          "<button class='btn btn-sm btn-outline-danger' title='Hapus Laporan' aria-label='Hapus laporan' onclick='deleteDaily(" + JSON.stringify(row.transaction_id) + ")'><i class='bi bi-trash'></i></button>" +
+          (userRole === 'SUPERADMIN'
+            ? "<button class='btn btn-sm btn-outline-primary' title='Edit Laporan' aria-label='Edit laporan' onclick='editDaily(" + JSON.stringify(row.transaction_id) + ")'><i class='bi bi-pencil'></i></button> " +
+              "<button class='btn btn-sm btn-outline-danger' title='Hapus Laporan' aria-label='Hapus laporan' onclick='deleteDaily(" + JSON.stringify(row.transaction_id) + ")'><i class='bi bi-trash'></i></button>"
+            : "-") +
         "</td>";
       tbody.appendChild(tr);
     });
@@ -1478,10 +1512,12 @@ document.getElementById('page-login').style.display = 'flex';
           "<div class='d-flex justify-content-between align-items-center'>" +
             "<small><i class='bi bi-fuel-pump me-1'></i> " + (row.status_efisiensi === 'Data Belum Cukup' ? efisiensiBadge(row.status_efisiensi) : (row.efisiensi ? esc(row.efisiensi) + " KM/L" + (row.efisiensi_label ? " <small class='text-muted'>(" + esc(row.efisiensi_label) + ")</small>" : "") + efisiensiBadge(row.status_efisiensi) : "-")) + "</small>" +
           "</div>" +
-          "<div class='d-flex justify-content-end gap-2 mt-2'>" +
-            "<button class='btn btn-sm btn-outline-primary' onclick='editDaily(" + JSON.stringify(row.transaction_id) + ")'><i class='bi bi-pencil'></i> Edit</button> " +
-            "<button class='btn btn-sm btn-outline-danger' onclick='deleteDaily(" + JSON.stringify(row.transaction_id) + ")'><i class='bi bi-trash'></i> Hapus</button>" +
-          "</div>" +
+          (userRole === 'SUPERADMIN'
+            ? "<div class='d-flex justify-content-end gap-2 mt-2'>" +
+              "<button class='btn btn-sm btn-outline-primary' onclick='editDaily(" + JSON.stringify(row.transaction_id) + ")'><i class='bi bi-pencil'></i> Edit</button> " +
+              "<button class='btn btn-sm btn-outline-danger' onclick='deleteDaily(" + JSON.stringify(row.transaction_id) + ")'><i class='bi bi-trash'></i> Hapus</button>" +
+              "</div>"
+            : "") +
         "</div>";
       cardsContainer.appendChild(card);
     });
@@ -1620,6 +1656,7 @@ document.getElementById('page-login').style.display = 'flex';
   }
 
   function editDaily(id) {
+    if (userRole !== 'SUPERADMIN') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
     let row = (window.__recent || []).find(r => String(r.transaction_id) === String(id));
     if(!row) return showToast('Data tidak ditemukan', 'error');
     document.getElementById('ed_trx').value = row.transaction_id;
@@ -1766,7 +1803,8 @@ document.getElementById('page-login').style.display = 'flex';
     }).apiEditDailyTransaction(payload, bbmToken());
   }
   function deleteDaily(id){
-    if(!confirm('Yakin menghapus transaksi BBM ini? Jika ber-Flazz, saldo kartu akan dikembalikan.')) return;
+    if (userRole !== 'SUPERADMIN') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
+    showConfirmModal({ message: 'Yakin menghapus transaksi BBM ini? Jika ber-Flazz, saldo kartu akan dikembalikan.' }, function() {
     google.script.run.withSuccessHandler(res => {
       if(res.success){ 
          showToast(res.msg, 'success'); 
@@ -1778,6 +1816,7 @@ document.getElementById('page-login').style.display = 'flex';
       }
       else showToast(res.msg, 'error');
     }).apiDeleteDailyTransaction(id, bbmToken());
+    });
   }
 
   function formatCurrency(value) {
@@ -2392,44 +2431,48 @@ document.getElementById('page-login').style.display = 'flex';
   }
 
   function deleteKendaraan(vehicleId) {
-    if (!confirm('Yakin ingin menghapus kendaraan ini?')) return;
+    showConfirmModal({ message: 'Yakin ingin menghapus kendaraan ini?' }, function() {
     google.script.run.withSuccessHandler(function(res) {
       showToast(res.msg, 'success');
       loadMasterData('kendaraan');
     }).withFailureHandler(function(err) {
       showToast('Gagal menghapus: ' + err.message, 'error');
     }).deleteMasterKendaraan(vehicleId, bbmToken());
+    });
   }
 
 
   function deleteCabang(kode) {
-    if (!confirm('Hapus cabang ini?')) return;
+    showConfirmModal({ message: 'Hapus cabang ini?' }, function() {
     google.script.run.withSuccessHandler(function(res) {
       showToast(res.msg, 'success');
       loadMasterData('cabang');
     }).withFailureHandler(function(err) {
       showToast('Gagal menghapus: ' + err.message, 'error');
     }).deleteMasterCabang(kode, bbmToken());
+    });
   }
 
   function deleteSupir(id) {
-    if (!confirm('Hapus supir ini?')) return;
+    showConfirmModal({ message: 'Hapus supir ini?' }, function() {
     google.script.run.withSuccessHandler(function(res) {
       showToast(res.msg, 'success');
       loadMasterData('supir');
     }).withFailureHandler(function(err) {
       showToast('Gagal menghapus: ' + err.message, 'error');
     }).deleteMasterSupir(id, bbmToken());
+    });
   }
 
   function deleteBBM(id) {
-    if (!confirm('Hapus BBM ini?')) return;
+    showConfirmModal({ message: 'Hapus BBM ini?' }, function() {
     google.script.run.withSuccessHandler(function(res) {
       showToast(res.msg, 'success');
       loadMasterData('bbm');
     }).withFailureHandler(function(err) {
       showToast('Gagal menghapus: ' + err.message, 'error');
     }).deleteMasterBBM(id, bbmToken());
+    });
   }
 
   function showToast(message, type) {
@@ -2458,6 +2501,53 @@ document.getElementById('page-login').style.display = 'flex';
     if (!toast || !toast.parentNode) return;
     toast.style.animation = 'slideOut 0.3s ease forwards';
     setTimeout(function() { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
+  }
+
+  // Modal konfirmasi custom (pengganti dialog konfirmasi native browser). Callback dipanggil saat tombol OK.
+  var __confirmCallback = null;
+  var __confirmResolve = null;
+  var __confirmModal = null;
+
+  function showConfirmModal(opts, onConfirm) {
+    opts = opts || {};
+    __confirmCallback = (typeof onConfirm === 'function') ? onConfirm : null;
+    var modalEl = document.getElementById('modal-confirm');
+    if (!modalEl) { showToast('Modal konfirmasi tidak ditemukan.', 'error'); return; }
+    modalEl.__confirmResult = 'pending';
+    var t = document.getElementById('modal-confirm-title');
+    var m = document.getElementById('modal-confirm-message');
+    var ok = document.getElementById('modal-confirm-ok');
+    var cancel = document.getElementById('modal-confirm-cancel');
+    if (t) t.textContent = opts.title || 'Konfirmasi';
+    if (m) m.textContent = opts.message || 'Lanjutkan?';
+    if (ok) {
+      ok.textContent = opts.confirmLabel || 'Ya, Lanjutkan';
+      ok.className = 'btn flex-fill ' + (opts.confirmClass || 'btn-danger');
+      ok.onclick = function() { modalEl.__confirmResult = 'ok'; __confirmModal.hide(); };
+    }
+    if (cancel) cancel.onclick = function() { modalEl.__confirmResult = 'cancel'; __confirmModal.hide(); };
+    if (!modalEl.dataset.hiddenHandler) {
+      modalEl.addEventListener('hidden.bs.modal', function() {
+        var confirmed = modalEl.__confirmResult === 'ok';
+        modalEl.__confirmResult = 'pending';
+        var cb = __confirmCallback;
+        var rs = __confirmResolve;
+        __confirmCallback = null;
+        __confirmResolve = null;
+        if (typeof rs === 'function') rs(confirmed);
+        else if (confirmed && typeof cb === 'function') cb();
+      });
+      modalEl.dataset.hiddenHandler = '1';
+    }
+    if (!__confirmModal) __confirmModal = new bootstrap.Modal(modalEl);
+    __confirmModal.show();
+  }
+
+  function confirmModalAsync(opts) {
+    return new Promise(function(resolve) {
+      __confirmResolve = resolve;
+      showConfirmModal(opts);
+    });
   }
 
   function populateCabangPengguna() {
@@ -2541,7 +2631,7 @@ document.getElementById('page-login').style.display = 'flex';
     let u = (window.masterData.pengguna || []).find(x => String(x.user_id) === String(userId));
     let nama = u ? u.nama : 'pengguna ini';
     let toActivate = status === 'Aktif';
-    if (!confirm(toActivate ? 'Aktifkan kembali ' + nama + '?' : 'Nonaktifkan ' + nama + '? (akun tidak bisa login)')) return;
+    showConfirmModal({ message: (toActivate ? 'Aktifkan kembali ' + nama + '?' : 'Nonaktifkan ' + nama + '? (akun tidak bisa login)') }, function() {
     google.script.run
       .withSuccessHandler(function(res) {
         showToast(res.msg, 'success');
@@ -2550,6 +2640,7 @@ document.getElementById('page-login').style.display = 'flex';
       .withFailureHandler(function(err) {
         showToast('Gagal: ' + err.message, 'error');
       })[toActivate ? 'activateMasterPengguna' : 'deleteMasterPengguna'](userId, bbmToken());
+    });
   }
 
   function renderPenggunaList(users) {
