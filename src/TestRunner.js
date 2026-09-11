@@ -102,7 +102,9 @@ function __expectDenied(call, needle, label) {
   var res;
   try {
     res = call();
+    Logger.log('RAW[' + label + '] typeof=' + typeof res + ' val=' + (res !== null && typeof res === 'object' ? JSON.stringify(res) : String(res)));
   } catch (e) {
+    Logger.log('RAW[' + label + '] THREW ' + e.message);
     return __expectTrue(String(e.message).indexOf(needle) > -1, label + ' (dilempar: ' + e.message + ')');
   }
   if (res && typeof res === 'object' && res.success === false) {
