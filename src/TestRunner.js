@@ -149,6 +149,35 @@ function __runSecurityIsolationTests() {
   return __summarize(results);
 }
 
+// DIAGNOSTIK: cek binding runtime fungsi vs source file + apakah guard benar-benar melempar.
+function __runProbeDiagnostic() {
+  var pic = { user_id: 'U-PIC-TEST', username: 'pic-test', nama: 'PIC Test', role: 'PIC CABANG', cabang: 'CBG-JKT' };
+
+  function srcOf(fnName) {
+    var s;
+    try { s = (typeof this[fnName] === 'function') ? String(this[fnName]).substring(0, 220) : 'NOT-A-FUNCTION'; } catch (e) { s = 'ER: ' + e.message; }
+    Logger.log('SRC[' + fnName + '] ' + s);
+  }
+  ['getJalurByTanggal', 'editDailyTransactionUnlocked', 'deleteDailyTransactionUnlocked',
+   'saveFlazzTopUpUnlocked', 'deleteFlazzTopUpUnlocked', 'saveFlazzUsageUnlocked',
+   'updateJalur', 'deleteJalur', 'requireUser', 'assertSuperadminOnly'].forEach(srcOf);
+
+  function probe(label, fn) {
+    var res;
+    try { res = fn(); Logger.log('PROBE[' + label + '] typeof=' + typeof res + ' val=' + (res !== null && typeof res === 'object' ? JSON.stringify(res) : String(res))); }
+    catch (e) { Logger.log('PROBE[' + label + '] THREW msg=' + e.message + ' | line=' + (e.lineNumber || '?')); }
+  }
+
+  probe('requireUser(tokensemu)', function() { return requireUser('token-palsu-xyz'); });
+  probe('assertSuperadminOnly(pic)', function() { return assertSuperadminOnly(pic, 'tes'); });
+  probe('getJalurByTanggal', function() { return getJalurByTanggal('2026-08-31', 'token-palsu-xyz', {}); });
+  probe('editDailyTransactionUnlocked(pic)', function() { return editDailyTransactionUnlocked({}, pic); });
+  probe('deleteDailyTransactionUnlocked(pic)', function() { return deleteDailyTransactionUnlocked('###TAK-ADA###', pic); });
+  probe('saveFlazzTopUpUnlocked(pic)', function() { return saveFlazzTopUpUnlocked({ userInfo: pic }); });
+  probe('updateJalur(pic)', function() { return updateJalur({ id: '###TAK-ADA###' }, pic); });
+  Logger.log('==== PROBE DONE ====');
+}
+
 function __runAllTests() {
   var r = __runAuthTests();
   r = __runBackupSheetTests();
