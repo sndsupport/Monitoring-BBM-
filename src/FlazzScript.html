@@ -496,9 +496,18 @@ function saveFlazzCardForm(e) {
 function saveFlazzTopUpForm(e) {
   e.preventDefault();
   if (typeof userRole !== 'undefined' && userRole !== 'SUPERADMIN') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
-  var kard = (document.getElementById('t_card_id') || {}).selectedOptions;
-  var kardLabel = kard && kard[0] ? kard[0].text : '-';
+  var tCard = document.getElementById('t_card_id');
+  if (!tCard || !tCard.value) {
+    showToast('Pilih kartu terlebih dahulu.', 'error');
+    return;
+  }
+  var kard = tCard.selectedOptions;
   var amount = document.getElementById('t_amount').value;
+  if (!amount || parseFloat(amount) <= 0) {
+    showToast('Masukkan nominal top up yang valid.', 'error');
+    return;
+  }
+  var kardLabel = kard && kard[0] ? kard[0].text : '-';
   var tglTxt = document.getElementById('t_date').value;
   showConfirmModal({ message: 'Konfirmasi Top Up:\nKartu: ' + kardLabel + '\nNominal: ' + formatCurrency(amount) + '\nTanggal: ' + tglTxt + '\n\nLanjutkan?' }, function() {
     let btn = document.getElementById('btn-save-topup');
