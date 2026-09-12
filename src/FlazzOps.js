@@ -278,7 +278,6 @@ function saveFlazzTopUp(payload) {
 
 function saveFlazzTopUpUnlocked(payload) {
   try {
-    assertSuperadminOnly(payload.userInfo, 'mencatat top up Flazz');
     const ss = getDB();
     const sheet = ss.getSheetByName('Flazz_TopUp');
     const cardSheet = ss.getSheetByName('Flazz_Card');
@@ -823,7 +822,6 @@ function saveFlazzRecon(payload) {
 
 function saveFlazzReconUnlocked(payload) {
   try {
-    assertSuperadminOnly(payload.userInfo, 'melakukan rekonsiliasi Flazz');
     const ss = getDB();
     const sheet = ss.getSheetByName('Flazz_Reconciliation');
     const cardSheet = ss.getSheetByName('Flazz_Card');
