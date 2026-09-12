@@ -185,10 +185,6 @@ document.getElementById('page-login').style.display = 'flex';
 let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
               if (btnPengguna) btnPengguna.parentElement.style.display = 'none';
            }
-           let tabFlazzTopup = document.getElementById('tab-flazz-topup');
-           if (tabFlazzTopup) tabFlazzTopup.style.display = 'none';
-           let tabFlazzRecon = document.getElementById('tab-flazz-recon');
-           if (tabFlazzRecon) tabFlazzRecon.style.display = 'none';
          }
         }
 
@@ -435,9 +431,6 @@ populateSupirDatalist();
     var drawer = document.getElementById('bottom-nav-drawer');
     if (!drawer) return;
     var items = BOTTOM_NAV_DRAWERS[key] || [];
-    if (key === 'flazz' && userRole !== 'SUPERADMIN') {
-      items = items.filter(function(it) { return it.tab !== 'flazz-topup' && it.tab !== 'flazz-recon'; });
-    }
     drawer.innerHTML = items.map(function(it) {
       return "<button class='btn-nav bnd-item' data-tab='" + it.tab + "' onclick='switchTab(\"" + it.tab + "\")'>" +
         "<i class='bi " + it.icon + "'></i><span>" + it.label + '</span></button>';
@@ -521,10 +514,6 @@ populateSupirDatalist();
 
   function switchTab(tab) {
     closeBottomDrawer();
-    if ((tab === 'flazz-topup' || tab === 'flazz-recon') && userRole !== 'SUPERADMIN') {
-      showToast('Akses ditolak: hanya SUPERADMIN.', 'error');
-      return;
-    }
     document.getElementById('page-form').style.display = 'none';
     document.getElementById('page-dashboard').style.display = 'none';
     document.getElementById('page-dashboard-history').style.display = 'none';
