@@ -10,6 +10,10 @@ function performaCacheKey(role, cabang) {
   return 'perf:' + (role || '') + ':' + (cabang || '');
 }
 
+function dashwarnCacheKey(role, cabang) {
+  return 'dashwarn:' + (role || '') + ':' + (cabang || '');
+}
+
 function invalidateMaster(role, cabang) {
   var c = CacheService.getScriptCache();
   c.remove(masterCacheKey(role, cabang));

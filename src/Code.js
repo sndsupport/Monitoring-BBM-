@@ -231,6 +231,16 @@ function getPerformaData(token) {
   return out;
 }
 
+function getDashboardWarnings(token) {
+  var user = requireUser(token);
+  var ck = dashwarnCacheKey(user.role, user.cabang);
+  var hit = cacheGet(ck);
+  if (hit) return hit;
+  var out = warningsSummary(token);
+  cachePut(ck, out, 300);
+  return out;
+}
+
 function processDailyImages(data, token) {
   try {
     var user = requireUser(token);
