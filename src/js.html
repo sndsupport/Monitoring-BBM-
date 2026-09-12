@@ -2275,7 +2275,10 @@ populateSupirDatalist();
 
   function addMasterCabang() {
     let btn = document.getElementById('btn-add-cabang');
+    let btnOrig = btn.innerHTML;
+    btn.dataset.origHtml = btnOrig;
     btn.disabled = true;
+    btn.innerHTML = "<span class='spinner-border spinner-border-sm'></span> Menyimpan...";
     let data = {
       kode: document.getElementById('m_kode_cabang').value,
       nama: document.getElementById('m_nama_cabang').value,
@@ -2286,18 +2289,23 @@ populateSupirDatalist();
     google.script.run.withSuccessHandler(res => {
       showToast(res.msg, 'success');
       btn.disabled = false;
+      btn.innerHTML = (btn.dataset && btn.dataset.origHtml) || btnOrig;
       document.getElementById('form-cabang').reset();
       loadMasterData('cabang');
       closeBootstrapModal('modal-cabang');
     }).withFailureHandler(err => {
       showToast('Gagal: ' + err.message, 'error');
       btn.disabled = false;
+      btn.innerHTML = (btn.dataset && btn.dataset.origHtml) || btnOrig;
     })[editId ? 'updateMasterCabang' : 'saveMasterCabang'](data, bbmToken());
   }
 
   function addMasterKendaraan() {
     let btn = document.getElementById('btn-add-vehicle');
+    let btnOrig = btn.innerHTML;
+    btn.dataset.origHtml = btnOrig;
     btn.disabled = true;
+    btn.innerHTML = "<span class='spinner-border spinner-border-sm'></span> Menyimpan...";
     let data = {
       plat: document.getElementById('m_plat').value,
       nama: document.getElementById('m_nama_kendaraan').value,
@@ -2318,17 +2326,22 @@ populateSupirDatalist();
     google.script.run.withSuccessHandler(res => {
       showToast(res.msg, 'success');
       btn.disabled = false;
+      btn.innerHTML = (btn.dataset && btn.dataset.origHtml) || btnOrig;
       document.getElementById('form-kendaraan').reset();
       loadMasterData('kendaraan');
       closeBootstrapModal('modal-kendaraan');
     }).withFailureHandler(err => {
       showToast('Gagal: ' + err.message, 'error');
       btn.disabled = false;
+      btn.innerHTML = (btn.dataset && btn.dataset.origHtml) || btnOrig;
     })[editId ? 'updateMasterKendaraan' : 'saveMasterKendaraan'](data, bbmToken());
   }
   function addMasterSupir() {
     let btn = document.getElementById('btn-add-supir');
+    let btnOrig = btn.innerHTML;
+    btn.dataset.origHtml = btnOrig;
     btn.disabled = true;
+    btn.innerHTML = "<span class='spinner-border spinner-border-sm'></span> Menyimpan...";
     let data = {
       nama: document.getElementById('m_nama_supir').value,
       cabang: document.getElementById('m_cabang_supir').value,
@@ -2339,12 +2352,14 @@ populateSupirDatalist();
     google.script.run.withSuccessHandler(res => {
       showToast(res.msg, 'success');
       btn.disabled = false;
+      btn.innerHTML = (btn.dataset && btn.dataset.origHtml) || btnOrig;
       document.getElementById('form-supir').reset();
       loadMasterData('supir');
       closeBootstrapModal('modal-supir');
     }).withFailureHandler(err => {
       showToast('Gagal: ' + err.message, 'error');
       btn.disabled = false;
+      btn.innerHTML = (btn.dataset && btn.dataset.origHtml) || btnOrig;
     })[editId ? 'updateMasterSupir' : 'saveMasterSupir'](data, bbmToken());
   }
 
@@ -2380,7 +2395,10 @@ populateSupirDatalist();
 
   function addMasterBBM() {
     let btn = document.getElementById('btn-add-bbm');
+    let btnOrig = btn.innerHTML;
+    btn.dataset.origHtml = btnOrig;
     btn.disabled = true;
+    btn.innerHTML = "<span class='spinner-border spinner-border-sm'></span> Menyimpan...";
     let data = {
       jenis: document.getElementById('m_jenis_bbm').value,
       harga: document.getElementById('m_harga_bbm').value
@@ -2390,12 +2408,14 @@ populateSupirDatalist();
     google.script.run.withSuccessHandler(res => {
       showToast(res.msg, 'success');
       btn.disabled = false;
+      btn.innerHTML = (btn.dataset && btn.dataset.origHtml) || btnOrig;
       document.getElementById('form-bbm').reset();
       loadMasterData('bbm');
       closeBootstrapModal('modal-bbm');
     }).withFailureHandler(err => {
       showToast('Gagal: ' + err.message, 'error');
       btn.disabled = false;
+      btn.innerHTML = (btn.dataset && btn.dataset.origHtml) || btnOrig;
     })[editId ? 'updateMasterBBM' : 'saveMasterBBM'](data, bbmToken());
   }
 
@@ -2751,17 +2771,22 @@ populateSupirDatalist();
     };
     if (editId) data.user_id = editId;
     let btn = document.getElementById('btn-save-pengguna');
+    let btnOrig = btn.innerHTML;
+    btn.dataset.origHtml = btnOrig;
     btn.disabled = true;
+    btn.innerHTML = "<span class='spinner-border spinner-border-sm'></span> Menyimpan...";
     google.script.run
       .withSuccessHandler(function(res) {
         showToast(res.msg, 'success');
         btn.disabled = false;
+        btn.innerHTML = (btn.dataset && btn.dataset.origHtml) || btnOrig;
         loadMasterData('pengguna');
         closeBootstrapModal('modal-pengguna');
       })
       .withFailureHandler(function(err) {
         showToast('Gagal: ' + err.message, 'error');
         btn.disabled = false;
+        btn.innerHTML = (btn.dataset && btn.dataset.origHtml) || btnOrig;
       })[editId ? 'updateMasterPengguna' : 'saveMasterPengguna'](data, bbmToken());
   }
 
