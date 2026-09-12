@@ -879,13 +879,11 @@ function editDailyTransactionUnlocked(payload, userInfo) {
       oldMetode === 'FLAZZ' ? flazzCardBranch(oldCard) :
       (oldTollMethod === 'FLAZZ' && oldTollCard ? flazzCardBranch(oldTollCard) : vehicleBranchById(vehicleId)));
 
-    const newMetode = payload.metode_pembayaran || oldMetode;
-    // Semantik edit = koreksi parsial: bila field nominal tidak dikirim, pertahankan nilai
-    // lama (jangan paksa jadi 0) agar koreksi kecil tidak mengubah jumlah uang tak sengaja.
-    const newBiaya = (payload.biaya_bbm !== undefined && payload.biaya_bbm !== null && payload.biaya_bbm !== '')
-      ? (parseFloat(payload.biaya_bbm) || 0) : oldBiaya;
-    const newToll = (payload.biaya_toll !== undefined && payload.biaya_toll !== null && payload.biaya_toll !== '')
-      ? (parseFloat(payload.biaya_toll) || 0) : oldToll;
+    const newMetode = parseEditMethod(payload.metode_pembayaran, oldMetode);
+    // Semantik edit: form lengkap selalu mengirim seluruh field, pembatalan diekspresikan
+    // sebagai string kosong (nilai -> 0). Koreksi parsial (undefined/null) = pertahankan lama.
+    const newBiaya = parseEditAmount(payload.biaya_bbm, oldBiaya);
+    const newToll = parseEditAmount(payload.biaya_toll, oldToll);
 
     // Resolusi kartu untuk alur Flazz:
     // - Bila hasilnya FLAZZ tapi payload tidak mengirim kartu, pertahankan kartu lama agar
@@ -959,7 +957,7 @@ function editDailyTransactionUnlocked(payload, userInfo) {
     // (getRecentTransactions/saveTransactionEndOfDay membaca liter_bbm di index 18).
     let idxLiterWrite = headers.indexOf('liter_bbm');
     if (idxLiterWrite < 0) idxLiterWrite = 18;
-    if (payload.liter_bbm !== undefined && payload.liter_bbm !== '') {
+    if (payload.liter_bbm !== undefined && payload.liter_bbm !== null) {
       sheet.getRange(rowIndex, idxLiterWrite + 1).setValue(parseFloat(payload.liter_bbm) || 0);
     }
     if (payload.nama_supir) sheet.getRange(rowIndex, idxNama + 1).setValue(payload.nama_supir);

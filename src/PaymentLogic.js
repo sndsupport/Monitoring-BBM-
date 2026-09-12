@@ -93,6 +93,21 @@ function flazzEditDelta(oldState, nextState, cardId) {
   return flazzCardCharge(oldState, cardId) - flazzCardCharge(nextState, cardId);
 }
 
+// Resolusi nilai nominal saat koreksi/edit laporan. Form lengkap selalu mengirim SEMUA field
+// dan merepresentasikan pembatalan sebagai string kosong '' -> artinya 0. Koreksi parsial
+// (undefined/null) berarti "jangan sentuh" -> pertahankan nilai lama.
+function parseEditAmount(payloadValue, oldValue) {
+  if (payloadValue === undefined || payloadValue === null) return oldValue;
+  return parseFloat(payloadValue) || 0;
+}
+
+// Resolusi metode pembayaran saat koreksi/edit. '' = batal Flazz (tulis kosong),
+// undefined/null = koreksi parsial (pertahankan metode lama).
+function parseEditMethod(payloadValue, oldValue) {
+  if (payloadValue === undefined || payloadValue === null) return oldValue;
+  return String(payloadValue).trim();
+}
+
 // Resolusi metode bayar tol. Nilai eksplisit dari form lebih diutamakan; bila tidak
 // dikirim (form lama), fallback: BBM FLAZZ dianggap tol ikut FLAZZ (semantik lama satu
 // metode untuk seluruh transaksi), selain itu cek apakah ada kartu tol yang terisi

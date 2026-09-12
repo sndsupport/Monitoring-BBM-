@@ -111,5 +111,19 @@ eq(fTolMethod('FLAZZ', 'TUNAI', 'C'), 'FLAZZ', 'resolveTollMethod: metode ekspli
 eq(fTolMethod('TUNAI', 'FLAZZ', 'A'), 'TUNAI', 'resolveTollMethod: metode eksplisit TUNAI tetap diutamakan');
 eq(fTolMethod(undefined, 'TUNAI', '  '), 'TUNAI', 'resolveTollMethod: kartu tol whitespace-only tidak dianggap FLAZZ');
 
+// ===== Edit: field kosong = pembatalan eksplisit (form lengkap mengirim '' saat dibersihkan),
+// sedangkan undefined/null = koreksi parsial (pertahankan nilai lama).
+const fAmount = sandbox.parseEditAmount;
+const fMethod = sandbox.parseEditMethod;
+eq(fAmount('', 15000), 0, 'parseEditAmount: string kosong -> 0 (beli BBM dibatalkan)');
+eq(fAmount(undefined, 15000), 15000, 'parseEditAmount: undefined -> pertahankan lama (koreksi parsial)');
+eq(fAmount(null, 15000), 15000, 'parseEditAmount: null -> pertahankan lama');
+eq(fAmount('0', 15000), 0, 'parseEditAmount: "0" -> 0');
+eq(fAmount('5000', 15000), 5000, 'parseEditAmount: "5000" -> 5000');
+eq(fMethod('', 'FLAZZ'), '', 'parseEditMethod: string kosong -> batal Flazz (metode dihapus)');
+eq(fMethod(undefined, 'FLAZZ'), 'FLAZZ', 'parseEditMethod: undefined -> pertahankan lama');
+eq(fMethod(null, 'FLAZZ'), 'FLAZZ', 'parseEditMethod: null -> pertahankan lama');
+eq(fMethod('TUNAI', 'FLAZZ'), 'TUNAI', 'parseEditMethod: ganti ke TUNAI');
+eq(fMethod(' FLAZZ ', 'TUNAI'), 'FLAZZ', 'parseEditMethod: trim whitespace');
 console.log('==== HASIL: ' + passed + ' passed, ' + failed + ' failed ====');
 process.exit(failed === 0 ? 0 : 1);
