@@ -495,7 +495,6 @@ function saveFlazzCardForm(e) {
 
 function saveFlazzTopUpForm(e) {
   e.preventDefault();
-  if (typeof userRole !== 'undefined' && userRole !== 'SUPERADMIN') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
   var tCard = document.getElementById('t_card_id');
   if (!tCard || !tCard.value) {
     showToast('Pilih kartu terlebih dahulu.', 'error');
@@ -542,7 +541,6 @@ function saveFlazzTopUpForm(e) {
 
 function saveFlazzReconForm(e) {
   e.preventDefault();
-  if (typeof userRole !== 'undefined' && userRole !== 'SUPERADMIN') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
   let cardId = document.getElementById('r_card_id').value;
   if (!cardId) {
     showToast('Pilih kartu terlebih dahulu.', 'error');
