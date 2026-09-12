@@ -138,7 +138,7 @@ function __runSecurityIsolationTests() {
   // PIC read-only: aksi operasional ditolak sebelum mutasi apa pun.
   results.push(__expectDenied(function() { return editDailyTransactionUnlocked({}, pic); }, 'SUPERADMIN', 'PIC edit laporan -> ditolak'));
   results.push(__expectDenied(function() { return deleteDailyTransactionUnlocked('###TAK-ADA###', pic); }, 'SUPERADMIN', 'PIC hapus laporan -> ditolak'));
-  results.push(__expectDenied(function() { return saveFlazzTopUpUnlocked({ userInfo: pic }); }, 'SUPERADMIN', 'PIC top up Flazz -> ditolak'));
+  results.push(__expectDenied(function() { return saveFlazzTopUpUnlocked({ userInfo: pic }); }, 'Akses ditolak: Anda hanya dapat mengelola kartu warehouse', 'PIC top up tanpa kartu -> ditolak scoping cabang'));
   results.push(__expectDenied(function() { return deleteFlazzTopUpUnlocked('###TAK-ADA###', pic); }, 'SUPERADMIN', 'PIC hapus top up Flazz -> ditolak'));
   results.push(__expectDenied(function() { return saveFlazzUsageUnlocked({ userInfo: pic }); }, 'SUPERADMIN', 'PIC serah kartu Flazz -> ditolak'));
   results.push(__expectDenied(function() { return updateJalur({ id: '###TAK-ADA###' }, pic); }, 'SUPERADMIN', 'PIC update jalur -> ditolak'));
