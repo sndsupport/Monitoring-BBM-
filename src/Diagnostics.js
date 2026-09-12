@@ -8,6 +8,15 @@
 // lalu telusuri lintas sheet untuk varian persis kode cabangnya.
 // ==========================================
 
+// Wrapper untuk melihat hasil langsung di editor:
+// jalankan "__runDebugCabangRekap" lalu buka View > Logs.
+function __runDebugCabangRekap() {
+  var res = __debugCabangRekap(['apuy', 'ibef']);
+  console.log(JSON.stringify(res, null, 1));
+  Logger.log(JSON.stringify(res));
+  return res;
+}
+
 function __debugCabangRekap(keys) {
   var keyList = (keys && keys.length)
     ? keys.map(function (k) { return String(k); })
