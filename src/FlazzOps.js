@@ -772,7 +772,51 @@ function hasCompliantFlazzLaporan(cardId, sinceDate, ss) {
     const kmAkhir = cKmAkhir > -1 ? (parseFloat(row[cKmAkhir]) || 0) : 0;
     if (kmAwal > 0 && kmAkhir > 0) return true;
   }
+  // Opsi B: bila kartu diserahkan lewat Jalur Pengiriman (usage ref_type='JALUR') dan
+  // jalur tsb sudah SUDAH_LAPORAN/SELESAI, berarti laporan harian memang sudah diinput —
+  // hanya saja tanpa pengeluaran (tidak beli BBM / tidak bayar tol), sehingga tidak ada
+  // baris laporan yang menyebut kartu itu. Kasus ini tetap boleh direkonsiliasi agar kartu
+  // dapat kembali ke TERSEDIA tanpa data pengeluaran palsu.
+  if (jalurTerkaitSudahDilaporkan(cardId, ss)) return true;
   return false;
+}
+
+// Cek apakah ada hak penyerahan kartu via jalur (Flazz_Usage ref_type='JALUR') yang jalurnya
+// sudah SUDAH_LAPORAN/SELESAI. Dipakai opsi B utk meloloskan rekon kartu yang "macet" karena
+// pengiriman selesai tanpa pengeluaran.
+function jalurTerkaitSudahDilaporkan(cardId, ss) {
+  try {
+    if (!ss) ss = getDB();
+    const usageSheet = ss.getSheetByName('Flazz_Usage');
+    const jalurSheet = ss.getSheetByName('Jalur_Pengiriman');
+    if (!usageSheet || !jalurSheet) return false;
+    const uData = usageSheet.getDataRange().getValues();
+    const uH = uData[0];
+    const uCard = uH.indexOf('card_id');
+    const uStatus = uH.indexOf('status');
+    const uRefType = uH.indexOf('ref_type');
+    const uRefId = uH.indexOf('ref_id');
+    const jData = jalurSheet.getDataRange().getValues();
+    const jH = jData[0];
+    const jId = jH.indexOf('id');
+    const jStatus = jH.indexOf('status');
+    for (let i = 1; i < uData.length; i++) {
+      if (String(uData[i][uCard]) !== String(cardId)) continue;
+      if (uStatus > -1 && String(uData[i][uStatus]) !== 'DIBERIKAN') continue;
+      if (uRefType > -1 && String(uData[i][uRefType] || '') !== 'JALUR') continue;
+      const refId = (uRefId > -1) ? String(uData[i][uRefId] || '') : '';
+      if (!refId) continue;
+      for (let k = 1; k < jData.length; k++) {
+        if (String(jData[k][jId]) !== refId) continue;
+        const st = (jStatus > -1) ? String(jData[k][jStatus] || '') : '';
+        if (st === 'SUDAH_LAPORAN' || st === 'SELESAI') return true;
+      }
+    }
+    return false;
+  } catch (e) {
+    Logger.log('jalurTerkaitSudahDilaporkan error: ' + e.toString());
+    return false;
+  }
 }
 
 // Endpoint untuk frontend: apa kartu boleh direkonsiliasi?
@@ -796,6 +840,12 @@ function checkReconGate(cardId) {
           if (!isNaN(dt.getTime())) sinceDate = dt;
         }
       }
+    }
+    if (jalurTerkaitSudahDilaporkan(cardId, ss)) {
+      return {
+        eligible: true,
+        reason: 'Laporan pengiriman sudah diinput (tanpa pengeluaran kartu); rekon pengembalian diperbolehkan.'
+      };
     }
     const eligible = hasCompliantFlazzLaporan(cardId, sinceDate, ss);
     if (eligible) {

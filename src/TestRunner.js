@@ -149,12 +149,39 @@ function __runSecurityIsolationTests() {
   return __summarize(results);
 }
 
+// Gate rekon opsi B: kartu yang diserahkan lewat jalur (ref JALUR) tetapi pengiriman
+// selesai tanpa pengeluaran — rekon pengembalian tetap diperbolehkan agar kartu tidak macet.
+function __runReconGateTests() {
+  var results = [];
+  var ss = getDB();
+  var usageSheet = ss.getSheetByName('Flazz_Usage');
+  var cards = [];
+  if (usageSheet && usageSheet.getLastRow() > 1) {
+    var uData = usageSheet.getDataRange().getValues();
+    var uHeaders = uData[0];
+    var uCard = uHeaders.indexOf('card_id');
+    var uStatus = uHeaders.indexOf('status');
+    for (var i = 1; i < uData.length; i++) {
+      if (uStatus > -1 && String(uData[i][uStatus]) === 'DIBERIKAN' && String(uData[i][uCard] || '')) {
+        if (cards.indexOf(String(uData[i][uCard])) === -1) cards.push(String(uData[i][uCard]));
+      }
+    }
+  }
+  for (var k = 0; k < cards.length; k++) {
+    var g = checkReconGate(cards[k]);
+    results.push(__expectTrue(typeof g === 'object' && g.eligible !== undefined, 'checkReconGate kartu ' + cards[k] + ' mengembalikan objek eligible'));
+  }
+  results.push(__expectEqual(typeof jalurTerkaitSudahDilaporkan('###KARTU-TAK-ADA###', ss), 'boolean', 'jalurTerkaitSudahDilaporkan kartu tak dikenal -> false (boolean)'));
+  return __summarize(results);
+}
+
 function __runAllTests() {
   var r = __runAuthTests();
   r = __runBackupSheetTests();
   r = __runEditUsageTests();
   r = __runMasterGuardTests();
   r = __runSecurityIsolationTests();
+  r = __runReconGateTests();
   Logger.log('==== ALL TESTS DONE ====');
   return r;
 }
