@@ -175,6 +175,28 @@ function __runReconGateTests() {
   return __summarize(results);
 }
 
+function __runWarningsTests() {
+  var superToken = createSession({ user_id: 'U-SUP-T', username: 'super-t', nama: 'Super T', role: 'SUPERADMIN', cabang: '' });
+  var pic = { user_id: 'U-PIC-T', username: 'pic-t', nama: 'Pic T', role: 'PIC CABANG', cabang: 'CBG-JKT' };
+  var picToken = createSession(pic);
+  var res = [];
+  res.push(__expectDenied(function() { return getDashboardWarnings('token-palsu-xyz'); }, 'sesi tidak valid', 'getDashboardWarnings token palsu -> ditolak'));
+  var out = getDashboardWarnings(superToken);
+  res.push(__expectEqual(Array.isArray(out.pajakKIR) && Array.isArray(out.saldo), true, 'getDashboardWarnings SUPERADMIN -> array'));
+  var outPic = getDashboardWarnings(picToken);
+  res.push(__expectEqual(Array.isArray(outPic.pajakKIR) && Array.isArray(outPic.saldo), true, 'getDashboardWarnings PIC -> array (scoped)'));
+  res.push(__expectEqual(warnCardIsLow({ last_balance: 99999, status: 'TERSEDIA' }), true, 'saldo 99.999 -> menipis'));
+  res.push(__expectEqual(warnCardIsLow({ last_balance: 100000, status: 'TERSEDIA' }), false, 'saldo 100.000 -> TIDAK menipis'));
+  res.push(__expectEqual(warnCardIsLow({ last_balance: 0, status: 'NONAKTIF' }), false, 'NONAKTIF dilewati'));
+  res.push(__expectEqual(warnCardIsLow({ last_balance: 0, status: 'SEDANG_DIGUNAKAN' }), true, 'saldo 0 dipakai -> menipis'));
+  var lewat = warnVehicleAlerts({ tanggal_pajak: '2026-01-01', tanggal_pajak_5_tahunan: '2030-01-01', tanggal_kir: '2031-01-01' });
+  res.push(__expectEqual(lewat.length > 0, true, 'pajak masa lalu -> ada alert'));
+  res.push(__expectEqual(warnWorst(lewat), 'LEWAT', 'worst=LEWAT'));
+  res.push(__expectEqual(warnVehicleAlerts({ tanggal_pajak: '2032-01-01', tanggal_pajak_5_tahunan: '', tanggal_kir: '' }).length, 0, 'pajak jauh -> tanpa alert'));
+  destroySession(superToken); destroySession(picToken);
+  return __summarize(res);
+}
+
 function __runAllTests() {
   var r = __runAuthTests();
   r = __runBackupSheetTests();
@@ -182,6 +204,7 @@ function __runAllTests() {
   r = __runMasterGuardTests();
   r = __runSecurityIsolationTests();
   r = __runReconGateTests();
+  r = __runWarningsTests();
   Logger.log('==== ALL TESTS DONE ====');
   return r;
 }
