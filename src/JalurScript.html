@@ -88,7 +88,17 @@ function jalurAutofillFromDriver(driverInput) {
   if (!row) return;
   var vehSel = row.querySelector('.jalur-row-vehicle');
   var defVeh = jalurResolveDefaultVehicle(driverInput);
-  if (vehSel) vehSel.value = defVeh || '';
+  if (vehSel) {
+    var ok = !!defVeh && Array.prototype.some.call(vehSel.options, function (o) {
+      return String(o.value) === String(defVeh);
+    });
+    if (ok) {
+      vehSel.value = defVeh;
+    } else if (defVeh) {
+      if (vehSel.value === String(defVeh)) vehSel.value = '';
+      showToast('Kendaraan default supir tidak tersedia di cabang Anda; pilih manual.', 'error');
+    }
+  }
   jalurSetEtollDisplay(
     row.querySelector('.jalur-row-etoll'),
     row.querySelector('.jalur-row-etoll-id'),

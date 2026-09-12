@@ -1196,9 +1196,10 @@ function assertSuperadminOnly(userInfo, action) {
   }
 }
 
-function assertOwnWarehouse(userInfo, cabang) {
+function assertOwnWarehouse(userInfo, cabang, label) {
   const cabangUser = String(userInfo.cabang || '');
   if (!cabangUser || String(cabang || '') !== cabangUser) {
+    if (label) throw new Error('Akses ditolak: ' + label + ' tidak berada di warehouse ' + cabangUser + '.');
     throw new Error('Akses ditolak: Anda hanya dapat mengelola data warehouse ' + cabangUser + '.');
   }
 }

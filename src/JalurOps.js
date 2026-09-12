@@ -302,9 +302,9 @@ function saveJalur(payload, userInfo) {
       // Validasi referensi asing: PIC hanya boleh membuat jalur untuk kendaraan/supir
       // dan kartu etoll milik cabangnya sendiri. SUPERADMIN bebas lintas cabang.
       if (!isSuper) {
-        assertOwnWarehouse(userInfo, (v && v.cabang) ? v.cabang : vehicleBranchById(vid));
-        assertOwnWarehouse(userInfo, driverBranchById(r.driver_id));
-        if (r.driver2_id) assertOwnWarehouse(userInfo, driverBranchById(r.driver2_id));
+        assertOwnWarehouse(userInfo, (v && v.cabang) ? v.cabang : vehicleBranchById(vid), 'kendaraan');
+        assertOwnWarehouse(userInfo, driverBranchById(r.driver_id), 'driver utama');
+        if (r.driver2_id) assertOwnWarehouse(userInfo, driverBranchById(r.driver2_id), 'driver kedua');
       }
       if (r.etoll_card_id) {
         assertFlazzAccess(userInfo, flazzCardBranch(r.etoll_card_id));
