@@ -1884,6 +1884,11 @@ populateSupirDatalist();
       payload.foto_odo_akhir = fAkhirC.dataUrl;
       payload.foto_odo_akhir_name = fAkhirC.name;
     }
+    let btnEdit = document.getElementById('btn-save-edit');
+    let editOrig = btnEdit.innerHTML;
+    btnEdit.dataset.origHtml = editOrig;
+    btnEdit.disabled = true;
+    btnEdit.innerHTML = "<span class='spinner-border spinner-border-sm'></span> Memproses...";
     google.script.run.withSuccessHandler(res => {
       if(res.success){ 
          showToast(res.msg, 'success'); 
@@ -1894,7 +1899,15 @@ populateSupirDatalist();
          loadDashboard();
          if (typeof loadFlazzDataWrapper === 'function') loadFlazzDataWrapper(true);
       }
-      else showToast(res.msg, 'error');
+      else {
+        btnEdit.disabled = false;
+        btnEdit.innerHTML = (btnEdit.dataset && btnEdit.dataset.origHtml) || editOrig;
+        showToast(res.msg, 'error');
+      }
+    }).withFailureHandler(err => {
+      btnEdit.disabled = false;
+      btnEdit.innerHTML = (btnEdit.dataset && btnEdit.dataset.origHtml) || editOrig;
+      showToast('Gagal: ' + err.message, 'error');
     }).apiEditDailyTransaction(payload, bbmToken());
   }
   function deleteDaily(id){
