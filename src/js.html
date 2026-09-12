@@ -1236,6 +1236,106 @@ populateSupirDatalist();
     renderDashboardQuickAccess();
     loadDashboardGallery();
     if (typeof loadFlazzDataWrapper === 'function') loadFlazzDataWrapper(true);
+    loadDashboardWarnings();
+  }
+
+  var __warnCache = null;
+  var __warnCabang = '';
+
+  function loadDashboardWarnings(force) {
+    if (!force && __warnCache) { renderDashboardWarnings(); return; }
+    var loading = document.getElementById('dash-warn-loading');
+    var content = document.getElementById('dash-warn-content');
+    if (loading) loading.style.display = 'block';
+    if (content) content.style.display = 'none';
+    google.script.run
+      .withSuccessHandler(function(res) {
+        __warnCache = res || { pajakKIR: [], saldo: [] };
+        renderDashboardWarnings();
+      })
+      .withFailureHandler(function(err) {
+        if (loading) loading.style.display = 'none';
+        if (content) {
+          content.style.display = 'block';
+          content.innerHTML = '<div class="text-center text-muted py-3">Gagal memuat peringatan.</div>';
+        }
+        showToast('Gagal memuat peringatan: ' + (err && err.message || err), 'error');
+      })
+      .getDashboardWarnings(bbmToken());
+  }
+
+  function renderDashboardWarnings() {
+    var res = __warnCache || { pajakKIR: [], saldo: [] };
+    var loading = document.getElementById('dash-warn-loading');
+    var content = document.getElementById('dash-warn-content');
+    if (loading) loading.style.display = 'none';
+    if (!content) return;
+    content.style.display = 'block';
+    var sel = document.getElementById('dash-warn-cabang');
+    var cabs = (window.masterData && window.masterData.cabang) || [];
+    if (userRole === 'SUPERADMIN' && sel) {
+      if (cabs.length > 1) {
+        sel.style.display = '';
+        if (sel.options.length < 1) {
+          var opts = '<option value="">Semua Warehouse</option>';
+          cabs.forEach(function(c) { opts += '<option value="' + esc(String(c.kode)) + '">' + esc(c.nama) + '</option>'; });
+          sel.innerHTML = opts;
+          sel.value = __warnCabang;
+        }
+      } else { sel.style.display = 'none'; }
+    } else if (sel) { sel.style.display = 'none'; }
+    var scope = (userRole === 'SUPERADMIN' && sel) ? sel.value : '';
+    var pajak = res.pajakKIR || [];
+    var saldo = res.saldo || [];
+    if (scope) {
+      pajak = pajak.filter(function(r) { return String(r.cabang) === String(scope); });
+      saldo = saldo.filter(function(r) { return String(r.cabang) === String(scope); });
+    }
+    var total = pajak.length + saldo.length;
+    var countEl = document.getElementById('dash-warn-count');
+    if (countEl) countEl.textContent = total;
+    var p = document.getElementById('dash-warn-pajak');
+    var s = document.getElementById('dash-warn-saldo');
+    if (p) p.innerHTML = warnPajakItems(pajak);
+    if (s) s.innerHTML = warnSaldoItems(saldo);
+  }
+
+  function warnBadge(status) {
+    var map = { LEWAT: 'danger', KRITIS: 'warning', WASPADA: 'info' };
+    return '<span class="badge text-bg-' + (map[status] || 'secondary') + '">' + esc(status) + '</span>';
+  }
+
+  function warnPajakItems(pajak) {
+    if (!pajak.length) return '<div class="text-muted small py-2">Semua aman - tidak ada kendaraan yang pajak/KIR-nya kritis.</div>';
+    var html = '';
+    pajak.forEach(function(r) {
+      var cab = userRole === 'SUPERADMIN' ? ' <span class="badge text-bg-light border">' + esc(r.cabang) + '</span>' : '';
+      var alerts = r.alerts.map(function(a) {
+        var label = a.tipe === 'PAJAK' ? 'Pajak' : (a.tipe === 'PAJAK5' ? 'Pajak 5th' : 'KIR');
+        var sisa = (a.sisa_hari != null && a.sisa_hari !== Infinity) ? (' | sisa ' + a.sisa_hari + ' hari') : '';
+        var tgl = a.tanggal ? (' | ' + esc(a.tanggal)) : '';
+        return '<div>' + warnBadge(a.status) + ' ' + label + sisa + tgl + '</div>';
+      }).join('');
+      html += '<a href="#" onclick="switchTab(\'jalur-listing\'); return false;" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">' +
+        '<div><div class="fw-bold">' + esc(r.plat_nomor) + ' - ' + esc(r.nama_kendaraan) + cab + '</div>' +
+        '<div class="small text-muted">' + alerts + '</div></div>' +
+        '<i class="bi bi-chevron-right text-muted"></i></a>';
+    });
+    return html;
+  }
+
+  function warnSaldoItems(saldo) {
+    if (!saldo.length) return '<div class="text-muted small py-2">Semua aman - tidak ada kartu etoll di bawah Rp100.000.</div>';
+    var html = '';
+    saldo.forEach(function(c) {
+      var cab = userRole === 'SUPERADMIN' ? ' <span class="badge text-bg-light border">' + esc(c.cabang) + '</span>' : '';
+      var masked = c.card_number.length > 4 ? '***' + c.card_number.slice(-4) : c.card_number;
+      html += '<a href="#" onclick="switchTab(\'flazz-topup\'); return false;" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">' +
+        '<div><div class="fw-bold">' + esc(c.card_name || masked) + cab + '</div>' +
+        '<div class="small text-muted">' + esc(masked) + (c.card_type ? ' | ' + esc(c.card_type) : '') + '</div></div>' +
+        '<div class="text-danger fw-bold">Rp ' + Number(c.last_balance).toLocaleString('id-ID') + '</div></a>';
+    });
+    return html;
   }
 
   function renderDashboardQuickAccess() {

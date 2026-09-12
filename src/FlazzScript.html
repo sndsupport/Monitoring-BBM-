@@ -532,6 +532,7 @@ function saveFlazzTopUpForm(e) {
           showToast(res.msg, 'success');
           document.getElementById('form-flazz-topup').reset();
           loadFlazzDataWrapper(true);
+          if (typeof loadDashboardWarnings === 'function') loadDashboardWarnings(true);
         } else showToast(res.msg, 'error');
      })
      .withFailureHandler(flazzFailHandler('Menyimpan top up', ['btn-save-topup']))
@@ -574,6 +575,7 @@ function saveFlazzReconForm(e) {
            let statusBox = document.getElementById('recon-gate-status');
            if (statusBox) statusBox.className = 'alert d-none py-2';
            loadFlazzDataWrapper(true);
+           if (typeof loadDashboardWarnings === 'function') loadDashboardWarnings(true);
          } else showToast(res.msg, 'error');
       })
       .withFailureHandler(flazzFailHandler('Menyimpan recon', ['btn-save-recon']))

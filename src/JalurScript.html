@@ -461,6 +461,7 @@ function jalurSave() {
         jalurInitForm();
         const tJalur = document.getElementById('jalur-tanggal');
         if (tJalur) tJalur.value = new Date().toISOString().slice(0, 10);
+        if (typeof loadDashboardWarnings === 'function') loadDashboardWarnings(true);
       }
     })
     .withFailureHandler(function(err) {
