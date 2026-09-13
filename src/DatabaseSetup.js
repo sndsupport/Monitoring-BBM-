@@ -101,8 +101,8 @@ function setupDatabase() {
   var pengaturanSheet = ss.getSheetByName('Pengaturan');
   if (pengaturanSheet && pengaturanSheet.getLastRow() === 1) {
     pengaturanSheet.appendRow(['logo_url', '', new Date()]);
-    pengaturanSheet.appendRow(['app_name', 'Monitoring BBM Operasional', new Date()]);
-    pengaturanSheet.appendRow(['company_name', '', new Date()]);
+    pengaturanSheet.appendRow(['app_name', 'Monitoring Kendaraan Operasional', new Date()]);
+    pengaturanSheet.appendRow(['company_name', 'PT Tridaya Sinergi Indonesia', new Date()]);
     pengaturanSheet.appendRow(['footer_text', '© 2026 Tridaya Sinergi Indonesia', new Date()]);
   }
 
@@ -179,8 +179,8 @@ function DatabaseGetAppSettings() {
   if (!sheet) {
   return {
     logo_url: '',
-    app_name: 'Monitoring BBM Operasional',
-    company_name: '',
+    app_name: 'Monitoring Kendaraan Operasional',
+    company_name: 'PT Tridaya Sinergi Indonesia',
     footer_text: '© 2026 Tridaya Sinergi Indonesia'
   };
   }
@@ -194,8 +194,8 @@ function DatabaseGetAppSettings() {
 
   return {
     logo_url: settings.logo_url || '',
-    app_name: settings.app_name || 'Monitoring BBM Operasional',
-    company_name: settings.company_name || '',
+    app_name: settings.app_name || 'Monitoring Kendaraan Operasional',
+    company_name: settings.company_name || 'PT Tridaya Sinergi Indonesia',
     footer_text: settings.footer_text || '© 2026 Tridaya Sinergi Indonesia'
   };
 }
@@ -210,8 +210,8 @@ function DatabaseSaveAppSettings(data) {
 
   var updates = {
     'logo_url': data.logo_url || '',
-    'app_name': data.app_name || 'Monitoring BBM Operasional',
-    'company_name': data.company_name || '',
+    'app_name': data.app_name || 'Monitoring Kendaraan Operasional',
+    'company_name': data.company_name || 'PT Tridaya Sinergi Indonesia',
     'footer_text': data.footer_text || ''
   };
 
