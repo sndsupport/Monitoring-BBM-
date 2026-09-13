@@ -118,6 +118,7 @@ function cleanSerializable(obj) {
 function processInitialData(token) {
   var user = requireUser(token);
   ensurePenggunaBBMColumns();
+  migrateLegacyAppSettings();
   var base = getMasterData(token);
   base.user = (user.nama || '');
   base.username = user.username;

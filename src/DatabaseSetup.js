@@ -111,6 +111,30 @@ function setupDatabase() {
   Logger.log('Setup database selesai.');
 }
 
+function migrateLegacyAppSettings() {
+  const APP_NAME_NEW = 'Monitoring Kendaraan Operasional';
+  const COMPANY_NAME_NEW = 'PT Tridaya Sinergi Indonesia';
+  try {
+    const ss = getDB();
+    const sheet = ss.getSheetByName('Pengaturan');
+    if (!sheet || sheet.getLastRow() <= 1) return;
+    const vals = sheet.getDataRange().getValues();
+    const updates = {};
+    for (let i = 1; i < vals.length; i++) {
+      const key = String(vals[i][0] || '').trim();
+      if (key === 'app_name' && String(vals[i][1]).trim() === 'Monitoring BBM Operasional') {
+        updates['app_name'] = i + 1;
+      } else if (key === 'company_name' && String(vals[i][1]).trim() === '') {
+        updates['company_name'] = i + 1;
+      }
+    }
+    if (updates['app_name']) sheet.getRange(updates['app_name'], 2).setValue(APP_NAME_NEW);
+    if (updates['company_name']) sheet.getRange(updates['company_name'], 2).setValue(COMPANY_NAME_NEW);
+  } catch (e) {
+    console.error('migrateLegacyAppSettings gagal: ' + e);
+  }
+}
+
 function ensureAuditLogColumns() {
   const HEADERS = ['log_id', 'timestamp', 'user_id', 'username', 'action', 'modul', 'keterangan', 'data_sebelum', 'data_sesudah'];
   try {
