@@ -120,8 +120,11 @@ function migrateLegacyAppSettings() {
     if (!sheet || sheet.getLastRow() <= 1) return;
     const vals = sheet.getDataRange().getValues();
     const updates = {};
+    const found = {};
     for (let i = 1; i < vals.length; i++) {
       const key = String(vals[i][0] || '').trim();
+      if (key === '') continue;
+      found[key] = true;
       if (key === 'app_name' && String(vals[i][1]).trim() === 'Monitoring BBM Operasional') {
         updates['app_name'] = i + 1;
       } else if (key === 'company_name' && String(vals[i][1]).trim() === '') {
@@ -130,6 +133,8 @@ function migrateLegacyAppSettings() {
     }
     if (updates['app_name']) sheet.getRange(updates['app_name'], 2).setValue(APP_NAME_NEW);
     if (updates['company_name']) sheet.getRange(updates['company_name'], 2).setValue(COMPANY_NAME_NEW);
+    if (!found['company_name']) sheet.appendRow(['company_name', COMPANY_NAME_NEW, new Date()]);
+    if (!found['app_name']) sheet.appendRow(['app_name', APP_NAME_NEW, new Date()]);
   } catch (e) {
     console.error('migrateLegacyAppSettings gagal: ' + e);
   }
