@@ -25,7 +25,7 @@
 **Interfaces:**
 - Produces: `renderDashboard()` memakai `loadFlazzDataWrapper()` (tanpa force) sehingga dashboard cepat dari `flazzDataCache`.
 
-- [ ] **Step 1: Ubah pemanggilan**
+- [x] **Step 1: Ubah pemanggilan**
 
 Di `renderDashboard()` (Js.html:1238), ganti:
 
@@ -39,7 +39,7 @@ menjadi:
     if (typeof loadFlazzDataWrapper === 'function') loadFlazzDataWrapper();
 ```
 
-- [ ] **Step 2: Refresh diam-diam (background) sekali per sesi**
+- [x] **Step 2: Refresh diam-diam (background) sekali per sesi**
 
 Tambahkan penjaga + sekali-invoke setelah render cepat, agar data Flazz dashboard tidak basi di sesi panjang tanpa mutasi:
 
@@ -55,7 +55,7 @@ Tambahkan penjaga + sekali-invoke setelah render cepat, agar data Flazz dashboar
 
 Catatan implementasi: hasil refresh background akan menimpa `flazzDataCache` + me-render (tidak memblokir karena sudah ada isi). Pastikan pemanggilan `loadFlazzDataWrapper(true)` di background tidak memunculkan `flazz-dashboard-loading` yang menutup konten — bentuk pemanggilannya bisa di-flag (mis. di dalam `loadFlazzDataWrapper` hindari menampilkan `flazz-dashboard-loading` saat `force && flazzDataCache`), atau render ulang cache dahulu. Pilih implementasi terkecil yang tidak mengganti DOM loading saat data sudah ada.
 
-- [ ] **Step 3: Verifikasi & commit**
+- [x] **Step 3: Verifikasi & commit**
 
 ```powershell
 $c = Get-Content -Raw "src\js.html"; $m = [regex]::Matches($c, '(?s)<script[^>]*>(.*?)</script>'); $t = "$env:TEMP\js_chk.js"; Set-Content -Path $t -Value $m[0].Groups[1].Value -Encoding UTF8; node --check $t
