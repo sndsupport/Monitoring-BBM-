@@ -165,7 +165,8 @@ document.getElementById('page-login').style.display = 'flex';
 
         userRole = data.role;
         let displayRole = userRole === 'PIC CABANG' ? 'Admin' : userRole;
-        var userSummary = esc(data.user) + ' (' + displayRole + ' - ' + esc(data.cabang) + ')';
+        var userSummary = '<span class="navbar-text text-light mb-0" style="display:block; font-size:0.95rem; font-weight:600; line-height:1.2;">' + esc(data.user) + '</span>' +
+                          '<span class="navbar-text text-light mb-0" style="display:block; font-size:0.72rem; font-weight:400; opacity:0.9; line-height:1.2;">' + esc(displayRole) + '</span>';
         document.getElementById('user-info').innerHTML = userSummary;
         var sidebarUserInfo = document.getElementById('sidebar-user-info');
         if (sidebarUserInfo) sidebarUserInfo.innerHTML = '<strong>' + esc(data.user) + '</strong><br><span class="text-muted" style="font-size: 0.85rem;">' + esc(displayRole) + ' &middot; ' + esc(data.cabang) + '</span>';
