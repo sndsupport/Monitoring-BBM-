@@ -1351,24 +1351,13 @@ populateSupirDatalist();
     let box = document.getElementById('dash-quick-access');
     if (!box) return;
     let links = [
-      { label: 'Input Laporan', icon: 'bi-pencil-square', tab: 'form' },
-      { label: 'History Laporan', icon: 'bi-clock-history', tab: 'history' },
       { label: 'Buat Jalur', icon: 'bi-calendar-plus', tab: 'jalur-buat' },
-      { label: 'Daftar Jalur', icon: 'bi-list-ul', tab: 'jalur-listing' },
-      { label: 'Galeri Foto', icon: 'bi-images', tab: 'gallery' },
-      { label: 'Top Up Flazz', icon: 'bi-wallet2', tab: 'flazz-topup' },
-      { label: 'Rekonsiliasi Flazz', icon: 'bi-check2-all', tab: 'flazz-recon' },
-      { label: 'Performa Kendaraan', icon: 'bi-speedometer2', tab: 'performa' }
+      { label: 'Input Laporan', icon: 'bi-pencil-square', tab: 'form' },
+      { label: 'Rekonsiliasi Flazz', icon: 'bi-check2-all', tab: 'flazz-recon' }
     ];
-    if (userRole === 'SUPERADMIN' || userRole === 'PIC CABANG') {
-      links.push({ label: 'Data Master', icon: 'bi-database', tab: 'master' });
-    }
-    if (userRole === 'SUPERADMIN') {
-      links.push({ label: 'Pengaturan', icon: 'bi-sliders', tab: 'settings' });
-    }
     let html = '';
     links.forEach(l => {
-      html += "<div class='col-6 col-md-3'>" +
+      html += "<div class='col-6 col-md-4'>" +
         "<a href='#' onclick='switchTab(\"" + l.tab + "\"); return false;' class='card h-100 border-0 shadow-sm text-decoration-none'>" +
           "<div class='card-body d-flex align-items-center gap-2'>" +
             "<i class='bi " + l.icon + " fs-4 text-primary'></i>" +
