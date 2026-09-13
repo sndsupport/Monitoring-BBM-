@@ -1235,7 +1235,13 @@ populateSupirDatalist();
     }
     renderDashboardQuickAccess();
     loadDashboardGallery();
-    if (typeof loadFlazzDataWrapper === 'function') loadFlazzDataWrapper(true);
+    if (typeof loadFlazzDataWrapper === 'function') loadFlazzDataWrapper();
+    if (!window.__flazzBgWarmed) {
+      window.__flazzBgWarmed = true;
+      try {
+        if (typeof loadFlazzDataWrapper === 'function') loadFlazzDataWrapper(true);
+      } catch (e) { }
+    }
     loadDashboardWarnings();
   }
 

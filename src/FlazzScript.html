@@ -125,8 +125,11 @@ function loadFlazzDataWrapper(force) {
       return;
    }
    var rid = ++__flazzRequestId;
-   document.getElementById('flazz-dashboard-loading').style.display = 'block';
-   document.getElementById('flazz-dashboard-content').style.display = 'none';
+   var hasCache = !!(flazzDataCache);
+   if (!hasCache) {
+      document.getElementById('flazz-dashboard-loading').style.display = 'block';
+      document.getElementById('flazz-dashboard-content').style.display = 'none';
+   }
 
    google.script.run
     .withSuccessHandler(function(res) {
