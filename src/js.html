@@ -361,11 +361,13 @@ populateSupirDatalist();
         }
         if (settings.app_name) {
           document.getElementById('login-app-name').innerText = settings.app_name;
-          var brand = document.querySelector('.navbar-brand');
+          var brand = document.querySelector('.navbar-brand .brand-title');
           if (brand) brand.innerText = settings.app_name;
         }
         if (settings.company_name) {
           document.getElementById('login-company-name').innerText = settings.company_name;
+          var brandCompany = document.querySelector('.navbar-brand .brand-company');
+          if (brandCompany) brandCompany.innerText = settings.company_name;
         }
         if (settings.footer_text !== undefined && settings.footer_text !== null) {
           var footer = document.getElementById('app-footer');
