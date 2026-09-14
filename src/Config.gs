@@ -28,5 +28,10 @@ function cacheGet(key) {
 }
 
 function cachePut(key, value, ttlSeconds) {
-  CacheService.getScriptCache().put(key, JSON.stringify(value), ttlSeconds);
+  var serialized = JSON.stringify(value);
+  if (serialized.length > 100000) {
+    Logger.log('cachePut: skip "' + key + '" — ' + serialized.length + ' bytes exceeds 100KB limit');
+    return;
+  }
+  CacheService.getScriptCache().put(key, serialized, ttlSeconds);
 }
