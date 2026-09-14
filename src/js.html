@@ -344,6 +344,7 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
         if (data.flazzCards) window.masterData.flazzCards = data.flazzCards;
 populateSupirDatalist();
         refreshSupirFilter();
+        refreshVehicleFilter();
 
         loadAppSettings();
         switchTab('dashboard');
@@ -1431,6 +1432,7 @@ populateSupirDatalist();
     
     let filterCabang = document.getElementById('filter-cabang') ? document.getElementById('filter-cabang').value : '';
     let filterSupir = document.getElementById('filter-supir') ? document.getElementById('filter-supir').value : '';
+    let filterVehicle = document.getElementById('filter-vehicle') ? document.getElementById('filter-vehicle').value : '';
     let filterDateStart = document.getElementById('filter-date-start') ? document.getElementById('filter-date-start').value : '';
     let filterDateEnd = document.getElementById('filter-date-end') ? document.getElementById('filter-date-end').value : '';
     
@@ -1452,6 +1454,7 @@ populateSupirDatalist();
       let data = allData.filter(function(row) {
         if (filterCabang && row.cabang !== filterCabang) return false;
         if (filterSupir && row.supir !== filterSupir) return false;
+        if (filterVehicle && String(row.vehicle || '').toUpperCase() !== String(filterVehicle).toUpperCase()) return false;
         if (startTimestamp && row.timestamp < startTimestamp) return false;
         if (endTimestamp && row.timestamp > endTimestamp) return false;
         return true;
@@ -1968,9 +1971,11 @@ populateSupirDatalist();
   function resetFilters() {
     if(document.getElementById('filter-cabang')) document.getElementById('filter-cabang').value = '';
     if(document.getElementById('filter-supir')) document.getElementById('filter-supir').value = '';
+    if(document.getElementById('filter-vehicle')) document.getElementById('filter-vehicle').value = '';
     if(document.getElementById('filter-date-start')) document.getElementById('filter-date-start').value = '';
     if(document.getElementById('filter-date-end')) document.getElementById('filter-date-end').value = '';
     refreshSupirFilter();
+    refreshVehicleFilter();
     loadDashboard();
   }
 
@@ -2000,7 +2005,32 @@ populateSupirDatalist();
 
   function onCabangFilterChange() {
     refreshSupirFilter();
+    refreshVehicleFilter();
     loadDashboard();
+  }
+
+  // Filter kendaraan di history/gallery mengikuti cabang yang dipilih.
+  function refreshVehicleFilter() {
+    var vSel = document.getElementById('filter-vehicle');
+    if (!vSel) return;
+    var prev = vSel.value;
+    var cabNama = document.getElementById('filter-cabang') ? document.getElementById('filter-cabang').value : '';
+    var cabKode = '';
+    if (cabNama && window.masterData && window.masterData.cabang) {
+      var hit = window.masterData.cabang.find(function(c) { return String(c.nama) === String(cabNama); });
+      if (hit) cabKode = String(hit.kode);
+    }
+    vSel.innerHTML = '<option value="">Semua Kendaraan</option>';
+    (allVehicles || []).forEach(function(v) {
+      if (cabKode && String(v.cabang) !== cabKode) return;
+      var o = document.createElement('option');
+      o.value = v.plat_nomor;
+      o.text = v.plat_nomor + ' - ' + v.nama;
+      vSel.appendChild(o);
+    });
+    if (prev && Array.prototype.some.call(vSel.options, function(o) { return String(o.value) === String(prev); })) {
+      vSel.value = prev;
+    }
   }
 
 
