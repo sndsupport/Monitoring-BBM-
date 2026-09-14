@@ -183,6 +183,8 @@ clasp deploy -d "deskripsi perubahan"
 
 > **Catatan:** Setiap `clasp push` diikuti `clasp deploy` menghasilkan deployment baru. Kotak capaian deployment dibatasi (maksimal 20); jika penuh, hapus deployment lama dengan `clasp undeploy <deploymentId>` lalu buat yang baru.
 
+> **Penting — cache halaman UI:** setiap perubahan file UI (`Index.html`, `css.html`, `js.html`, `FlazzPages.html`, `FlazzScript.html`, `JalurPages.html`, `JalurScript.html`, `Settings.html`) WAJIB menaikkan `PAGE_VER` di `src/Config.gs`; jika tidak, `doGet` tetap menyajikan halaman hasil cache lama hingga TTL 6 jam.
+
 ### 5. Menghubungkan ke Spreadsheet
 Ubah konstanta **Spreadsheet ID** di `DatabaseSetup.js` (dan `SpreadsheetOps.js`/`Code.js` jika diperlukan) dengan ID Spreadsheet Anda, lalu jalankan `setupDatabase`.
 

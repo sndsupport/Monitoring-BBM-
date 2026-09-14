@@ -197,6 +197,24 @@ function __runWarningsTests() {
   return __summarize(res);
 }
 
+function __runMasterCacheTests() {
+  var results = [];
+  var r1 = getMasterRev();
+  var k1 = masterCacheKey('SUPERADMIN', '');
+  var b1 = bbmCacheKey('CBG-JKT');
+  invalidateMaster('SUPERADMIN', '');
+  var r2 = getMasterRev();
+  var k2 = masterCacheKey('SUPERADMIN', '');
+  var b2 = bbmCacheKey('CBG-JKT');
+  results.push(__expectTrue(r1 !== r2, 'invalidateMaster menaikkan versi master cache'));
+  results.push(__expectTrue(k1 !== k2, 'kunci master berubah setelah invalidasi (cache lama orphan)'));
+  results.push(__expectTrue(b1 !== b2, 'kunci bbm berubah setelah invalidasi'));
+  results.push(__expectEqual(masterCacheKey('PIC CABANG', 'CBG-JKT').indexOf(r2) > -1, true, 'kunci PIC memakai versi terbaru'));
+  invalidatePerforma('PIC CABANG', 'CBG-JKT');
+  results.push(__expectEqual(performaCacheKey('PIC CABANG', 'CBG-JKT').indexOf('perf:') === 0, true, 'kunci performa tetap format lama (tidak versioning)'));
+  return __summarize(results);
+}
+
 function __runAllTests() {
   var r = __runAuthTests();
   r = __runBackupSheetTests();
@@ -205,6 +223,7 @@ function __runAllTests() {
   r = __runSecurityIsolationTests();
   r = __runReconGateTests();
   r = __runWarningsTests();
+  r = __runMasterCacheTests();
   Logger.log('==== ALL TESTS DONE ====');
   return r;
 }

@@ -1,9 +1,28 @@
 function doGet(e) {
-  return HtmlService.createTemplateFromFile('Index')
-    .evaluate()
+  // Route library on-demand: `?rsc=html2canvas` memuat JS html2canvas saja.
+  if (e && e.parameter && String(e.parameter.rsc || '').toLowerCase() === 'html2canvas') {
+    return serveHtml2canvas();
+  }
+  var cacheKey = 'page:' + PAGE_VER;
+  var cached = cacheGet(cacheKey);
+  if (cached) return buildPageOutput(cached);
+  var html = HtmlService.createTemplateFromFile('Index').evaluate().getContent();
+  cachePut(cacheKey, html, 6 * 60 * 60);
+  return buildPageOutput(html);
+}
+
+function buildPageOutput(html) {
+  return HtmlService.createHtmlOutput(html)
     .setTitle('Laporan BBM & Operasional Harian')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function serveHtml2canvas() {
+  var raw = HtmlService.createHtmlOutputFromFile('Html2canvasLib').getContent();
+  // File dibungkus <script>...</script> — strip pembungkus, kirim JS mentah.
+  var body = raw.replace(/^[\s\S]*?<script[^>]*>/i, '').replace(/<\/script>[\s\S]*$/i, '');
+  return ContentService.createTextOutput(body).setMimeType(ContentService.MimeType.JAVASCRIPT);
 }
 
 function doPost(e) {
@@ -319,7 +338,7 @@ function saveMasterBBM(data, token) {
 
 function apiGetBBMForCabang(token) {
   var user = requireUser(token);
-  var ck = 'bbm:' + (user.cabang || 'SUPERADMIN');
+  var ck = bbmCacheKey(user.cabang);
   var hit = cacheGet(ck);
   if (hit) return hit;
   var out = getActiveBBMForCabang(token);

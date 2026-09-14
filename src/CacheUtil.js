@@ -1,9 +1,28 @@
 // ==========================================
 // CACHE UTIL — kunci & invalidasi
+// Versi global master: setiap mutasi master menaikkan versi sehingga SEMUA
+// kunci master/bbm (SUPERADMIN, PIC, per cabang) otomatis orphan/kedaluwarsa
+// — tanpa perlu mencacah kombinasi role/cabang.
 // ==========================================
 
+var MASTER_REV_KEY = 'master:rev';
+var MASTER_REV_TTL = 6 * 60 * 60; // jauh di atas TTL payload (120 dtk)
+
+function getMasterRev() {
+  var v = cacheGet(MASTER_REV_KEY);
+  return v ? String(v) : '1';
+}
+
+function bumpMasterRev() {
+  CacheService.getScriptCache().put(MASTER_REV_KEY, Utilities.getUuid(), MASTER_REV_TTL);
+}
+
 function masterCacheKey(role, cabang) {
-  return 'master:' + (role || '') + ':' + (cabang || '');
+  return 'master:' + getMasterRev() + ':' + (role || '') + ':' + (cabang || '');
+}
+
+function bbmCacheKey(cabang) {
+  return 'bbm:' + getMasterRev() + ':' + (cabang || 'SUPERADMIN');
 }
 
 function performaCacheKey(role, cabang) {
@@ -15,14 +34,8 @@ function dashwarnCacheKey(role, cabang) {
 }
 
 function invalidateMaster(role, cabang) {
-  var c = CacheService.getScriptCache();
-  c.remove(masterCacheKey(role, cabang));
-  c.remove('bbm:' + cabang);
-  c.remove('bbm:SUPERADMIN');
-  // SUPERADMIN melihat SEMUA cabang; tarik semua variasi
-  c.remove(masterCacheKey('SUPERADMIN', ''));
-  c.remove('bbm:' + cabang);
-  c.remove('bbm:SUPERADMIN');
+  // Menaikkan versi global = seluruh kunci master/bbm lama tidak terbaca lagi.
+  bumpMasterRev();
 }
 
 function invalidatePerforma(role, cabang) {

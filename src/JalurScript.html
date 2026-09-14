@@ -597,7 +597,28 @@ function jalurShareWA() {
 function jalurTakeScreenshot() {
   const shot = document.getElementById('jalur-shot');
   if (!shot || shot.style.display === 'none') { showToast('Tampilkan dulu jadwal pada tanggal yang dipilih', 'error'); return; }
-  if (typeof html2canvas === 'undefined') { showToast('Library screenshot belum dimuat', 'error'); return; }
+  if (typeof html2canvas === 'undefined') {
+    showToast('Memuat library screenshot...', 'info');
+    jalurEnsureHtml2canvas(function() {
+      if (typeof html2canvas === 'undefined') { showToast('Gagal memuat library screenshot', 'error'); return; }
+      jalurTakeScreenshotNow(shot);
+    });
+    return;
+  }
+  jalurTakeScreenshotNow(shot);
+}
+
+function jalurEnsureHtml2canvas(callback) {
+  if (typeof html2canvas !== 'undefined') { if (typeof callback === 'function') callback(); return; }
+  var src = window.location.origin + window.location.pathname + '?rsc=html2canvas';
+  var s = document.createElement('script');
+  s.src = src;
+  s.onload = function() { if (typeof callback === 'function') callback(); };
+  s.onerror = function() { if (typeof callback === 'function') callback(); };
+  document.head.appendChild(s);
+}
+
+function jalurTakeScreenshotNow(shot) {
   html2canvas(shot, { scale: 2, backgroundColor: '#ffffff' }).then(function(canvas) {
     const container = document.getElementById('jalur-shot-canvas');
     container.innerHTML = '';
