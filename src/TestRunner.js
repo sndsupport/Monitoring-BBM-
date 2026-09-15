@@ -233,6 +233,38 @@ function __runCacheParsingTests() {
   return __summarize(results);
 }
 
+// Round-trip payload cache >100KB memakai kompresi gzip (cachePut/cacheGet di Config.gs).
+// Regresi jalur yang tadinya di-skip (d7885d6) sehingga master SUPERADMIN yang besar
+// TIDAK pernah ter-cache -> tiap reload master baca ulang seluruh spreadsheet.
+function __runCacheGzipTests() {
+  var results = [];
+  var key = 'test:gzip:big';
+  CacheService.getScriptCache().remove(key);
+  var big = { vehicles: [], flazzCards: [], drivers: [], stringBlob: '' };
+  for (var i = 0; i < 300; i++) {
+    big.vehicles.push({ id: 'V-' + i, plat: 'B 1234 CD', nama: 'Kendaraan Operasional ' + i, jenis: 'Mobil', merk: 'Toyota', model: 'Avanza', kapasitas_tangki: '45', jumlah_bar: '8', standar_km_l: '12', cabang: 'CAB-01', status: 'Aktif', jenis_indikator: 'DIGITAL_BAR' });
+  }
+  for (var j = 0; j < 150; j++) {
+    big.flazzCards.push({ id: 'FLZ-' + j, card_number: '0123456789' + j, card_name: 'Kartu ' + j, card_type: 'BCA_FLAZZ', card_role: 'CADANGAN', branch_id: 'CAB-01', driver_id: '', default_driver_id: '', last_balance: 1500000, status: 'TERSEDIA', notes: '' });
+  }
+  for (var k = 0; k < 50; k++) {
+    big.drivers.push({ id: 'DRV-' + k, nama: 'Supir ' + k, cabang: 'CAB-01', default_vehicle_id: '' });
+  }
+  results.push(__expectTrue(JSON.stringify(big).length > 100000, 'payload tes melebihi 100KB agar jalur kompresi teruji'));
+  cachePut(key, big, 120);
+  var got = cacheGet(key);
+  results.push(__expectTrue(!!got, 'cacheGet payload besar tidak null'));
+  results.push(__expectEqual(got && got.vehicles.length, big.vehicles.length, 'cacheGet payload besar: vehicles utuh'));
+  results.push(__expectEqual(got && got.flazzCards.length, big.flazzCards.length, 'cacheGet payload besar: flazzCards utuh'));
+  results.push(__expectEqual(got && got.flazzCards[0].card_name, 'Kartu 0', 'cacheGet payload besar: isi flazzCards utuh'));
+  var stored = CacheService.getScriptCache().get(key);
+  results.push(__expectTrue(!!stored && String(stored).indexOf('GZ:') === 0, 'payload besar tersimpan terkompresi (prefiks GZ:)'));
+  cachePut(key, { a: 1 }, 120);
+  results.push(__expectEqual(cacheGet(key).a, 1, 'payload kecil tetap jalur JSON biasa'));
+  CacheService.getScriptCache().remove(key);
+  return __summarize(results);
+}
+
 function __runAllTests() {
   var r = __runAuthTests();
   r = __runBackupSheetTests();
@@ -243,6 +275,7 @@ function __runAllTests() {
   r = __runWarningsTests();
   r = __runMasterCacheTests();
   r = __runCacheParsingTests();
+  r = __runCacheGzipTests();
   Logger.log('==== ALL TESTS DONE ====');
   return r;
 }
