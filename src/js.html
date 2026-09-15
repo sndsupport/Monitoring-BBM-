@@ -1754,6 +1754,8 @@ populateSupirDatalist();
     if (userRole !== 'SUPERADMIN') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
     let row = (window.__recent || []).find(r => String(r.transaction_id) === String(id));
     if(!row) return showToast('Data tidak ditemukan', 'error');
+    let btnEdit = document.getElementById('btn-save-edit');
+    if (btnEdit) { btnEdit.disabled = false; btnEdit.innerHTML = btnEdit.dataset.origHtml || 'Simpan'; }
     document.getElementById('ed_trx').value = row.transaction_id;
     let edTgl = document.getElementById('ed_tanggal');
     if (edTgl) {
@@ -1892,6 +1894,8 @@ populateSupirDatalist();
     google.script.run.withSuccessHandler(res => {
       if(res.success){ 
          showToast(res.msg, 'success'); 
+         btnEdit.disabled = false;
+         btnEdit.innerHTML = (btnEdit.dataset && btnEdit.dataset.origHtml) || editOrig;
          bootstrap.Modal.getInstance(document.getElementById('modal-edit-daily')).hide(); 
          if (typeof flazzDataCache !== 'undefined') flazzDataCache = null; // Flush cache
          window.__dashForce = true;
