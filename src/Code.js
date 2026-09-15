@@ -19,14 +19,14 @@ function buildPageOutput(html) {
 }
 
 function serveHtml2canvas() {
-  var raw = HtmlService.createHtmlOutputFromFile('Html2canvasLib').getContent();
-  // File dibungkus <script>...</script> — strip pembungkus, kirim JS mentah.
-  var body = raw.replace(/^[\s\S]*?<script[^>]*>/i, '').replace(/<\/script>[\s\S]*$/i, '');
-  return ContentService.createTextOutput(body).setMimeType(ContentService.MimeType.JAVASCRIPT);
+  return ContentService.createTextOutput(serveHtml2canvasText()).setMimeType(ContentService.MimeType.JAVASCRIPT);
 }
 
-function getExecUrl() {
-  return ScriptApp.getService().getUrl();
+// Teks JS html2canvas (dipakai google.script.run agar tidak tergantung URL deployment).
+function serveHtml2canvasText() {
+  var raw = HtmlService.createHtmlOutputFromFile('Html2canvasLib').getContent();
+  // File dibungkus <script>...</script> — strip pembungkus, kirim JS mentah.
+  return raw.replace(/^[\s\S]*?<script[^>]*>/i, '').replace(/<\/script>[\s\S]*$/i, '');
 }
 
 function doPost(e) {
