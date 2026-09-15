@@ -24,7 +24,8 @@ function configureSpreadsheet(id, token) {
 // --- cache helpers (dipakai Task 2) ---
 function cacheGet(key) {
   var v = CacheService.getScriptCache().get(key);
-  return v ? JSON.parse(v) : null;
+  if (!v) return null;
+  try { return JSON.parse(v); } catch (e) { return v; }
 }
 
 function cachePut(key, value, ttlSeconds) {

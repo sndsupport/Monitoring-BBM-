@@ -14,7 +14,7 @@ function getMasterRev() {
 }
 
 function bumpMasterRev() {
-  CacheService.getScriptCache().put(MASTER_REV_KEY, Utilities.getUuid(), MASTER_REV_TTL);
+  CacheService.getScriptCache().put(MASTER_REV_KEY, JSON.stringify(Utilities.getUuid()), MASTER_REV_TTL);
 }
 
 function masterCacheKey(role, cabang) {

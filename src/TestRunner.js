@@ -215,6 +215,24 @@ function __runMasterCacheTests() {
   return __summarize(results);
 }
 
+// Master rev disimpan ke cache sebagai UUID. cacheGet melakukan JSON.parse;
+// nilai UUID polos (tanpa tanda kutip) harus TETAP terbaca, bukan melempar
+// SyntaxError ("unexpected token e...") yang tadinya merusak login via getMasterRev.
+function __runCacheParsingTests() {
+  var results = [];
+  try {
+    bumpMasterRev();
+    var rev = getMasterRev();
+    results.push(__expectTrue(typeof rev === 'string' && rev.length > 0, 'getMasterRev setelah bumpMasterRev -> string (UUID) non-kosong'));
+  } catch (e) {
+    results.push(__expectTrue(false, 'getMasterRev setelah bumpMasterRev tidak melempar: ' + e.message));
+  }
+  results.push(__expectEqual(cacheGet('rendah:-raw'), null, 'cacheGet kunci kosong -> null'));
+  var m = masterCacheKey('SUPERADMIN', '');
+  results.push(__expectEqual(m.indexOf('master:') === 0 && m.indexOf(':SUPERADMIN:') > -1, true, 'masterCacheKey terbentuk normal setelah rev parsing'));
+  return __summarize(results);
+}
+
 function __runAllTests() {
   var r = __runAuthTests();
   r = __runBackupSheetTests();
@@ -224,6 +242,7 @@ function __runAllTests() {
   r = __runReconGateTests();
   r = __runWarningsTests();
   r = __runMasterCacheTests();
+  r = __runCacheParsingTests();
   Logger.log('==== ALL TESTS DONE ====');
   return r;
 }
