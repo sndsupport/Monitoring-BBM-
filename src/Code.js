@@ -25,6 +25,10 @@ function serveHtml2canvas() {
   return ContentService.createTextOutput(body).setMimeType(ContentService.MimeType.JAVASCRIPT);
 }
 
+function getExecUrl() {
+  return ScriptApp.getService().getUrl();
+}
+
 function doPost(e) {
   try {
     var body = JSON.parse(e.postData.contents || '{}');

@@ -7,7 +7,7 @@ var PROD_SPREADSHEET_ID = '1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8';
 
 // Naikkan SELALU setiap ada perubahan file UI (Index/css/js/Flazz*/Jalur*/Settings)
 // agar doGet tidak menyajikan halaman hasil cache lama.
-var PAGE_VER = '20260914v1';
+var PAGE_VER = '20260915v1';
 
 function spreadsheetId() {
   var id = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
