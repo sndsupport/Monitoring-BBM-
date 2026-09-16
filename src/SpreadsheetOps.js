@@ -342,7 +342,15 @@ function isDuplicateTransaction(sheet, payload, row) {
     const bbmQ = String(parseFloat(payload.biaya_bbm) || 0);
     const tolQ = String(parseFloat(payload.biaya_toll) || 0);
 
-    const data = sheet.getDataRange().getValues();
+    // Batasi scan ke 200 baris terakhir (data baru selalu di bawah)
+    const lastRow = sheet.getLastRow();
+    const scanCount = Math.min(200, Math.max(0, lastRow - 1));
+    const startRow = Math.max(2, lastRow - scanCount + 1);
+    const headersW = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const rowsW = lastRow >= startRow
+      ? sheet.getRange(startRow, 1, lastRow - startRow + 1, sheet.getLastColumn()).getValues()
+      : [];
+    const data = [headersW].concat(rowsW);
     if (data.length < 2) return false;
     const headers = data[0];
     const idxVehicle = headers.indexOf('vehicle_id');
@@ -500,8 +508,14 @@ function getLastTransactionForVehicle(vehicleId) {
   const sheet = ss.getSheetByName('Penggunaan_BBM');
   if (!sheet) return null;
 
-  const data = sheet.getDataRange().getValues();
-  for (let i = data.length - 1; i >= 1; i--) {
+  // Batasi scan ke 300 baris terakhir (transaksi baru selalu di bawah)
+  const lastRow = sheet.getLastRow();
+  const scanCount = Math.min(300, Math.max(0, lastRow - 1));
+  const startRow = Math.max(2, lastRow - scanCount + 1);
+  const data = lastRow >= startRow
+    ? sheet.getRange(startRow, 1, lastRow - startRow + 1, sheet.getLastColumn()).getValues()
+    : [];
+  for (let i = data.length - 1; i >= 0; i--) {
     if (data[i][6] === vehicleId) { // vehicle_id = kolom index 6
       const v = parseFloat(data[i][14]); // km_akhir_confirmed = index 14
       return {
