@@ -163,6 +163,7 @@ document.getElementById('page-login').style.display = 'flex';
         var btnLogoutMobile = document.getElementById('btn-logout-mobile');
         if (btnLogoutMobile) btnLogoutMobile.style.display = 'flex';
 
+        window.__bbmInitData = data;
         userRole = data.role;
         let displayRole = userRole === 'PIC CABANG' ? 'Admin' : userRole;
         var userSummary = '<span class="navbar-text text-light mb-0" style="display:block; font-size:0.95rem; font-weight:600; line-height:1.2;">' + esc(data.user) + '</span>' +
@@ -977,6 +978,51 @@ populateSupirDatalist();
     return true;
   }
 
+  function checkFlazzBalanceBeforeSubmit() {
+    var metodeBbm = '';
+    var mbR = document.getElementsByName('metode_pembayaran');
+    for (var i = 0; i < mbR.length; i++) { if (mbR[i].checked) { metodeBbm = mbR[i].value; break; } }
+    var metodeTol = '';
+    var mtR = document.getElementsByName('metode_toll');
+    for (var j = 0; j < mtR.length; j++) { if (mtR[j].checked) { metodeTol = mtR[j].value; break; } }
+
+    var biayaBbm = parseFloat(document.getElementById('biaya_bbm').value) || 0;
+    var biayaTol = parseFloat(document.getElementById('biaya_toll').value) || 0;
+    var cardIdBbm = document.getElementById('flazz_card_id') ? document.getElementById('flazz_card_id').value : '';
+    var cardIdTol = document.getElementById('flazz_card_id_toll') ? document.getElementById('flazz_card_id_toll').value : '';
+
+    var flazzCards = (window.__bbmInitData && window.__bbmInitData.flazzCards) || [];
+
+    function findCardBalance(cardId) {
+      for (var k = 0; k < flazzCards.length; k++) {
+        if (flazzCards[k].id === cardId) return parseFloat(flazzCards[k].last_balance) || 0;
+      }
+      return -1;
+    }
+    function findCardName(cardId) {
+      for (var k = 0; k < flazzCards.length; k++) {
+        if (flazzCards[k].id === cardId) return flazzCards[k].card_number || cardId;
+      }
+      return cardId;
+    }
+
+    if (metodeBbm === 'FLAZZ' && biayaBbm > 0 && cardIdBbm) {
+      var bal = findCardBalance(cardIdBbm);
+      if (bal >= 0 && bal < biayaBbm) {
+        showToast('Saldo kartu Flazz (' + findCardName(cardIdBbm) + ') tidak mencukupi untuk BBM. Saldo: Rp ' + bal.toLocaleString('id-ID') + ', Pengeluaran: Rp ' + biayaBbm.toLocaleString('id-ID') + '. Silakan top up Flazz.', 'error', 6000);
+        return false;
+      }
+    }
+    if (metodeTol === 'FLAZZ' && biayaTol > 0 && cardIdTol) {
+      var balTol = findCardBalance(cardIdTol);
+      if (balTol >= 0 && balTol < biayaTol) {
+        showToast('Saldo kartu Flazz (' + findCardName(cardIdTol) + ') tidak mencukupi untuk tol. Saldo: Rp ' + balTol.toLocaleString('id-ID') + ', Pengeluaran: Rp ' + biayaTol.toLocaleString('id-ID') + '. Silakan top up Flazz.', 'error', 6000);
+        return false;
+      }
+    }
+    return true;
+  }
+
   function openReviewModal() {
     if (!validateDailyForm()) return;
     if (typeof updateLiveSummary === 'function') updateLiveSummary();
@@ -989,6 +1035,7 @@ populateSupirDatalist();
       showToast('Laporan sedang diproses, harap tunggu...', 'warning');
       return;
     }
+    if (!checkFlazzBalanceBeforeSubmit()) return;
     window.__bbmSubmitting = true;
     // Tutup modal ringkasan sebelum proses
     try {
