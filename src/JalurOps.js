@@ -214,10 +214,11 @@ function getMasterLookupMap() {
     var ci = {};
     h.forEach(function(x, idx) { ci[String(x)] = idx; });
     for (var ki = 1; ki < kData.length; ki++) {
+      if (ci['vehicle_id'] === undefined) continue; // kolom wajib tidak ada -> lewati baris
       out.vehicles.push({
         vehicle_id: String(kData[ki][ci['vehicle_id']] || ''),
-        plat_nomor: kData[ki][ci['plat_nomor']],
-        nama: kData[ki][ci['nama_kendaraan']],
+        plat_nomor: String(kData[ki][ci['plat_nomor']] || ''),
+        nama: String(kData[ki][ci['nama_kendaraan']] || ''),
         jenis: kData[ki][ci['jenis_kendaraan']] || 'Mobil',
         cabang: (ci['kode_cabang'] !== undefined) ? String(kData[ki][ci['kode_cabang']] || '') : '',
         tanggal_pajak: (ci['tanggal_pajak'] !== undefined) ? kData[ki][ci['tanggal_pajak']] : '',
