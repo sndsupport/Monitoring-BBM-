@@ -361,6 +361,7 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
   function populateJalurDriverSelect(list) {
     var sel = document.getElementById('nama_supir');
     if (!sel) return;
+    var prev = sel.value;
     sel.innerHTML = '<option value="">Pilih Supir...</option>';
     (list || []).forEach(function(j) {
       var opt = document.createElement('option');
@@ -370,6 +371,12 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
       opt.setAttribute('data-flazz-card-id', j.flazz_card_id || '');
       sel.appendChild(opt);
     });
+    // Jaga pilihan tetap terpilih bila masih ada di daftar baru (mis. saat refresh switchTab).
+    if (prev) {
+      var keep = false;
+      for (var i = 0; i < sel.options.length; i++) { if (sel.options[i].value === prev) { keep = true; break; } }
+      if (keep) sel.value = prev;
+    }
   }
 
   // Hanya memuat dropdown supir jalur untuk tanggal terpilih (tanpa reset field lain).
@@ -626,6 +633,9 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     
     if (tab === 'form') {
       document.getElementById('page-form').style.display = 'block';
+      // Muat ulang opsi supir dari jalur BELUM_DIISI setiap form dibuka,
+      // agar supir dari jalur yang baru dibuat langsung tampil tanpa reload.
+      if (typeof refreshJalurDriverOptions === 'function') refreshJalurDriverOptions();
     } else if (tab === 'dashboard') {
       document.getElementById('page-dashboard').style.display = 'block';
       renderDashboard();
