@@ -622,3 +622,66 @@ function backfillJalurStatus(token) {
     return { success: false, msg: 'Backfill gagal: ' + e.toString() };
   }
 }
+
+function getJalurDriversForDate(tanggal, userInfo, opts) {
+  try {
+    opts = opts || {};
+    const sheet = jalurSheet();
+    if (!sheet || sheet.getLastRow() <= 1) return { success: true, list: [] };
+    const data = sheet.getDataRange().getValues();
+    const idx = jalurColIdx(sheet);
+    const iDeleted = idx['is_deleted'];
+    const iStatus = idx['status'];
+    const iTanggal = idx['tanggal'];
+    const iCabang = idx['kode_cabang'];
+    const inputTgl = String(tanggal || '').substring(0, 10);
+    if (!inputTgl) return { success: true, list: [] };
+
+    let filteredCabang = getJalurCabangFor(userInfo);
+    if (userInfo && userInfo.role === 'SUPERADMIN') {
+      filteredCabang = opts.cabang || null;
+    }
+
+    const list = [];
+    const seen = {};
+    for (let i = 1; i < data.length; i++) {
+      if (iDeleted !== undefined && String(data[i][iDeleted]) === '1') continue;
+      if (iStatus !== undefined) {
+        const st = String(data[i][iStatus] || 'BELUM_DIISI');
+        if (st !== 'BELUM_DIISI') continue;
+      }
+      let rowTgl = '';
+      if (iTanggal !== undefined) {
+        const raw = data[i][iTanggal];
+        if (raw instanceof Date) {
+          const tz = getDB().getSpreadsheetTimeZone();
+          rowTgl = Utilities.formatDate(raw, tz, 'yyyy-MM-dd');
+        } else {
+          rowTgl = String(raw).substring(0, 10);
+        }
+      }
+      if (rowTgl !== inputTgl) continue;
+      if (filteredCabang && iCabang !== undefined && String(data[i][iCabang]) !== filteredCabang) continue;
+
+      const driverName = (idx['nama_driver'] !== undefined) ? String(data[i][idx['nama_driver']] || '').trim() : '';
+      if (!driverName) continue;
+      const driverKey = driverName + '|' + String(data[i][idx['vehicle_id']] || '');
+      if (seen[driverKey]) continue;
+      seen[driverKey] = true;
+
+      list.push({
+        nama_driver: driverName,
+        driver_id: (idx['driver_id'] !== undefined) ? String(data[i][idx['driver_id']] || '') : '',
+        vehicle_id: (idx['vehicle_id'] !== undefined) ? String(data[i][idx['vehicle_id']] || '') : '',
+        plat_nomor: (idx['plat_nomor'] !== undefined) ? String(data[i][idx['plat_nomor']] || '') : '',
+        nama_kendaraan: (idx['nama_kendaraan'] !== undefined) ? String(data[i][idx['nama_kendaraan']] || '') : '',
+        flazz_card_id: (idx['flazz_card_id'] !== undefined) ? String(data[i][idx['flazz_card_id']] || '') : '',
+        flazz_card_name: (idx['flazz_card_name'] !== undefined) ? String(data[i][idx['flazz_card_name']] || '') : ''
+      });
+    }
+    return { success: true, list: list };
+  } catch (e) {
+    Logger.log('getJalurDriversForDate error: ' + e.toString());
+    return { success: false, list: [], error: e.toString() };
+  }
+}
