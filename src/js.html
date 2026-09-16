@@ -415,6 +415,7 @@ populateSupirDatalist();
       for (var j = 0; j < vehSelect.options.length; j++) {
         if (vehSelect.options[j].value === match.vehicle_id) { vehSelect.selectedIndex = j; break; }
       }
+      onVehicleChange();
     }
 
     var tolCardSelect = document.getElementById('flazz_card_id_toll');
@@ -422,8 +423,8 @@ populateSupirDatalist();
       tolCardSelect.value = match.flazz_card_id;
       var tolStrip = document.getElementById('flazz_card_id_toll_strip');
       if (tolStrip && match.flazz_card_name) tolStrip.textContent = match.flazz_card_name;
-      var tolSection = tolCardSelect.closest('.row') || tolCardSelect.parentElement;
-      if (tolSection) tolSection.style.display = '';
+      document.querySelectorAll('input[name="metode_toll"]').forEach(function(r) { r.checked = (r.value === 'FLAZZ'); });
+      toggleTolFlazzCardSelection();
     }
     updateLiveSummary();
   }
