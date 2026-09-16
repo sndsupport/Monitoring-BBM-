@@ -343,7 +343,6 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
         if (data.cabangList) window.masterData.cabang = data.cabangList;
         if (data.bbmList) window.masterData.bbm = data.bbmList;
         if (data.flazzCards) window.masterData.flazzCards = data.flazzCards;
-populateSupirDatalist();
         refreshSupirFilter();
         refreshVehicleFilter();
 
@@ -393,7 +392,6 @@ populateSupirDatalist();
 
   function onLaporanDateChange() {
     var tglInput = document.getElementById('tanggal');
-    var tgl = tglInput ? tglInput.value : '';
     var supirInput = document.getElementById('nama_supir');
     var selectVeh = document.getElementById('vehicle');
     var selectFlazzTol = document.getElementById('flazz_card_id_toll');
@@ -407,24 +405,7 @@ populateSupirDatalist();
     for (var i = 0; i < mtRadios.length; i++) { mtRadios[i].checked = (mtRadios[i].value === 'TUNAI'); }
     if (typeof toggleTolFlazzCardSelection === 'function') toggleTolFlazzCardSelection();
 
-    if (!tgl) { populateSupirDatalist(); return; }
-
-    google.script.run
-      .withFailureHandler(function(err) {
-        console.error('Gagal load jalur drivers:', err);
-        populateSupirDatalist();
-      })
-      .withSuccessHandler(function(res) {
-        if (!res || !res.success || !res.list || !res.list.length) {
-          populateSupirDatalist();
-          return;
-        }
-        window.__jalurDrivers = res.list;
-        var names = [];
-        res.list.forEach(function(j) { names.push(j.nama_driver); });
-        populateSupirDatalistFrom(names);
-      })
-      .apiGetJalurDriversForDate(tgl, bbmToken());
+    refreshJalurDriverOptions();
   }
 
   function onLaporanDriverChange() {
@@ -918,6 +899,8 @@ populateSupirDatalist();
         }
         if (typeof onVehicleChange === 'function') onVehicleChange();
         if (typeof updateLiveSummary === 'function') updateLiveSummary();
+        // Isi dropdown supir jalur untuk tanggal terpilih tanpa mengganggu nilai prefill
+        if (typeof refreshJalurDriverOptions === 'function') refreshJalurDriverOptions();
       }).getLastLaporanPrefill(bbmToken());
   }
 
@@ -2186,45 +2169,6 @@ populateSupirDatalist();
   }
 
 
-  function populateSupirDatalist() {
-    var dl = document.getElementById('supir-datalist');
-    if (!dl) return;
-    var src = (typeof allDrivers !== 'undefined' && allDrivers.length) ? allDrivers : ((window.masterData && window.masterData.supir) || []);
-    var cabang = document.getElementById('input-cabang') ? document.getElementById('input-cabang').value : '';
-    dl.innerHTML = '';
-    src.forEach(function (d) {
-      if (cabang && d.cabang !== cabang) return;
-      var o = document.createElement('option');
-      o.value = d.nama;
-      dl.appendChild(o);
-    });
-  }
-
-  function getSupirSelectedName() {
-    return document.getElementById('nama_supir') ? document.getElementById('nama_supir').value : '';
-  }
-
-  function getSupirFromName(name) {
-    var src = (typeof allDrivers !== 'undefined' && allDrivers.length) ? allDrivers : ((window.masterData && window.masterData.supir) || []);
-    var cabang = document.getElementById('input-cabang') ? document.getElementById('input-cabang').value : '';
-    return src.find(function (d) { 
-      if (cabang && d.cabang !== cabang) return false;
-      return d.nama === name; 
-    });
-  }
-
-  function applySupirAutofill() {
-    var name = getSupirSelectedName().trim();
-    var vehSel = document.getElementById('vehicle');
-    var d = getSupirFromName(name);
-    if (vehSel) vehSel.value = (d && d.default_vehicle_id) ? d.default_vehicle_id : '';
-    onVehicleChange();
-  }
-
-  function onSupirChange() {
-    applySupirAutofill();
-  }
-
   // Sembunyikan field Bar Bensin Awal/Akhir untuk kendaraan berindikator bukan
   // Digital Bar (mis. jarum/analog, tanpa indikator, digital angka). Bar hanya
   // relevan untuk indikator Digital Bar yang bisa dihitung per segmen.
@@ -2336,9 +2280,8 @@ populateSupirDatalist();
   }
 
   function isSupirNameValid() {
-    var name = getSupirSelectedName().trim();
-    if (!name) return false;
-    return !!getSupirFromName(name);
+    var sel = document.getElementById('nama_supir');
+    return sel && sel.value !== '';
   }
 
   function filterFormByCabang() {
@@ -2357,8 +2300,7 @@ populateSupirDatalist();
       opt.text = v.plat_nomor + ' - ' + v.nama;
       selectVeh.appendChild(opt);
     });
-    populateSupirDatalist();
-    applySupirAutofill();
+    refreshJalurDriverOptions();
     onVehicleChange();
   }
 
