@@ -556,7 +556,29 @@ git commit -m "docs: verifikasi akhir dropdown supir laporan"
 
 ## Verifikasi Akhir
 
-(disi pada Task 4 Step 4)
+Disi pada Task 4 Step 4 — **SELESAI**
+
+**Commit (master..HEAD):**
+- `5a51039` feat(laporan): dropdown supir hanya dari jalur BELUM_DIISI pada tanggal terpilih
+- `0624302` fix(laporan): dropdown supir mengikuti tanggal terpilih, validasi longgar berbasis jalur
+- `605e27d` chore(version): PAGE_VER 20260916v3 - dropdown supir hanya jalur BELUM_DIISI
+
+**Cek sintaks:**
+- `node --check js_extract.js` (js.html) → exit 0
+- `node --check config_check.js` (Config.gs) → exit 0
+
+**Hasil harness (temp, tidak dikomit):**
+- `harness-task1.cjs`: 6 passed, 0 failed (populateJalurDriverSelect + refreshJalurDriverOptions, incl. tanggal kosong)
+- `harness-task2.cjs`: 2 passed, 0 failed (isSupirNameValid longgar)
+- `harness-task3.cjs`: 6 passed, 0 failed (onLaporanDriverChange autofill + toggle; awalnya 1 gagal karena mock `selectedIndex`→`value` tidak tersinkron di harness, bukan kode)
+
+**Fungsi dihapus (mati setelah Task 2):** `populateSupirDatalist`, `populateSupirDatalistFrom`, `getSupirSelectedName`, `getSupirFromName`, `applySupirAutofill`, `onSupirChange` (per plan Step 5c + verifikasi grep tanpa pemanggil tersisa).
+
+**Fungsi baru:** `populateJalurDriverSelect(list)`, `refreshJalurDriverOptions()`
+
+**Fungsi diubah:** `onLaporanDateChange` (ganti datalist → `refreshJalurDriverOptions()`), `isSupirNameValid` (hanya cek value non-kosong), success handler `getLastLaporanPrefill` (+ pemicu `refreshJalurDriverOptions()`), `filterFormByCabang` (panggil `refreshJalurDriverOptions()`).
+
+**Payload:** `nama_supir: document.getElementById('nama_supir').value` (js.html:1176) — tidak berubah, kini mengembalikan nilai select = `nama_driver`.
 
 ## Self-Review
 
