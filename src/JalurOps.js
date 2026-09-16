@@ -220,6 +220,11 @@ function getMasterLookupMap() {
   }
   var ss = getDB();
   var out = { vehicles: [], drivers: [] };
+  // Baca nilai tanggal menjadi string 'yyyy-MM-dd' SEBELUM di-cache, agar hasil
+  // cache-hit identik dengan cache-miss (Date object berubah jadi string UTC via JSON).
+  var fmtDate = function(v) {
+    return (v instanceof Date) ? Utilities.formatDate(v, ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd') : String(v || '');
+  };
   var sD = ss.getSheetByName('Supir');
   if (sD) {
     var dData = sD.getDataRange().getValues();
@@ -241,9 +246,9 @@ function getMasterLookupMap() {
         nama: String(kData[ki][ci['nama_kendaraan']] || ''),
         jenis: kData[ki][ci['jenis_kendaraan']] || 'Mobil',
         cabang: (ci['kode_cabang'] !== undefined) ? String(kData[ki][ci['kode_cabang']] || '') : '',
-        tanggal_pajak: (ci['tanggal_pajak'] !== undefined) ? kData[ki][ci['tanggal_pajak']] : '',
-        tanggal_pajak_5: (ci['tanggal_pajak_5_tahunan'] !== undefined) ? kData[ki][ci['tanggal_pajak_5_tahunan']] : '',
-        tanggal_kir: (ci['tanggal_kir'] !== undefined) ? kData[ki][ci['tanggal_kir']] : ''
+        tanggal_pajak: (ci['tanggal_pajak'] !== undefined) ? fmtDate(kData[ki][ci['tanggal_pajak']]) : '',
+        tanggal_pajak_5: (ci['tanggal_pajak_5_tahunan'] !== undefined) ? fmtDate(kData[ki][ci['tanggal_pajak_5_tahunan']]) : '',
+        tanggal_kir: (ci['tanggal_kir'] !== undefined) ? fmtDate(kData[ki][ci['tanggal_kir']]) : ''
       });
     }
   }
