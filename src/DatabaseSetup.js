@@ -91,8 +91,10 @@ function setupDatabase() {
     const iStatus = fH.indexOf('status');
     if (iDefault > -1 && iDriver > -1 && iStatus > -1) {
       for (let i = 1; i < fData.length; i++) {
-        if (String(fData[i][iDefault] || '') === '' && String(fData[i][iStatus]) !== 'SEDANG_DIGUNAKAN') {
-          fCard.getRange(i + 1, iDefault + 1).setValue(fData[i][iDriver] || '');
+        const backfillVal = String(fData[i][iDriver] || '');
+        if (String(fData[i][iDefault] || '') === '' && String(fData[i][iStatus]) === 'TERSEDIA' && backfillVal) {
+          Logger.log('setupDatabase backfill default_driver_id Flazz_Card baris ' + (i + 1) + ' -> ' + backfillVal);
+          fCard.getRange(i + 1, iDefault + 1).setValue(backfillVal);
         }
       }
     }
