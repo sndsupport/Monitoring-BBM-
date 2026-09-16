@@ -376,8 +376,7 @@ function saveJalur(payload, userInfo) {
 
       // Serahkan kartu etoll ke driver
       if (r.etoll_card_id) {
-        const hadUsage = flazzCardHasGiveren(r.etoll_card_id);
-        autoCreateFlazzUsage(r.etoll_card_id, namaDriver, vid, 'JALUR', jalurId);
+        const hadUsage = autoCreateFlazzUsage(r.etoll_card_id, namaDriver, vid, 'JALUR', jalurId);
         if (hadUsage) {
           warnings.push('Kartu etoll "' + (r.etoll_card_name || r.etoll_card_id) + '" masih dipakai (belum dikembalikan) untuk ' + (namaDriver || r.driver_id) + '. Proses admin sebelumnya belum selesai.');
         }

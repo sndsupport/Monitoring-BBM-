@@ -378,7 +378,7 @@ function autoCreateFlazzUsage(cardId, driverName, vehicleId, refType, refId, use
   const ss = getDB();
   const usageSheet = ss.getSheetByName('Flazz_Usage');
   const cardSheet = ss.getSheetByName('Flazz_Card');
-  if (!usageSheet || !cardSheet) return;
+  if (!usageSheet || !cardSheet) return false;
   ensureFlazzUsageRefColumns();
 
   // Cek apakah kartu sudah punya catatan DIBERIKAN (sedang dipakai)
@@ -388,7 +388,7 @@ function autoCreateFlazzUsage(cardId, driverName, vehicleId, refType, refId, use
   const uStatus = uHeaders.indexOf('status');
   for (let i = 1; i < uData.length; i++) {
     if (String(uData[i][uCard]) === String(cardId) && (uStatus < 0 || uData[i][uStatus] === 'DIBERIKAN')) {
-      return; // sudah digunakan, jangan buat ulang
+      return true; // sudah digunakan, jangan buat ulang
     }
   }
 
@@ -434,6 +434,7 @@ function autoCreateFlazzUsage(cardId, driverName, vehicleId, refType, refId, use
       cardSheet.getRange(found.rowIndex, found.colIdx.UPDATED + 1).setValue(now);
     }
   }
+  return false;
 }
 
 // Penyesuaian opening_balance pada penyerahan kartu terakhir yang masih DIBERIKAN, dipakai
