@@ -459,6 +459,7 @@ function apiSaveJalur(payload, token) { return saveJalur(payload, requireUser(to
 function apiUpdateJalur(data, token) { return updateJalur(data, requireUser(token)); }
 function apiDeleteJalur(id, token) { return deleteJalur(id, requireUser(token)); }
 function apiGetJalurByTanggal(tanggal, token, opts) { return getJalurByTanggal(tanggal, token, opts || {}); }
+function apiGetJalurDriversForDate(tanggal, token) { var userInfo = requireUser(token); return getJalurDriversForDate(tanggal, userInfo); }
 
 // ==========================================
 // GEMINI FUEL GAUGE (indikator BBM) DETECTION
