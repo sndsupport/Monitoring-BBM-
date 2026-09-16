@@ -357,16 +357,38 @@ populateSupirDatalist();
   // ─── Jalur-based driver selection ──────────────────────────────────────
   window.__jalurDrivers = [];
 
-  function populateSupirDatalistFrom(names) {
-    var dl = document.getElementById('supir-datalist');
-    if (!dl) return;
-    dl.innerHTML = '';
-    (names || []).forEach(function(n) {
-      if (!n) return;
-      var o = document.createElement('option');
-      o.value = n;
-      dl.appendChild(o);
+  // Isi dropdown supir hanya dengan supir yang punya jalur BELUM_DIISI pada tanggal terpilih.
+  // Meniru pola dropdown kartu pada Rekonsiliasi: item yang belum dibereskan yang tampil.
+  function populateJalurDriverSelect(list) {
+    var sel = document.getElementById('nama_supir');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Pilih Supir...</option>';
+    (list || []).forEach(function(j) {
+      var opt = document.createElement('option');
+      opt.value = j.nama_driver;            // server mencocokkan ini dengan nama_driver di Jalur
+      opt.text = j.nama_driver;             // plat_nomor belum dikembalikan backend; opsional untuk Task lanjutan
+      opt.setAttribute('data-vehicle-id', j.vehicle_id || '');
+      opt.setAttribute('data-flazz-card-id', j.flazz_card_id || '');
+      sel.appendChild(opt);
     });
+  }
+
+  // Hanya memuat dropdown supir jalur untuk tanggal terpilih (tanpa reset field lain).
+  function refreshJalurDriverOptions() {
+    var tglInput = document.getElementById('tanggal');
+    var tgl = tglInput ? tglInput.value : '';
+    if (!tgl) { populateJalurDriverSelect([]); return; }
+    google.script.run
+      .withFailureHandler(function(err) {
+        console.error('Gagal load jalur drivers:', err);
+        populateJalurDriverSelect([]);
+      })
+      .withSuccessHandler(function(res) {
+        if (!res || !res.success || !res.list) { populateJalurDriverSelect([]); return; }
+        window.__jalurDrivers = res.list;
+        populateJalurDriverSelect(res.list);
+      })
+      .apiGetJalurDriversForDate(tgl, bbmToken());
   }
 
   function onLaporanDateChange() {
