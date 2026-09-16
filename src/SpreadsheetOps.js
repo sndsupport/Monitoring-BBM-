@@ -226,6 +226,29 @@ function saveTransactionEndOfDayUnlocked(payload) {
   // sehingga bila BBM FLAZZ dianggap tol ikut FLAZZ memakai kartu BBM).
   const effMetodeToll = resolveTollMethod(payload.metode_toll, payload.metode_pembayaran, payload.flazz_card_id_toll);
   const effCardToll = resolveTollCard(payload.flazz_card_id_toll, effMetodeToll, payload.metode_pembayaran, payload.flazz_card_id);
+  // ─── Flazz balance insufficiency gate ───────────────────────────────────
+  // Cek saldo kartu SEBELUM menulis apa pun, agar laporan yang ditolak tidak
+  // memotong saldo Flazz atau meninggalkan baris parsial.
+  const biayaBbmCheck = parseFloat(payload.biaya_bbm) || 0;
+  const biayaTolCheck = parseFloat(payload.biaya_toll) || 0;
+  if (biayaBbmCheck > 0 && payload.metode_pembayaran === 'FLAZZ' && payload.flazz_card_id) {
+    const cardInfo = findFlazzCardBalance(payload.flazz_card_id);
+    if (cardInfo && cardInfo.balance < biayaBbmCheck) {
+      return {
+        success: false,
+        error: 'Saldo kartu Flazz (' + (cardInfo.name || payload.flazz_card_id) + ') tidak mencukupi untuk pembayaran BBM. Saldo: Rp ' + Number(cardInfo.balance).toLocaleString('id-ID') + ', Pengeluaran: Rp ' + Number(biayaBbmCheck).toLocaleString('id-ID') + '. Silakan top up Flazz terlebih dahulu.'
+      };
+    }
+  }
+  if (biayaTolCheck > 0 && effMetodeToll === 'FLAZZ' && effCardToll) {
+    const cardInfoTol = findFlazzCardBalance(effCardToll);
+    if (cardInfoTol && cardInfoTol.balance < biayaTolCheck) {
+      return {
+        success: false,
+        error: 'Saldo kartu Flazz (' + (cardInfoTol.name || effCardToll) + ') tidak mencukupi untuk pembayaran tol. Saldo: Rp ' + Number(cardInfoTol.balance).toLocaleString('id-ID') + ', Pengeluaran: Rp ' + Number(biayaTolCheck).toLocaleString('id-ID') + '. Silakan top up Flazz terlebih dahulu.'
+      };
+    }
+  }
   // Kolom metode_pembayaran khusus untuk BBM; bila tidak ada pembelian BBM, biarkan
   // kosong agar tidak membingungkan (tol dicatat di kolom metode_toll/flazz_card_id_toll).
   const storeMetodeBbm = (parseFloat(payload.biaya_bbm) || 0) > 0 ? (payload.metode_pembayaran || 'TUNAI') : '';

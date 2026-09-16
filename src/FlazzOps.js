@@ -1700,3 +1700,28 @@ function deleteFlazzBBMUnlocked(transactionId, mode, userInfo) {
     return { success: false, msg: err.message };
   }
 }
+
+function findFlazzCardBalance(cardId) {
+  try {
+    const ss = getDB();
+    const sheet = ss.getSheetByName('Flazz_Card');
+    if (!sheet) return null;
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const colIdx = {};
+    headers.forEach(function(h, i) { colIdx[String(h).trim()] = i; });
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][colIdx['id'] || 0]) === String(cardId)) {
+        return {
+          balance: parseFloat(data[i][colIdx['last_balance'] || colIdx['balance'] || colIdx['saldo_terakhir']]) || 0,
+          name: String(data[i][colIdx['card_name'] || colIdx['card_number'] || ''] || ''),
+          status: String(data[i][colIdx['status'] || ''] || '')
+        };
+      }
+    }
+    return null;
+  } catch (e) {
+    Logger.log('findFlazzCardBalance error: ' + e.toString());
+    return null;
+  }
+}
