@@ -265,6 +265,25 @@ function __runCacheGzipTests() {
   return __summarize(results);
 }
 
+// Kebijakan perubahan supir default kartu (guard pure):
+// kartu yang sedang dipakai (SEDANG_DIGUNAKAN) TIDAK boleh diubah default-nya,
+// sehingga pemegang sementara tidak bisa 'nempel' jadi default via form/edit.
+function __runFlazzDefaultGuardTests() {
+  var results = [];
+  // Skenario bug: kartu cadangan dipakai sementara (default kosong) - mencoba set supir -> harus DITOLAK
+  results.push(__expectEqual(flazzAllowDefaultChange('SEDANG_DIGUNAKAN', '', 'Yudiman'), false, 'kartu dipakai, default kosong, set supir -> tolak'));
+  results.push(__expectEqual(flazzAllowDefaultChange('SEDANG_DIGUNAKAN', '', 'Andi'), false, 'kartu dipakai, default kosong, set supir lain -> tolak'));
+  // Tidak ada perubahan nilai -> diizinkan (no-op, tidak menyentuh apa pun)
+  results.push(__expectEqual(flazzAllowDefaultChange('SEDANG_DIGUNAKAN', '', ''), true, 'kartu dipakai, default kosong, simpan tanpa ubah -> izinkan'));
+  results.push(__expectEqual(flazzAllowDefaultChange('SEDANG_DIGUNAKAN', 'Yudiman', 'Yudiman'), true, 'kartu dipakai, default sama -> izinkan'));
+  // Kartu BEBAS (tidak dipakai) -> bebas mengubah default
+  results.push(__expectEqual(flazzAllowDefaultChange('TERSEDIA', '', 'Yudiman'), true, 'kartu tersedia, default kosong, set supir -> izinkan'));
+  results.push(__expectEqual(flazzAllowDefaultChange('TERSEDIA', 'Andi', 'Yudiman'), true, 'kartu tersedia, ganti default -> izinkan'));
+  // Sheet lama tanpa status (string kosong) -> tidak diblokir
+  results.push(__expectEqual(flazzAllowDefaultChange('', '', 'Yudiman'), true, 'tanpa status -> izinkan'));
+  return __summarize(results);
+}
+
 function __runAllTests() {
   var r = __runAuthTests();
   r = __runBackupSheetTests();
@@ -275,6 +294,7 @@ function __runAllTests() {
   r = __runWarningsTests();
   r = __runMasterCacheTests();
   r = __runCacheParsingTests();
+  r = __runFlazzDefaultGuardTests();
   r = __runCacheGzipTests();
   Logger.log('==== ALL TESTS DONE ====');
   return r;

@@ -46,6 +46,17 @@ function getFlazzCardColIdx(sheet) {
   };
 }
 
+// Kebijakan perubahan supir default kartu (pure, diuji di TestRunner).
+// Kartu yang sedang dipakai TIDAK boleh diubah default-nya; pemegang sementara
+// (driver_id) tidak boleh menjadi default tanpa intent eksplisit dari form master.
+function flazzAllowDefaultChange(curStatus, curDefault, newDefault) {
+  const status = String(curStatus || '');
+  if (status === 'SEDANG_DIGUNAKAN') {
+    return String(newDefault || '') === String(curDefault || '');
+  }
+  return true;
+}
+
 // Helper: Mendapatkan sheet Flazz_Card + mapping kolom, lokasi baris berdasarkan id
 function findFlazzCardRow(sheet, cardId) {
   const data = sheet.getDataRange().getValues();
@@ -212,13 +223,23 @@ function saveFlazzCard(cardData, userInfo) {
       if (!found) throw new Error('Kartu tidak ditemukan.');
       assertFlazzAccess(userInfo, found.row[found.colIdx.BRANCH]);
       const r = found.rowIndex, c = colIdx;
+      const curStatus = String(found.row[found.colIdx.STATUS] || '');
+      const curDefault = (c.DEFAULT_DRIVER !== undefined) ? String(found.row[c.DEFAULT_DRIVER] || '') : '';
+      const newDefault = String(cardData.driver_id || '');
+      if (!flazzAllowDefaultChange(curStatus, curDefault, newDefault)) {
+        throw new Error('Kartu masih dipakai (SEDANG_DIGUNAKAN). Kembalikan kartu dahulu sebelum mengubah supir default.');
+      }
       sheet.getRange(r, c.CARD_NUMBER + 1).setValue(cardNumber);
       if (c.CARD_NAME !== undefined) sheet.getRange(r, c.CARD_NAME + 1).setValue(cardData.card_name || '');
       sheet.getRange(r, c.CARD_TYPE + 1).setValue(cardData.card_type);
       if (c.CARD_ROLE !== undefined) sheet.getRange(r, c.CARD_ROLE + 1).setValue(cardData.card_role || 'CADANGAN');
       sheet.getRange(r, c.BRANCH + 1).setValue(cardData.branch_id);
-      sheet.getRange(r, c.DRIVER + 1).setValue(cardData.driver_id || '');
-      if (c.DEFAULT_DRIVER !== undefined) sheet.getRange(r, c.DEFAULT_DRIVER + 1).setValue(cardData.driver_id || '');
+      // Pemegang (DRIVER) & default dikelola alur penggunaan kartu selama kartu dipakai;
+      // dari form hanya ditulis saat kartu BEBAS (tidak SEDANG_DIGUNAKAN).
+      if (curStatus !== 'SEDANG_DIGUNAKAN') {
+        sheet.getRange(r, c.DRIVER + 1).setValue(cardData.driver_id || '');
+        if (c.DEFAULT_DRIVER !== undefined) sheet.getRange(r, c.DEFAULT_DRIVER + 1).setValue(cardData.driver_id || '');
+      }
       sheet.getRange(r, c.NOTES + 1).setValue(cardData.notes || '');
       sheet.getRange(r, c.UPDATED + 1).setValue(now);
 
