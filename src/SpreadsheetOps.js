@@ -1230,18 +1230,13 @@ function assertOwnWarehouse(userInfo, cabang, label) {
 }
 
 // Ambil kode cabang dari sebuah kendaraan ('' bila tidak ditemukan)
+// Membaca dari snapshot master lookup yang ter-cache (getMasterLookupMap).
 function vehicleBranchById(vehicleId) {
   if (!vehicleId) return '';
-  const ss = getDB();
-  const sheet = ss.getSheetByName('Kendaraan');
-  if (!sheet) return '';
-  const data = sheet.getDataRange().getValues();
-  const h = data[0];
-  const iCabang = h.indexOf('kode_cabang') > -1 ? h.indexOf('kode_cabang') : h.indexOf('cabang');
-  const iId = h.indexOf('vehicle_id') > -1 ? h.indexOf('vehicle_id') : h.indexOf('id');
-  if (iId < 0 || iCabang < 0) return '';
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][iId]) === String(vehicleId)) return String(data[i][iCabang] || '');
+  var map = getMasterLookupMap();
+  for (var i = 0; i < map.vehicles.length; i++) {
+    var v = map.vehicles[i];
+    if (v.vehicle_id === String(vehicleId)) return v.cabang;
   }
   return '';
 }

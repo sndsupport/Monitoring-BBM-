@@ -189,47 +189,78 @@ function getJalurCabangFor(userInfo) {
   return (userInfo && userInfo.cabang) || '';
 }
 
+// Snapshot master lookup (kendaraan & supir) dari cache 'master:lookup' (TTL 60 dtk).
+// Dibangun sekali lalu di-cache; invalidasi lewat invalidateMaster() saat master berubah.
+function getMasterLookupMap() {
+  var c = CacheService.getScriptCache();
+  var k = masterLookupCacheKey();
+  var hit = c.get(k);
+  if (hit) {
+    try { return JSON.parse(hit); } catch (e) { /* rusak -> build ulang */ }
+  }
+  var ss = getDB();
+  var out = { vehicles: [], drivers: [] };
+  var sD = ss.getSheetByName('Supir');
+  if (sD) {
+    var dData = sD.getDataRange().getValues();
+    for (var di = 1; di < dData.length; di++) {
+      out.drivers.push({ id: String(dData[di][0] || ''), nama: dData[di][1], cabang: String(dData[di][2] || '') });
+    }
+  }
+  var sK = ss.getSheetByName('Kendaraan');
+  if (sK) {
+    var kData = sK.getDataRange().getValues();
+    var h = kData[0];
+    var ci = {};
+    h.forEach(function(x, idx) { ci[String(x)] = idx; });
+    for (var ki = 1; ki < kData.length; ki++) {
+      out.vehicles.push({
+        vehicle_id: String(kData[ki][ci['vehicle_id']] || ''),
+        plat_nomor: kData[ki][ci['plat_nomor']],
+        nama: kData[ki][ci['nama_kendaraan']],
+        jenis: kData[ki][ci['jenis_kendaraan']] || 'Mobil',
+        cabang: (ci['kode_cabang'] !== undefined) ? String(kData[ki][ci['kode_cabang']] || '') : '',
+        tanggal_pajak: (ci['tanggal_pajak'] !== undefined) ? kData[ki][ci['tanggal_pajak']] : '',
+        tanggal_pajak_5: (ci['tanggal_pajak_5_tahunan'] !== undefined) ? kData[ki][ci['tanggal_pajak_5_tahunan']] : '',
+        tanggal_kir: (ci['tanggal_kir'] !== undefined) ? kData[ki][ci['tanggal_kir']] : ''
+      });
+    }
+  }
+  var payload = JSON.stringify(out);
+  try { c.put(k, payload, 60); } catch (e) { /* quota TTL/ukuran: abaikan */ }
+  return out;
+}
+
 function jalurDriverNameById(driverId) {
-  const ss = getDB();
-  const s = ss.getSheetByName('Supir');
-  if (!s) return '';
-  const data = s.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === String(driverId)) return data[i][1];
+  var map = getMasterLookupMap();
+  for (var i = 0; i < map.drivers.length; i++) {
+    if (map.drivers[i].id === String(driverId)) return map.drivers[i].nama;
   }
   return '';
 }
 
 function driverBranchById(driverId) {
   if (!driverId) return '';
-  const ss = getDB();
-  const s = ss.getSheetByName('Supir');
-  if (!s) return '';
-  const data = s.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === String(driverId)) return String(data[i][2] || '');
+  var map = getMasterLookupMap();
+  for (var i = 0; i < map.drivers.length; i++) {
+    if (map.drivers[i].id === String(driverId)) return map.drivers[i].cabang;
   }
   return '';
 }
 
 function jalurVehicleById(vehicleId) {
-  const ss = getDB();
-  const s = ss.getSheetByName('Kendaraan');
-  if (!s) return null;
-  const data = s.getDataRange().getValues();
-  const h = data[0];
-  const ci = {};
-  h.forEach((x, i) => { ci[String(x)] = i; });
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][ci['vehicle_id']]) === String(vehicleId)) {
+  var map = getMasterLookupMap();
+  for (var i = 0; i < map.vehicles.length; i++) {
+    var v = map.vehicles[i];
+    if (v.vehicle_id === String(vehicleId)) {
       return {
-        plat_nomor: data[i][ci['plat_nomor']],
-        nama: data[i][ci['nama_kendaraan']],
-        jenis: data[i][ci['jenis_kendaraan']] || 'Mobil',
-        cabang: (ci['kode_cabang'] !== undefined) ? data[i][ci['kode_cabang']] : '',
-        tanggal_pajak: (ci['tanggal_pajak'] !== undefined) ? data[i][ci['tanggal_pajak']] : '',
-        tanggal_pajak_5: (ci['tanggal_pajak_5_tahunan'] !== undefined) ? data[i][ci['tanggal_pajak_5_tahunan']] : '',
-        tanggal_kir: (ci['tanggal_kir'] !== undefined) ? data[i][ci['tanggal_kir']] : ''
+        plat_nomor: v.plat_nomor,
+        nama: v.nama,
+        jenis: v.jenis,
+        cabang: v.cabang,
+        tanggal_pajak: v.tanggal_pajak,
+        tanggal_pajak_5: v.tanggal_pajak_5,
+        tanggal_kir: v.tanggal_kir
       };
     }
   }

@@ -36,10 +36,22 @@ function dashwarnCacheKey(role, cabang) {
 function invalidateMaster(role, cabang) {
   // Menaikkan versi global = seluruh kunci master/bbm lama tidak terbaca lagi.
   bumpMasterRev();
+  // Snapshot lookup (kendaraan & supir) ikut dibuang agar tidak basi.
+  invalidateMasterLookup();
 }
 
 function invalidatePerforma(role, cabang) {
   var c = CacheService.getScriptCache();
   c.remove(performaCacheKey(role, cabang));
   c.remove(performaCacheKey('SUPERADMIN', ''));
+}
+
+// Snapshot master lookup (kendaraan & supir) untuk jalur simpan.
+function masterLookupCacheKey() {
+  return 'master:lookup';
+}
+
+function invalidateMasterLookup() {
+  var c = CacheService.getScriptCache();
+  c.remove(masterLookupCacheKey());
 }
