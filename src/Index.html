@@ -258,7 +258,7 @@
                   <div class='row'>
                     <div class='col-md-4 mb-3'>
                       <label class='form-label fw-bold text-muted small text-uppercase'>Nama Supir</label>
-                      <input id='nama_supir' class='form-control form-control-sm' list='supir-datalist' required autocomplete='off' placeholder='Ketik nama supir...' oninput='onSupirChange()' onchange='this.classList.remove("is-invalid"); updateLiveSummary()'>
+                      <input id='nama_supir' class='form-control form-control-sm' list='supir-datalist' required autocomplete='off' placeholder='Ketik nama supir...' oninput='onSupirChange()' onchange='onLaporanDriverChange(); this.classList.remove("is-invalid"); updateLiveSummary()'>
                       <datalist id='supir-datalist'></datalist>
                     </div>
                     <div class='col-md-4 mb-3'>
@@ -267,7 +267,7 @@
                     </div>
                     <div class='col-md-4 mb-3'>
                       <label class='form-label fw-bold text-muted small text-uppercase'>Tanggal</label>
-                      <input type='date' id='tanggal' class='form-control form-control-sm' required onchange='updateLiveSummary()'>
+                      <input type='date' id='tanggal' class='form-control form-control-sm' required onchange='onLaporanDateChange(); updateLiveSummary()'>
                     </div>
                   </div>
                 </div>
