@@ -984,7 +984,7 @@ function editFlazzCard(id) {
   driverSelect.innerHTML = '<option value="">-- Tidak Ada / Kartu Bebas --</option>';
   (allDrivers || []).forEach(d => driverSelect.innerHTML += '<option value="'+esc(d.nama)+'">'+esc(d.nama)+'</option>');
   branchSelect.value = card.branch_id;
-  document.getElementById('f_driver_id').value = card.default_driver_id || card.driver_id || '';
+  document.getElementById('f_driver_id').value = card.default_driver_id || '';
   
   document.getElementById('f_notes').value = card.notes || '';
   
