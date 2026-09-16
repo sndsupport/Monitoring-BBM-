@@ -36,10 +36,20 @@ function jalurColIdx(sheet) {
 }
 
 function findJalurRow(sheet, id) {
-  const data = sheet.getDataRange().getValues();
   const idx = jalurColIdx(sheet);
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][idx['id']]) === String(id)) return { rowIndex: i + 1, row: data[i], idx: idx };
+  const want = ['id','tanggal','status','laporan_id','updated_at','vehicle_id','nama_driver','driver_id','rute_tujuan','flazz_card_id','kode_cabang','plat_nomor'].filter(function(k) {
+    return idx[k] !== undefined;
+  });
+  const cols = want.map(function(k) { return idx[k]; });
+  const data = readRowsCols(sheet, cols);
+  const colOf = {};
+  want.forEach(function(k, pos) { colOf[k] = pos; });
+  for (let i = 0; i < data.length; i++) {
+    if (colOf['id'] !== undefined && String(data[i][colOf['id']]) === String(id)) {
+      const row = [];
+      want.forEach(function(k) { row[idx[k]] = data[i][colOf[k]]; });
+      return { rowIndex: i + 2, row: row, idx: idx };
+    }
   }
   return null;
 }
@@ -97,16 +107,22 @@ function findJalurByCriteria(criteria) {
   try {
     const sheet = jalurSheet();
     if (!sheet || sheet.getLastRow() <= 1) return null;
-    const data = sheet.getDataRange().getValues();
     const idx = jalurColIdx(sheet);
-    const iDeleted = idx['is_deleted'];
+    const want = ['is_deleted','tanggal','vehicle_id','nama_driver','kode_cabang','flazz_card_id','id','status','plat_nomor'].filter(function(k) {
+      return idx[k] !== undefined;
+    });
+    const cols = want.map(function(k) { return idx[k]; });
+    const data = readRowsCols(sheet, cols);
+    const colOf = {};
+    want.forEach(function(k, pos) { colOf[k] = pos; });
+    const iDeleted = colOf['is_deleted'];
     let best = null;
-    for (let i = 1; i < data.length; i++) {
+    for (let i = 0; i < data.length; i++) {
       if (iDeleted !== undefined && String(data[i][iDeleted]) === '1') continue;
       let match = true;
       let rowTgl = '';
-      if (idx['tanggal'] !== undefined) {
-        const rawTgl = data[i][idx['tanggal']];
+      if (colOf['tanggal'] !== undefined) {
+        const rawTgl = data[i][colOf['tanggal']];
         if (rawTgl instanceof Date) {
           const tz = getDB().getSpreadsheetTimeZone();
           rowTgl = Utilities.formatDate(rawTgl, tz, 'yyyy-MM-dd');
@@ -115,26 +131,24 @@ function findJalurByCriteria(criteria) {
         }
       }
       if (criteria.tanggal && rowTgl !== String(criteria.tanggal).substring(0, 10)) match = false;
-      if (match && criteria.vehicle_id && String(data[i][idx['vehicle_id']]) !== String(criteria.vehicle_id)) match = false;
-      if (match && criteria.nama_driver && String(data[i][idx['nama_driver']] || '') !== String(criteria.nama_driver)) match = false;
-      if (match && criteria.kode_cabang && String(data[i][idx['kode_cabang']] || '') !== String(criteria.kode_cabang)) match = false;
+      if (match && criteria.vehicle_id && String(data[i][colOf['vehicle_id']]) !== String(criteria.vehicle_id)) match = false;
+      if (match && criteria.nama_driver && String(data[i][colOf['nama_driver']] || '') !== String(criteria.nama_driver)) match = false;
+      if (match && criteria.kode_cabang && String(data[i][colOf['kode_cabang']] || '') !== String(criteria.kode_cabang)) match = false;
       if (match && criteria.flazz_card_id) {
-        const cardVal = (idx['flazz_card_id'] !== undefined) ? String(data[i][idx['flazz_card_id']] || '') : '';
+        const cardVal = (colOf['flazz_card_id'] !== undefined) ? String(data[i][colOf['flazz_card_id']] || '') : '';
         if (cardVal !== String(criteria.flazz_card_id)) match = false;
       }
       if (match) {
-        const rec = {
-          id: data[i][idx['id']],
-          status: (idx['status'] !== undefined) ? String(data[i][idx['status']] || 'BELUM_DIISI') : 'BELUM_DIISI',
-          flazz_card_id: (idx['flazz_card_id'] !== undefined) ? String(data[i][idx['flazz_card_id']] || '') : '',
+        best = {
+          id: data[i][colOf['id']],
+          status: (colOf['status'] !== undefined) ? String(data[i][colOf['status']] || 'BELUM_DIISI') : 'BELUM_DIISI',
+          flazz_card_id: (colOf['flazz_card_id'] !== undefined) ? String(data[i][colOf['flazz_card_id']] || '') : '',
           tanggalJalur: rowTgl,
-          kode_cabang: (idx['kode_cabang'] !== undefined) ? String(data[i][idx['kode_cabang']] || '') : '',
-          nama_driver: (idx['nama_driver'] !== undefined) ? String(data[i][idx['nama_driver']] || '') : '',
-          plat_nomor: (idx['plat_nomor'] !== undefined) ? String(data[i][idx['plat_nomor']] || '') : '',
-          rowIndex: i + 1
+          kode_cabang: (colOf['kode_cabang'] !== undefined) ? String(data[i][colOf['kode_cabang']] || '') : '',
+          nama_driver: (colOf['nama_driver'] !== undefined) ? String(data[i][colOf['nama_driver']] || '') : '',
+          plat_nomor: (colOf['plat_nomor'] !== undefined) ? String(data[i][colOf['plat_nomor']] || '') : '',
+          rowIndex: i + 2
         };
-        // Kembalikan record TERAKHIR yang cocok (baris paling bawah = paling baru).
-        best = rec;
       }
     }
     return best;
@@ -148,15 +162,21 @@ function checkIncompleteJalurForVehicle(vehicleId, tanggal) {
   try {
     const sheet = jalurSheet();
     if (!sheet || sheet.getLastRow() <= 1) return { blocked: false, incompleteJalur: null };
-    const data = sheet.getDataRange().getValues();
     const idx = jalurColIdx(sheet);
-    const iDeleted = idx['is_deleted'];
+    const want = ['is_deleted','vehicle_id','tanggal','id','plat_nomor','status','flazz_card_id'].filter(function(k) {
+      return idx[k] !== undefined;
+    });
+    const cols = want.map(function(k) { return idx[k]; });
+    const data = readRowsCols(sheet, cols);
+    const colOf = {};
+    want.forEach(function(k, pos) { colOf[k] = pos; });
+    const iDeleted = colOf['is_deleted'];
     const inputTgl = String(tanggal || '').substring(0, 10);
     let latest = null;
-    for (let i = 1; i < data.length; i++) {
+    for (let i = 0; i < data.length; i++) {
       if (iDeleted !== undefined && String(data[i][iDeleted]) === '1') continue;
-      if (String(data[i][idx['vehicle_id']]) !== String(vehicleId)) continue;
-      let rowTgl = data[i][idx['tanggal']];
+      if (String(data[i][colOf['vehicle_id']]) !== String(vehicleId)) continue;
+      let rowTgl = data[i][colOf['tanggal']];
       if (rowTgl instanceof Date) {
         const tz = getDB().getSpreadsheetTimeZone();
         rowTgl = Utilities.formatDate(rowTgl, tz, 'yyyy-MM-dd');
@@ -166,11 +186,11 @@ function checkIncompleteJalurForVehicle(vehicleId, tanggal) {
       if (!inputTgl || rowTgl >= inputTgl) continue;
       if (!latest || rowTgl > latest.tanggal) {
         latest = {
-          id: data[i][idx['id']],
+          id: data[i][colOf['id']],
           tanggal: rowTgl,
-          plat_nomor: (idx['plat_nomor'] !== undefined) ? String(data[i][idx['plat_nomor']] || '') : '',
-          status: (idx['status'] !== undefined) ? String(data[i][idx['status']] || 'BELUM_DIISI') : 'BELUM_DIISI',
-          flazz_card_id: (idx['flazz_card_id'] !== undefined) ? String(data[i][idx['flazz_card_id']] || '') : ''
+          plat_nomor: (colOf['plat_nomor'] !== undefined) ? String(data[i][colOf['plat_nomor']] || '') : '',
+          status: (colOf['status'] !== undefined) ? String(data[i][colOf['status']] || 'BELUM_DIISI') : 'BELUM_DIISI',
+          flazz_card_id: (colOf['flazz_card_id'] !== undefined) ? String(data[i][colOf['flazz_card_id']] || '') : ''
         };
       }
     }
