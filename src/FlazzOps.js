@@ -224,6 +224,7 @@ function saveFlazzCard(cardData, userInfo) {
       assertFlazzAccess(userInfo, found.row[found.colIdx.BRANCH]);
       const r = found.rowIndex, c = colIdx;
       const curStatus = String(found.row[found.colIdx.STATUS] || '');
+      // kolom default_driver_id bisa absen di sheet lama
       const curDefault = (c.DEFAULT_DRIVER !== undefined) ? String(found.row[c.DEFAULT_DRIVER] || '') : '';
       const newDefault = String(cardData.driver_id || '');
       if (!flazzAllowDefaultChange(curStatus, curDefault, newDefault)) {
@@ -235,7 +236,7 @@ function saveFlazzCard(cardData, userInfo) {
       if (c.CARD_ROLE !== undefined) sheet.getRange(r, c.CARD_ROLE + 1).setValue(cardData.card_role || 'CADANGAN');
       sheet.getRange(r, c.BRANCH + 1).setValue(cardData.branch_id);
       // Pemegang (DRIVER) & default dikelola alur penggunaan kartu selama kartu dipakai;
-      // dari form hanya ditulis saat kartu BEBAS (tidak SEDANG_DIGUNAKAN).
+      // hanya ditulis lewat jalur edit/master saat kartu tidak sedang dipakai.
       if (curStatus !== 'SEDANG_DIGUNAKAN') {
         sheet.getRange(r, c.DRIVER + 1).setValue(cardData.driver_id || '');
         if (c.DEFAULT_DRIVER !== undefined) sheet.getRange(r, c.DEFAULT_DRIVER + 1).setValue(cardData.driver_id || '');
