@@ -381,6 +381,9 @@ populateSupirDatalist();
     if (selectFlazzTol) selectFlazzTol.value = '';
     var tolStripReset = document.getElementById('flazz_card_id_toll_strip');
     if (tolStripReset) tolStripReset.textContent = '-';
+    var mtRadios = document.getElementsByName('metode_toll');
+    for (var i = 0; i < mtRadios.length; i++) { mtRadios[i].checked = (mtRadios[i].value === 'TUNAI'); }
+    if (typeof toggleTolFlazzCardSelection === 'function') toggleTolFlazzCardSelection();
 
     if (!tgl) { populateSupirDatalist(); return; }
 

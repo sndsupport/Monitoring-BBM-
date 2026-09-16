@@ -231,21 +231,25 @@ function saveTransactionEndOfDayUnlocked(payload) {
   // memotong saldo Flazz atau meninggalkan baris parsial.
   const biayaBbmCheck = parseFloat(payload.biaya_bbm) || 0;
   const biayaTolCheck = parseFloat(payload.biaya_toll) || 0;
-  if (biayaBbmCheck > 0 && payload.metode_pembayaran === 'FLAZZ' && payload.flazz_card_id) {
-    const cardInfo = findFlazzCardBalance(payload.flazz_card_id);
-    if (cardInfo && cardInfo.balance < biayaBbmCheck) {
-      return {
-        success: false,
-        error: 'Saldo kartu Flazz (' + (cardInfo.name || payload.flazz_card_id) + ') tidak mencukupi untuk pembayaran BBM. Saldo: Rp ' + Number(cardInfo.balance).toLocaleString('id-ID') + ', Pengeluaran: Rp ' + Number(biayaBbmCheck).toLocaleString('id-ID') + '. Silakan top up Flazz terlebih dahulu.'
-      };
-    }
+  // Group Flazz card checks by card id to avoid combined BBM+toll overdrafts
+  const flazzChecks = {};
+  function addFlazzCheck(cardId, label, amount) {
+    if (!cardId || amount <= 0) return;
+    if (!flazzChecks[cardId]) flazzChecks[cardId] = { cardId, label: [], total: 0 };
+    flazzChecks[cardId].label.push(label);
+    flazzChecks[cardId].total += amount;
   }
-  if (biayaTolCheck > 0 && effMetodeToll === 'FLAZZ' && effCardToll) {
-    const cardInfoTol = findFlazzCardBalance(effCardToll);
-    if (cardInfoTol && cardInfoTol.balance < biayaTolCheck) {
+  if (payload.metode_pembayaran === 'FLAZZ') addFlazzCheck(payload.flazz_card_id, 'BBM', biayaBbmCheck);
+  if (effMetodeToll === 'FLAZZ') addFlazzCheck(effCardToll, 'tol', biayaTolCheck);
+
+  for (const cid of Object.keys(flazzChecks)) {
+    const chk = flazzChecks[cid];
+    const cardInfo = findFlazzCardBalance(cid);
+    if (!cardInfo) continue;
+    if (cardInfo.balance < chk.total) {
       return {
         success: false,
-        error: 'Saldo kartu Flazz (' + (cardInfoTol.name || effCardToll) + ') tidak mencukupi untuk pembayaran tol. Saldo: Rp ' + Number(cardInfoTol.balance).toLocaleString('id-ID') + ', Pengeluaran: Rp ' + Number(biayaTolCheck).toLocaleString('id-ID') + '. Silakan top up Flazz terlebih dahulu.'
+        error: 'Saldo kartu Flazz (' + (cardInfo.name || cid) + ') tidak mencukupi untuk ' + chk.label.join(' + ') + '. Saldo: Rp ' + Number(cardInfo.balance).toLocaleString('id-ID') + ', Total pengeluaran: Rp ' + Number(chk.total).toLocaleString('id-ID') + '. Silakan top up Flazz terlebih dahulu.'
       };
     }
   }
