@@ -76,6 +76,7 @@ function getActiveVehicles(token) {
   const iStatus = ci['status'];
   const iCabang = ci['kode_cabang'];
   const activeVehicles = [];
+  const lastSumber = lastKmSumberPerVehicle();
 
   for (let i = 1; i < data.length; i++) {
     let row = data[i];
@@ -84,8 +85,10 @@ function getActiveVehicles(token) {
       if (role !== 'SUPERADMIN' && iCabang !== undefined && row[iCabang] !== userCabang) continue;
 
       const jenisVeh = (ci['jenis_kendaraan'] !== undefined && row[ci['jenis_kendaraan']]) || 'Mobil';
+      const jenisIndikatorVeh = (ci['jenis_indikator'] !== undefined && row[ci['jenis_indikator']]) || 'DIGITAL_BAR';
+      const vehicleIdVeh = row[ci['vehicle_id']];
       activeVehicles.push({
-        vehicle_id: row[ci['vehicle_id']],
+        vehicle_id: vehicleIdVeh,
         plat_nomor: row[ci['plat_nomor']],
         nama: row[ci['nama_kendaraan']],
         jenis: jenisVeh,
@@ -95,12 +98,13 @@ function getActiveVehicles(token) {
         jumlah_bar: row[ci['jumlah_bar']],
         standar_km_l: row[ci['standar_km_l']],
         cabang: row[ci['kode_cabang']],
-        jenis_indikator: (ci['jenis_indikator'] !== undefined && row[ci['jenis_indikator']]) || 'DIGITAL_BAR',
+        jenis_indikator: jenisIndikatorVeh,
         tanggal_pajak: (ci['tanggal_pajak'] !== undefined) ? row[ci['tanggal_pajak']] : '',
         tanggal_pajak_5_tahunan: (ci['tanggal_pajak_5_tahunan'] !== undefined) ? row[ci['tanggal_pajak_5_tahunan']] : '',
         tanggal_kir: (ci['tanggal_kir'] !== undefined) ? row[ci['tanggal_kir']] : '',
         km_terakhir_ganti_oli: (ci['km_terakhir_ganti_oli'] !== undefined) ? row[ci['km_terakhir_ganti_oli']] : '',
-        interval_ganti_oli_km: (ci['interval_ganti_oli_km'] !== undefined && row[ci['interval_ganti_oli_km']] != null && String(row[ci['interval_ganti_oli_km']]) !== '') ? row[ci['interval_ganti_oli_km']] : defaultOilIntervalKm(jenisVeh)
+        interval_ganti_oli_km: (ci['interval_ganti_oli_km'] !== undefined && row[ci['interval_ganti_oli_km']] != null && String(row[ci['interval_ganti_oli_km']]) !== '') ? row[ci['interval_ganti_oli_km']] : defaultOilIntervalKm(jenisVeh),
+        odo_estimasi_terakhir: jenisIndikatorVeh === 'ANALOG_JARUM' && lastSumber[String(vehicleIdVeh)] === 'ESTIMASI'
       });
     }
   }
@@ -566,6 +570,24 @@ function currentOdoPerVehicle() {
   return out;
 }
 
+// km_sumber ('AKTUAL'/'ESTIMASI') dari trip TERAKHIR tiap kendaraan — dipakai
+// untuk warning "odometer masih rusak" di dashboard & form input harian.
+// Baris yang muncul belakangan (indeks lebih besar) menang, sama seperti
+// currentOdoPerVehicle(). Return { [vehicle_id]: 'AKTUAL' | 'ESTIMASI' }.
+function lastKmSumberPerVehicle() {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('Penggunaan_BBM');
+  if (!sheet) return {};
+  const data = sheet.getDataRange().getValues();
+  const out = {};
+  for (let i = 1; i < data.length; i++) {
+    const vid = data[i][6]; // vehicle_id = kolom index 6
+    if (vid == null || String(vid) === '') continue;
+    out[String(vid)] = data[i][29] ? String(data[i][29]) : 'AKTUAL'; // km_sumber = kolom index 29
+  }
+  return out;
+}
+
 // Reset baseline ganti oli kendaraan ke odometer saat ini.
 // Guard: SUPERADMIN penuh; PIC CABANG hanya untuk warehouse-nya.
 function oilChangeReset(vehicleId, userInfo) {
@@ -613,25 +635,24 @@ function driveThumbnail(url) {
   return m ? 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=w200' : '';
 }
 
+// Menghitung efisiensi rolling dari 7 trip terakhir yang berakhir di currIdx.
+// Frekuensi pemanggilan (tiap trip / tiap kelipatan 7) ditentukan oleh caller,
+// fungsi ini murni menghitung window-nya saja.
 function hitungEfisiensi7Riwayat(trxs, currIdx, literPerBar) {
   if (!trxs || currIdx < 0) return { efisiensi: '', label: '', isDataCukup: false };
-  
-  const tripNumber = currIdx + 1;
-  // Hanya tampilkan efisiensi setiap kelipatan 7 trip (Trip 7, 14, 21, dst)
-  if (tripNumber % 7 !== 0) {
-    return { efisiensi: '', label: '', isDataCukup: false };
-  }
 
   let recentRows = trxs.slice(currIdx - 6, currIdx + 1);
   let isDataCukup = recentRows.length === 7;
 
   let totalKm = 0;
   let totalBeli = 0;
+  let adaEstimasi = false;
   recentRows.forEach(function (r) {
-    totalKm += parseFloat(r[16]) || 0; 
-    totalBeli += parseFloat(r[18]) || 0; 
+    totalKm += parseFloat(r[16]) || 0;
+    totalBeli += parseFloat(r[18]) || 0;
+    if (String(r[29]) === 'ESTIMASI') adaEstimasi = true;
   });
-  
+
   const barAwalPertama = parseFloat(recentRows[0][11]) || 0;
   const barAkhirTerakhir = parseFloat(recentRows[recentRows.length - 1][15]) || 0;
 
@@ -639,12 +660,13 @@ function hitungEfisiensi7Riwayat(trxs, currIdx, literPerBar) {
   if (totalKonsumsi <= 0) totalKonsumsi = totalBeli;
 
   const efisiensi = (totalKonsumsi > 0 && totalKm > 0) ? (totalKm / totalKonsumsi).toFixed(2) : '';
-  const label = efisiensi ? 'Rata-rata 7 Trip' : '';
-  
-  return { 
-    efisiensi: efisiensi, 
-    label: label, 
+  const label = efisiensi ? ('Rata-rata 7 Trip' + (adaEstimasi ? ' ⚠ termasuk estimasi' : '')) : '';
+
+  return {
+    efisiensi: efisiensi,
+    label: label,
     isDataCukup: isDataCukup,
+    adaEstimasi: adaEstimasi,
     total_km: totalKm,
     total_beli: totalBeli,
     total_konsumsi: totalKonsumsi,
@@ -715,6 +737,9 @@ function getPerformaSummary(token) {
     let literPerBar = (k.kapasitas > 0 && k.jumlah_bar > 0) ? (k.kapasitas / k.jumlah_bar) : 0;
     
     for (let i = 0; i < trxs.length; i++) {
+      // Laporan performa memakai siklus 7-trip non-overlap (bukan rolling),
+      // supaya tiap baris laporan mewakili periode berbeda, tidak tumpang tindih.
+      if ((i + 1) % 7 !== 0) continue;
       let roll = hitungEfisiensi7Riwayat(trxs, i, literPerBar);
       if (roll.isDataCukup) {
         let statusEfisiensi = '';

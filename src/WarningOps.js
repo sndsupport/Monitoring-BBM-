@@ -39,7 +39,14 @@ function warningsSummary(token) {
     if (d) return d;
     return a.sisa_km - b.sisa_km;
   });
-  return { pajakKIR: pajakKIR, saldo: saldo, oli: oli };
+  var odoEstimasi = [];
+  vehs.forEach(function (v) {
+    if (!v.odo_estimasi_terakhir) return;
+    odoEstimasi.push({
+      vehicle_id: v.vehicle_id, plat_nomor: v.plat_nomor, nama_kendaraan: v.nama, cabang: v.cabang
+    });
+  });
+  return { pajakKIR: pajakKIR, saldo: saldo, oli: oli, odoEstimasi: odoEstimasi };
 }
 
 function warnDateStr(v) {

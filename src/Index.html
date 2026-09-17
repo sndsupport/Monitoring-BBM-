@@ -283,6 +283,10 @@
                       <input type='date' id='tanggal' class='form-control form-control-sm' required onchange='onLaporanDateChange(); updateLiveSummary()'>
                     </div>
                   </div>
+                  <div id='banner-odo-estimasi' class='alert alert-warning d-flex align-items-center gap-2 py-2 mb-0' style='display:none;' role='alert'>
+                    <i class='bi bi-exclamation-triangle-fill'></i>
+                    <div><small>Kendaraan ini odometernya pernah tidak terbaca pada laporan terakhir — mohon segera dilaporkan untuk perbaikan. KM masih bisa dicatat via estimasi.</small></div>
+                  </div>
                 </div>
               </div>
 
@@ -622,6 +626,10 @@
                 <div class='col-12 mb-3'>
                   <h6 class='fw-bold text-uppercase small text-muted'><i class='bi bi-droplet-half me-1'></i>Ganti Oli Kendaraan</h6>
                   <div id='dash-warn-oli' class='list-group list-group-flush'></div>
+                </div>
+                <div class='col-12 mb-3'>
+                  <h6 class='fw-bold text-uppercase small text-muted'><i class='bi bi-speedometer2 me-1'></i>Odometer Tidak Terbaca (Estimasi)</h6>
+                  <div id='dash-warn-odo' class='list-group list-group-flush'></div>
                 </div>
               </div>
             </div>

@@ -1586,7 +1586,7 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     if (content) content.style.display = 'none';
     google.script.run
       .withSuccessHandler(function(res) {
-        __warnCache = res || { pajakKIR: [], saldo: [], oli: [] };
+        __warnCache = res || { pajakKIR: [], saldo: [], oli: [], odoEstimasi: [] };
         renderDashboardWarnings();
       })
       .withFailureHandler(function(err) {
@@ -1601,7 +1601,7 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
   }
 
   function renderDashboardWarnings() {
-    var res = __warnCache || { pajakKIR: [], saldo: [], oli: [] };
+    var res = __warnCache || { pajakKIR: [], saldo: [], oli: [], odoEstimasi: [] };
     var loading = document.getElementById('dash-warn-loading');
     var content = document.getElementById('dash-warn-content');
     if (loading) loading.style.display = 'none';
@@ -1624,20 +1624,24 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     var pajak = res.pajakKIR || [];
     var saldo = res.saldo || [];
     var oli = res.oli || [];
+    var odoEst = res.odoEstimasi || [];
     if (scope) {
       pajak = pajak.filter(function(r) { return String(r.cabang) === String(scope); });
       saldo = saldo.filter(function(r) { return String(r.cabang) === String(scope); });
       oli = oli.filter(function(r) { return String(r.cabang) === String(scope); });
+      odoEst = odoEst.filter(function(r) { return String(r.cabang) === String(scope); });
     }
-    var total = pajak.length + saldo.length + oli.length;
+    var total = pajak.length + saldo.length + oli.length + odoEst.length;
     var countEl = document.getElementById('dash-warn-count');
     if (countEl) countEl.textContent = total;
     var p = document.getElementById('dash-warn-pajak');
     var s = document.getElementById('dash-warn-saldo');
     var oEl = document.getElementById('dash-warn-oli');
+    var odEl = document.getElementById('dash-warn-odo');
     if (p) p.innerHTML = warnPajakItems(pajak);
     if (s) s.innerHTML = warnSaldoItems(saldo);
     if (oEl) oEl.innerHTML = warnOliItems(oli);
+    if (odEl) odEl.innerHTML = warnOdoItems(odoEst);
   }
 
   function warnBadge(status) {
@@ -1700,6 +1704,19 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
         '<div><div class="fw-bold">' + esc(r.plat_nomor) + ' - ' + esc(r.nama_kendaraan) + cab + '</div>' +
         '<div class="small text-muted">' + warnOilBadge(r.status) + ' ' + esc(ket) + ' | tempuh ' + r.tempuh_km + ' KM</div></div>' +
         btn + '</div>';
+    });
+    return html;
+  }
+
+  function warnOdoItems(odoEst) {
+    if (!odoEst.length) return '<div class="text-muted small py-2">Semua aman - tidak ada kendaraan dengan odometer tidak terbaca.</div>';
+    var html = '';
+    odoEst.forEach(function(r) {
+      var cab = userRole === 'SUPERADMIN' ? ' <span class="badge text-bg-light border">' + esc(r.cabang) + '</span>' : '';
+      html += '<div class="list-group-item d-flex justify-content-between align-items-center">' +
+        '<div><div class="fw-bold">' + esc(r.plat_nomor) + ' - ' + esc(r.nama_kendaraan) + cab + '</div>' +
+        '<div class="small text-muted"><span class="badge text-bg-warning">ESTIMASI</span> KM trip terakhir dihitung dari estimasi, odometer belum terbaca normal — mohon segera diperbaiki.</div></div>' +
+        '</div>';
     });
     return html;
   }
@@ -2611,6 +2628,12 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
       var el = document.getElementById(id);
       if (el) el.style.display = isJarum ? '' : 'none';
     });
+
+    var banner = document.getElementById('banner-odo-estimasi');
+    if (banner) {
+      var vehForBanner = found || ((vehSel && vehSel.value) ? (allVehicles || []).find(function (v) { return v.vehicle_id === vehSel.value; }) : null);
+      banner.style.display = (vehForBanner && vehForBanner.odo_estimasi_terakhir) ? '' : 'none';
+    }
     if (!isJarum) {
       ['chk_km_awal', 'chk_km_akhir'].forEach(function (id) {
         var c = document.getElementById(id);
