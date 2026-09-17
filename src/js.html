@@ -1,6 +1,7 @@
 ﻿<script>
   let formDataPayload = {};
   let userRole = '';
+  let userCabang = '';
   let userInfo = null;
   window.masterData = { kendaraan: [], cabang: [], supir: [], bbm: [], pengguna: [] };
   let allVehicles = [];
@@ -168,6 +169,7 @@ document.getElementById('page-login').style.display = 'flex';
 
         window.__bbmInitData = data;
         userRole = data.role;
+        userCabang = data.cabang || '';
         let displayRole = userRole === 'PIC CABANG' ? 'Admin' : userRole;
         var userSummary = '<span class="navbar-text text-light mb-0" style="display:block; font-size:0.95rem; font-weight:600; line-height:1.2;">' + esc(data.user) + '</span>' +
                           '<span class="navbar-text text-light mb-0" style="display:block; font-size:0.72rem; font-weight:400; opacity:0.9; line-height:1.2;">' + esc(displayRole) + '</span>';
@@ -1584,7 +1586,7 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     if (content) content.style.display = 'none';
     google.script.run
       .withSuccessHandler(function(res) {
-        __warnCache = res || { pajakKIR: [], saldo: [] };
+        __warnCache = res || { pajakKIR: [], saldo: [], oli: [] };
         renderDashboardWarnings();
       })
       .withFailureHandler(function(err) {
@@ -1599,7 +1601,7 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
   }
 
   function renderDashboardWarnings() {
-    var res = __warnCache || { pajakKIR: [], saldo: [] };
+    var res = __warnCache || { pajakKIR: [], saldo: [], oli: [] };
     var loading = document.getElementById('dash-warn-loading');
     var content = document.getElementById('dash-warn-content');
     if (loading) loading.style.display = 'none';
@@ -1621,17 +1623,21 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     var scope = (userRole === 'SUPERADMIN' && sel) ? sel.value : '';
     var pajak = res.pajakKIR || [];
     var saldo = res.saldo || [];
+    var oli = res.oli || [];
     if (scope) {
       pajak = pajak.filter(function(r) { return String(r.cabang) === String(scope); });
       saldo = saldo.filter(function(r) { return String(r.cabang) === String(scope); });
+      oli = oli.filter(function(r) { return String(r.cabang) === String(scope); });
     }
-    var total = pajak.length + saldo.length;
+    var total = pajak.length + saldo.length + oli.length;
     var countEl = document.getElementById('dash-warn-count');
     if (countEl) countEl.textContent = total;
     var p = document.getElementById('dash-warn-pajak');
     var s = document.getElementById('dash-warn-saldo');
+    var oEl = document.getElementById('dash-warn-oli');
     if (p) p.innerHTML = warnPajakItems(pajak);
     if (s) s.innerHTML = warnSaldoItems(saldo);
+    if (oEl) oEl.innerHTML = warnOliItems(oli);
   }
 
   function warnBadge(status) {
@@ -1670,6 +1676,44 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
         '<div class="text-danger fw-bold">Rp ' + Number(c.last_balance).toLocaleString('id-ID') + '</div></a>';
     });
     return html;
+  }
+
+  function warnOilBadge(status) {
+    var map = { GANTI_OLI: 'danger', WASPADA: 'warning' };
+    return '<span class="badge text-bg-' + (map[status] || 'secondary') + '">' + esc(status) + '</span>';
+  }
+
+  function warnOliItems(oli) {
+    if (!oli.length) return '<div class="text-muted small py-2">Semua aman - jarak tempuh oli seluruh kendaraan masih di bawah ambang.</div>';
+    var html = '';
+    oli.forEach(function(r) {
+      var cab = userRole === 'SUPERADMIN' ? ' <span class="badge text-bg-light border">' + esc(r.cabang) + '</span>' : '';
+      var ket = r.status === 'GANTI_OLI'
+        ? ('sudah lewat ' + Math.abs(r.sisa_km) + ' KM dari interval ' + r.interval_km + ' KM')
+        : ('sisa ' + r.sisa_km + ' KM lagi (interval ' + r.interval_km + ' KM)');
+      var canReset = userRole === 'SUPERADMIN' || (userRole === 'PIC CABANG' && String(r.cabang) === String(userCabang));
+      var btn = canReset
+        ? ("<button class='btn btn-sm btn-outline-success ms-2' onclick='resetOilChangeClick(" + JSON.stringify(String(r.vehicle_id)) + ")'>" +
+           "<i class='bi bi-droplet-half me-1'></i>Oli Diganti</button>")
+        : '';
+      html += '<div class="list-group-item d-flex justify-content-between align-items-center">' +
+        '<div><div class="fw-bold">' + esc(r.plat_nomor) + ' - ' + esc(r.nama_kendaraan) + cab + '</div>' +
+        '<div class="small text-muted">' + warnOilBadge(r.status) + ' ' + esc(ket) + ' | tempuh ' + r.tempuh_km + ' KM</div></div>' +
+        btn + '</div>';
+    });
+    return html;
+  }
+
+  function resetOilChangeClick(vehicleId) {
+    showConfirmModal({ message: 'Tandai oli kendaraan ini sudah diganti? Baseline akan di-set ke odometer saat ini.' }, function() {
+      google.script.run.withSuccessHandler(function(res) {
+        showToast(res.msg, 'success');
+        loadDashboardWarnings(true);
+        if (typeof loadMasterData === 'function') loadMasterData('kendaraan');
+      }).withFailureHandler(function(err) {
+        showToast('Gagal: ' + (err && err.message || err), 'error');
+      }).resetOilChange(vehicleId, bbmToken());
+    });
   }
 
   function renderDashboardQuickAccess() {
@@ -2708,6 +2752,8 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     let v = window.masterData.kendaraan.find(x => x.vehicle_id === id);
     if(v) {
       document.getElementById('m_edit_id_kendaraan').value = v.vehicle_id;
+      if(document.getElementById('m_interval_ganti_oli')) document.getElementById('m_interval_ganti_oli').value = v.interval_ganti_oli_km || 5000;
+      if(document.getElementById('m_km_ganti_oli')) document.getElementById('m_km_ganti_oli').value = v.km_terakhir_ganti_oli || '';
       document.getElementById('m_plat').value = v.plat_nomor;
       document.getElementById('m_nama_kendaraan').value = v.nama;
       document.getElementById('m_jenis_kendaraan').value = v.jenis;
@@ -2831,6 +2877,8 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
       tanggal_pajak: document.getElementById('m_tanggal_pajak') ? document.getElementById('m_tanggal_pajak').value : '',
       tanggal_pajak_5_tahunan: document.getElementById('m_tanggal_pajak_5') ? document.getElementById('m_tanggal_pajak_5').value : '',
       tanggal_kir: document.getElementById('m_tanggal_kir') ? document.getElementById('m_tanggal_kir').value : '',
+      interval_ganti_oli_km: document.getElementById('m_interval_ganti_oli') ? (parseFloat(document.getElementById('m_interval_ganti_oli').value) || 5000) : 5000,
+      km_terakhir_ganti_oli: document.getElementById('m_km_ganti_oli') ? document.getElementById('m_km_ganti_oli').value : '',
       cabang: document.getElementById('m_cabang').value
     };
     let editId = document.getElementById('m_edit_id_kendaraan').value;
