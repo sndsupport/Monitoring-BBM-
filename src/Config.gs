@@ -53,7 +53,7 @@ function cacheGet(key) {
   if (String(v).indexOf(CACHE_GZ_PREFIX) === 0) {
     try {
       var bytes = Utilities.base64Decode(String(v).substring(CACHE_GZ_PREFIX.length));
-      return JSON.parse(Utilities.ungzip(Utilities.newBlob(bytes)).getDataAsString());
+      return JSON.parse(Utilities.ungzip(Utilities.newBlob(bytes).setContentType('application/x-gzip')).getDataAsString());
     } catch (e) {
       return null;
     }
