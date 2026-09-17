@@ -458,6 +458,9 @@ function updateJalur(data, token) {
       if (data.driver2_id !== undefined && data.driver2_id) assertOwnWarehouse(userInfo, driverBranchById(data.driver2_id), 'driver kedua');
       if (data.vehicle_id !== undefined) assertOwnWarehouse(userInfo, (vNew && vNew.cabang) ? vNew.cabang : vehicleBranchById(data.vehicle_id), 'kendaraan');
       if (data.etoll_card_id) assertFlazzAccess(userInfo, flazzCardBranch(data.etoll_card_id));
+      // Cascade penyerahan kartu (returnFlazzUsage/autoCreateFlazzUsage) mengubah status
+      // kartu; untuk PIC kartu lama yang dikembalikan juga wajib cabangnya sendiri.
+      if (oldCard && oldCard !== newCard) assertFlazzAccess(userInfo, flazzCardBranch(oldCard));
     }
 
     // Balance gate: bila kendaraan diganti, kendaraan BARU juga harus lolos gate
@@ -496,9 +499,7 @@ function updateJalur(data, token) {
       if (idx['flazz_card_name'] !== undefined) sheet.getRange(found.rowIndex, idx['flazz_card_name'] + 1).setValue(data.etoll_card_name || '');
     }
     // Sinkronkan penyerahan kartu: kembalikan kartu lama, serahkan kartu baru.
-    // Cascade mengubah status kartu; untuk PIC kedua kartu wajib cabangnya sendiri.
     if (oldCard !== newCard) {
-      if (oldCard && updateRole !== 'SUPERADMIN') assertFlazzAccess(userInfo, flazzCardBranch(oldCard));
       if (oldCard) returnFlazzUsage(oldCard);
       if (newCard) {
         const namaDriver = data.driver_id !== undefined ? jalurDriverNameById(data.driver_id) : String(found.row[idx['nama_driver']] || '');
