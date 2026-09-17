@@ -451,6 +451,15 @@ function updateJalur(data, token) {
       throw new Error('Kartu etoll tidak ditemukan.');
     }
 
+    // Scoping referensi-baru (mirror saveJalur): PIC hanya boleh memindahkan jalur
+    // miliknya ke kendaraan/supir/kartu etoll cabang sendiri; SUPERADMIN bebas.
+    if (updateRole !== 'SUPERADMIN') {
+      if (data.driver_id !== undefined && data.driver_id) assertOwnWarehouse(userInfo, driverBranchById(data.driver_id), 'driver utama');
+      if (data.driver2_id !== undefined && data.driver2_id) assertOwnWarehouse(userInfo, driverBranchById(data.driver2_id), 'driver kedua');
+      if (data.vehicle_id !== undefined) assertOwnWarehouse(userInfo, (vNew && vNew.cabang) ? vNew.cabang : vehicleBranchById(data.vehicle_id), 'kendaraan');
+      if (data.etoll_card_id) assertFlazzAccess(userInfo, flazzCardBranch(data.etoll_card_id));
+    }
+
     // Balance gate: bila kendaraan diganti, kendaraan BARU juga harus lolos gate
     // yang sama seperti saat membuat jalur baru (sebelumnya hanya dicek di saveJalur,
     // sehingga edit bisa memindahkan jalur ke kendaraan yang masih terblokir).
@@ -486,8 +495,10 @@ function updateJalur(data, token) {
       sheet.getRange(found.rowIndex, idx['flazz_card_id'] + 1).setValue(data.etoll_card_id || '');
       if (idx['flazz_card_name'] !== undefined) sheet.getRange(found.rowIndex, idx['flazz_card_name'] + 1).setValue(data.etoll_card_name || '');
     }
-    // Sinkronkan penyerahan kartu: kembalikan kartu lama, serahkan kartu baru
+    // Sinkronkan penyerahan kartu: kembalikan kartu lama, serahkan kartu baru.
+    // Cascade mengubah status kartu; untuk PIC kedua kartu wajib cabangnya sendiri.
     if (oldCard !== newCard) {
+      if (oldCard && updateRole !== 'SUPERADMIN') assertFlazzAccess(userInfo, flazzCardBranch(oldCard));
       if (oldCard) returnFlazzUsage(oldCard);
       if (newCard) {
         const namaDriver = data.driver_id !== undefined ? jalurDriverNameById(data.driver_id) : String(found.row[idx['nama_driver']] || '');
@@ -522,7 +533,9 @@ function deleteJalur(id, token) {
       assertOwnWarehouse(userInfo, (idx['kode_cabang'] !== undefined) ? String(found.row[idx['kode_cabang']] || '') : '', 'Jadwal pengiriman');
     }
     const cardId = (idx['flazz_card_id'] !== undefined) ? String(found.row[idx['flazz_card_id']] || '') : '';
-    // Kembalikan kartu etoll yang diserahkan agar tidak menggantung
+    // Kembalikan kartu etoll yang diserahkan agar tidak menggantung.
+    // Cascade mengubah status kartu; untuk PIC kartu wajib cabangnya sendiri.
+    if (cardId && deleteRole !== 'SUPERADMIN') assertFlazzAccess(userInfo, flazzCardBranch(cardId));
     if (cardId) returnFlazzUsage(cardId);
     // Hard delete: hapus baris secara fisik dari sheet
     sheet.deleteRow(found.rowIndex);

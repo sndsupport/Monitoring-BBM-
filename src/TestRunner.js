@@ -182,6 +182,17 @@ function __runSecurityIsolationTests() {
     results.push(__expectEqual(true, false, 'PIC jalur cabang sendiri -> lolos scoping (gagal: ' + e.message + ')'));
   }
 
+  // updateJalur/deleteJalur kini men-scope referensi-baru & cascade kartu (mirror saveJalur):
+  // PIC hanya boleh menukar/menyerahkan kartu, kendaraan, dan supir cabang sendiri.
+  // Jalur penuh dgn baris nyata (swap ke referensi asing ditolak) divalidasi suite Apps Script.
+  results.push(__expectDenied(function() { return assertFlazzAccess(pic, 'CBG-BDG'); }, 'kartu warehouse', 'PIC kartu Flazz cabang lain -> ditolak scoping'));
+  try {
+    assertFlazzAccess(pic, 'CBG-JKT');
+    results.push(__expectEqual(true, true, 'PIC kartu Flazz cabang sendiri -> lolos scoping'));
+  } catch (e) {
+    results.push(__expectEqual(true, false, 'PIC kartu Flazz cabang sendiri -> lolos scoping (gagal: ' + e.message + ')'));
+  }
+
   // Regresi celah pemalsuan identitas (audit BUG-001/002/003): pemanggilan langsung
   // dengan objek userInfo palsu atau tanpa token sama sekali HARUS ditolak sebagai
   // sesi tidak valid, bukan diterima begitu saja seperti sebelum perbaikan.
