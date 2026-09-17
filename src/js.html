@@ -1947,7 +1947,7 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
         "<td class='text-center text-nowrap'>" + (row.isi_bbm > 0 ? esc(row.isi_bbm) + " L" : "-") + "</td>" +
         "<td class='text-center'>" + (row.status_efisiensi === 'Data Belum Cukup' ? efisiensiBadge(row.status_efisiensi) : (row.efisiensi ? esc(row.efisiensi) + " KM/L" + (row.efisiensi_label ? " <small class='text-muted'>(" + esc(row.efisiensi_label) + ")</small>" : "") + efisiensiBadge(row.status_efisiensi) : "-")) + "</td>" +
         "<td class='text-end text-nowrap'>" +
-          (userRole === 'SUPERADMIN'
+          (userRole === 'SUPERADMIN' || userRole === 'PIC CABANG'
             ? "<button class='btn btn-sm btn-outline-primary' title='Edit Laporan' aria-label='Edit laporan' onclick='editDaily(" + JSON.stringify(row.transaction_id) + ")'><i class='bi bi-pencil'></i></button> " +
               "<button class='btn btn-sm btn-outline-danger' title='Hapus Laporan' aria-label='Hapus laporan' onclick='deleteDaily(" + JSON.stringify(row.transaction_id) + ")'><i class='bi bi-trash'></i></button>"
             : "-") +
@@ -1986,7 +1986,7 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
           "<div class='d-flex justify-content-between align-items-center'>" +
             "<small><i class='bi bi-fuel-pump me-1'></i> " + (row.status_efisiensi === 'Data Belum Cukup' ? efisiensiBadge(row.status_efisiensi) : (row.efisiensi ? esc(row.efisiensi) + " KM/L" + (row.efisiensi_label ? " <small class='text-muted'>(" + esc(row.efisiensi_label) + ")</small>" : "") + efisiensiBadge(row.status_efisiensi) : "-")) + "</small>" +
           "</div>" +
-          (userRole === 'SUPERADMIN'
+          (userRole === 'SUPERADMIN' || userRole === 'PIC CABANG'
             ? "<div class='d-flex justify-content-end gap-2 mt-2'>" +
               "<button class='btn btn-sm btn-outline-primary' onclick='editDaily(" + JSON.stringify(row.transaction_id) + ")'><i class='bi bi-pencil'></i> Edit</button> " +
               "<button class='btn btn-sm btn-outline-danger' onclick='deleteDaily(" + JSON.stringify(row.transaction_id) + ")'><i class='bi bi-trash'></i> Hapus</button>" +
@@ -2130,7 +2130,7 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
   }
 
   function editDaily(id) {
-    if (userRole !== 'SUPERADMIN') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
+    if (userRole !== 'SUPERADMIN' && userRole !== 'PIC CABANG') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
     let row = (window.__recent || []).find(r => String(r.transaction_id) === String(id));
     if(!row) return showToast('Data tidak ditemukan', 'error');
     loadEditInForm(row);
@@ -2139,7 +2139,7 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
   // Ketika tombol Edit history diklik, kembali ke form input dengan seluruh
   // field terisi data laporan lama. Pengguna mengoreksi langsung di form utama.
   function enterEditMode(txId, supirName) {
-    if (userRole !== 'SUPERADMIN') return;
+    if (userRole !== 'SUPERADMIN' && userRole !== 'PIC CABANG') return;
     __editingTxId = txId;
     __editingSupir = supirName || '';
     var banner = document.getElementById('edit-mode-banner');
@@ -2457,7 +2457,7 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     }).apiEditDailyTransaction(payload, bbmToken());
   }
   function deleteDaily(id){
-    if (userRole !== 'SUPERADMIN') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
+    if (userRole !== 'SUPERADMIN' && userRole !== 'PIC CABANG') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
     showConfirmModal({ message: 'Yakin menghapus transaksi BBM ini? Jika ber-Flazz, saldo kartu akan dikembalikan.' }, function() {
     google.script.run.withSuccessHandler(res => {
       if(res.success){ 
