@@ -156,7 +156,8 @@ function __runSecurityIsolationTests() {
   try { results.push(__expectEqual(Array.isArray(getActiveVehicles(picToken)), true, 'getActiveVehicles token PIC valid -> array')); }
   catch (e) { results.push(__expectTrue(false, 'getActiveVehicles PIC tidak melempar: ' + e.message)); }
 
-  // PIC read-only: aksi operasional ditolak sebelum mutasi apa pun.
+  // Kontrak akses operasional: PIC lolos gate role namun dibatasi ke cabang sendiri;
+  // aksi tertentu (top-up/Flazz/dll) tetap SUPERADMIN-only.
   results.push(__expectDenied(function() { return editDailyTransactionUnlocked({}, pic); }, 'Transaksi tidak ditemukan', 'PIC edit laporan -> lolos gate role, divalidasi data'));
   results.push(__expectDenied(function() { return deleteDailyTransactionUnlocked('###TAK-ADA###', pic); }, 'Transaksi tidak ditemukan', 'PIC hapus laporan -> lolos gate role, divalidasi data'));
   results.push(__expectDenied(function() { return assertTransactionAccess(pic, 'CBG-BDG'); }, 'hanya dapat mengelola transaksi warehouse', 'PIC transaksi cabang lain -> ditolak scoping'));
@@ -169,8 +170,17 @@ function __runSecurityIsolationTests() {
   results.push(__expectDenied(function() { return saveFlazzTopUpUnlocked({ userInfo: pic }); }, 'Akses ditolak: Anda hanya dapat mengelola kartu warehouse', 'PIC top up tanpa kartu -> ditolak scoping cabang'));
   results.push(__expectDenied(function() { return deleteFlazzTopUpUnlocked('###TAK-ADA###', pic); }, 'SUPERADMIN', 'PIC hapus top up Flazz -> ditolak'));
   results.push(__expectDenied(function() { return saveFlazzUsageUnlocked({ userInfo: pic }); }, 'SUPERADMIN', 'PIC serah kartu Flazz -> ditolak'));
-  results.push(__expectDenied(function() { return updateJalur({ id: '###TAK-ADA###' }, picToken); }, 'SUPERADMIN', 'PIC update jalur -> ditolak'));
-  results.push(__expectDenied(function() { return deleteJalur('###TAK-ADA###', picToken); }, 'SUPERADMIN', 'PIC hapus jalur -> ditolak'));
+  results.push(__expectDenied(function() { return updateJalur({ id: '###TAK-ADA###' }, picToken); }, 'Jadwal tidak ditemukan', 'PIC update jalur -> lolos gate role, divalidasi data'));
+  results.push(__expectDenied(function() { return deleteJalur('###TAK-ADA###', picToken); }, 'Jadwal tidak ditemukan', 'PIC hapus jalur -> lolos gate role, divalidasi data'));
+  results.push(__expectDenied(function() {
+    if (assertMasterAccess(pic, 'uji') !== 'SUPERADMIN') assertOwnWarehouse(pic, 'CBG-BDG', 'Jadwal pengiriman');
+  }, 'tidak berada di warehouse', 'PIC jalur cabang lain -> ditolak scoping'));
+  try {
+    assertOwnWarehouse(pic, 'CBG-JKT');
+    results.push(__expectEqual(true, true, 'PIC jalur cabang sendiri -> lolos scoping'));
+  } catch (e) {
+    results.push(__expectEqual(true, false, 'PIC jalur cabang sendiri -> lolos scoping (gagal: ' + e.message + ')'));
+  }
 
   // Regresi celah pemalsuan identitas (audit BUG-001/002/003): pemanggilan langsung
   // dengan objek userInfo palsu atau tanpa token sama sekali HARUS ditolak sebagai

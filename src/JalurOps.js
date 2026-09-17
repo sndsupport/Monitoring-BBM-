@@ -422,12 +422,15 @@ function saveJalur(payload, token) {
 function updateJalur(data, token) {
   try {
     const userInfo = requireUser(token);
-    assertSuperadminOnly(userInfo, 'memperbarui jadwal pengiriman');
+    const updateRole = assertMasterAccess(userInfo, 'memperbarui jadwal pengiriman');
     const sheet = jalurSheet();
     if (!sheet) throw new Error('Sheet Jalur_Pengiriman tidak ditemukan.');
     const found = findJalurRow(sheet, data.id);
     if (!found) throw new Error('Jadwal tidak ditemukan.');
     const idx = found.idx;
+    if (updateRole !== 'SUPERADMIN') {
+      assertOwnWarehouse(userInfo, (idx['kode_cabang'] !== undefined) ? String(found.row[idx['kode_cabang']] || '') : '', 'Jadwal pengiriman');
+    }
     const oldCard = (idx['flazz_card_id'] !== undefined) ? String(found.row[idx['flazz_card_id']] || '') : '';
     const newCard = data.etoll_card_id !== undefined ? String(data.etoll_card_id || '') : oldCard;
 
@@ -509,12 +512,15 @@ function updateJalur(data, token) {
 function deleteJalur(id, token) {
   try {
     const userInfo = requireUser(token);
-    assertSuperadminOnly(userInfo, 'menghapus jadwal pengiriman');
+    const deleteRole = assertMasterAccess(userInfo, 'menghapus jadwal pengiriman');
     const sheet = jalurSheet();
     if (!sheet) throw new Error('Sheet Jalur_Pengiriman tidak ditemukan.');
     const found = findJalurRow(sheet, id);
     if (!found) throw new Error('Jadwal tidak ditemukan.');
     const idx = found.idx;
+    if (deleteRole !== 'SUPERADMIN') {
+      assertOwnWarehouse(userInfo, (idx['kode_cabang'] !== undefined) ? String(found.row[idx['kode_cabang']] || '') : '', 'Jadwal pengiriman');
+    }
     const cardId = (idx['flazz_card_id'] !== undefined) ? String(found.row[idx['flazz_card_id']] || '') : '';
     // Kembalikan kartu etoll yang diserahkan agar tidak menggantung
     if (cardId) returnFlazzUsage(cardId);
