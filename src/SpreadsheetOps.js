@@ -97,7 +97,9 @@ function getActiveVehicles(token) {
         jenis_indikator: (ci['jenis_indikator'] !== undefined && row[ci['jenis_indikator']]) || 'DIGITAL_BAR',
         tanggal_pajak: (ci['tanggal_pajak'] !== undefined) ? row[ci['tanggal_pajak']] : '',
         tanggal_pajak_5_tahunan: (ci['tanggal_pajak_5_tahunan'] !== undefined) ? row[ci['tanggal_pajak_5_tahunan']] : '',
-        tanggal_kir: (ci['tanggal_kir'] !== undefined) ? row[ci['tanggal_kir']] : ''
+        tanggal_kir: (ci['tanggal_kir'] !== undefined) ? row[ci['tanggal_kir']] : '',
+        km_terakhir_ganti_oli: (ci['km_terakhir_ganti_oli'] !== undefined) ? row[ci['km_terakhir_ganti_oli']] : '',
+        interval_ganti_oli_km: (ci['interval_ganti_oli_km'] !== undefined && row[ci['interval_ganti_oli_km']] != null && String(row[ci['interval_ganti_oli_km']]) !== '') ? row[ci['interval_ganti_oli_km']] : 5000
       });
     }
   }
@@ -544,6 +546,23 @@ function getLastTransactionForVehicle(vehicleId) {
     }
   }
   return null;
+}
+
+// Odometer terkini TIAP kendaraan dalam satu pembacaan sheet Penggunaan_BBM.
+// Baris yang muncul belakangan (indeks lebih besar) menang — konsisten dengan
+// getLastTransactionForVehicle yang scan dari bawah. Return { [vehicle_id]: km_akhir }.
+function currentOdoPerVehicle() {
+  const ss = getDB();
+  const sheet = ss.getSheetByName('Penggunaan_BBM');
+  if (!sheet) return {};
+  const data = sheet.getDataRange().getValues();
+  const out = {};
+  for (let i = 1; i < data.length; i++) {
+    const vid = data[i][6];       // vehicle_id = kolom index 6
+    const v = parseFloat(data[i][14]); // km_akhir_confirmed = index 14
+    if (vid != null && String(vid) !== '' && !isNaN(v)) out[String(vid)] = v;
+  }
+  return out;
 }
 
 function buildOdoWarning(kmAwalBaru, prevKmAkhir, prevTanggal) {
@@ -1334,7 +1353,7 @@ function insertKendaraan(data, token) {
   return withLock('master-kendaraan', function() {
     const ss = getDB();
     let id = 'V-' + new Date().getTime();
-    ss.getSheetByName('Kendaraan').appendRow([id, data.plat, data.nama, data.jenis || 'Mobil', data.merk || '', data.model || '', data.kapasitas_tangki || '', data.jumlah_bar || '', data.standar_km_l || '', data.cabang, 'Aktif', data.jenis_indikator || 'DIGITAL_BAR', data.tanggal_pajak || '', data.tanggal_pajak_5_tahunan || '', data.tanggal_kir || '']);
+    ss.getSheetByName('Kendaraan').appendRow([id, data.plat, data.nama, data.jenis || 'Mobil', data.merk || '', data.model || '', data.kapasitas_tangki || '', data.jumlah_bar || '', data.standar_km_l || '', data.cabang, 'Aktif', data.jenis_indikator || 'DIGITAL_BAR', data.tanggal_pajak || '', data.tanggal_pajak_5_tahunan || '', data.tanggal_kir || '', data.km_terakhir_ganti_oli || '', data.interval_ganti_oli_km || 5000]);
     logAudit(userInfo, 'CREATE', 'master', 'Kendaraan ' + id, null, { vehicle_id: id, plat: data.plat, nama: data.nama, cabang: data.cabang });
     return { msg: 'Kendaraan Berhasil Ditambahkan' };
   });
@@ -1526,6 +1545,12 @@ function updateKendaraan(data, token) {
 
         const iKir = hd.indexOf('tanggal_kir');
         if (iKir > -1) sheet.getRange(i + 1, iKir + 1).setValue(data.tanggal_kir || '');
+
+        const iKmOli = hd.indexOf('km_terakhir_ganti_oli');
+        if (iKmOli > -1) sheet.getRange(i + 1, iKmOli + 1).setValue(data.km_terakhir_ganti_oli || '');
+
+        const iIntervalOli = hd.indexOf('interval_ganti_oli_km');
+        if (iIntervalOli > -1) sheet.getRange(i + 1, iIntervalOli + 1).setValue(data.interval_ganti_oli_km || 5000);
 
         logAudit(userInfo, 'EDIT', 'master', 'Kendaraan ' + data.edit_id,
           { plat: values[i][1], nama: values[i][2] },
