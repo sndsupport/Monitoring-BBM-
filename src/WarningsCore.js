@@ -51,15 +51,22 @@ function warnCardIsLow(card) {
 // GANTI OLI — pure. warnOilStatus(veh, currentKm) mengembalikan null
 // bila tidak memenuhi ambang, atau objek berstatus WASPADA/GANTI_OLI.
 // veh memakai field getActiveVehicles + kolom km_terakhir_ganti_oli /
-// interval_ganti_oli_km (default 5000).
+// interval_ganti_oli_km (default: 3000 untuk Motor, 5000 selain itu).
 // ==========================================
 var OIL_WASPADA_BEFORE_KM = 500;
+var OIL_INTERVAL_MOTOR_KM = 3000;
+var OIL_INTERVAL_DEFAULT_KM = 5000;
+
+// Motor butuh ganti oli lebih sering daripada mobil.
+function defaultOilIntervalKm(jenis) {
+  return String(jenis || '').toLowerCase().indexOf('motor') !== -1 ? OIL_INTERVAL_MOTOR_KM : OIL_INTERVAL_DEFAULT_KM;
+}
 
 function warnOilStatus(veh, currentKm) {
   var baseline = parseFloat(veh.km_terakhir_ganti_oli);
   if (!baseline || baseline < 0) return null;
   var interval = parseFloat(veh.interval_ganti_oli_km);
-  if (!interval || isNaN(interval) || interval <= 0) interval = 5000;
+  if (!interval || isNaN(interval) || interval <= 0) interval = defaultOilIntervalKm(veh.jenis);
   var km = parseFloat(currentKm);
   if (isNaN(km)) km = baseline; // belum ada transaksi sejak terakhir ganti -> tempuh 0
   var tempuh = Math.max(0, km - baseline);

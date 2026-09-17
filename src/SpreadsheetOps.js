@@ -83,11 +83,12 @@ function getActiveVehicles(token) {
       // Filter cabang jika role bukan SUPERADMIN
       if (role !== 'SUPERADMIN' && iCabang !== undefined && row[iCabang] !== userCabang) continue;
 
+      const jenisVeh = (ci['jenis_kendaraan'] !== undefined && row[ci['jenis_kendaraan']]) || 'Mobil';
       activeVehicles.push({
         vehicle_id: row[ci['vehicle_id']],
         plat_nomor: row[ci['plat_nomor']],
         nama: row[ci['nama_kendaraan']],
-        jenis: (ci['jenis_kendaraan'] !== undefined && row[ci['jenis_kendaraan']]) || 'Mobil',
+        jenis: jenisVeh,
         merk: row[ci['merk']],
         model: row[ci['model']],
         kapasitas_tangki: row[ci['kapasitas_tangki']],
@@ -99,7 +100,7 @@ function getActiveVehicles(token) {
         tanggal_pajak_5_tahunan: (ci['tanggal_pajak_5_tahunan'] !== undefined) ? row[ci['tanggal_pajak_5_tahunan']] : '',
         tanggal_kir: (ci['tanggal_kir'] !== undefined) ? row[ci['tanggal_kir']] : '',
         km_terakhir_ganti_oli: (ci['km_terakhir_ganti_oli'] !== undefined) ? row[ci['km_terakhir_ganti_oli']] : '',
-        interval_ganti_oli_km: (ci['interval_ganti_oli_km'] !== undefined && row[ci['interval_ganti_oli_km']] != null && String(row[ci['interval_ganti_oli_km']]) !== '') ? row[ci['interval_ganti_oli_km']] : 5000
+        interval_ganti_oli_km: (ci['interval_ganti_oli_km'] !== undefined && row[ci['interval_ganti_oli_km']] != null && String(row[ci['interval_ganti_oli_km']]) !== '') ? row[ci['interval_ganti_oli_km']] : defaultOilIntervalKm(jenisVeh)
       });
     }
   }
@@ -1383,7 +1384,7 @@ function insertKendaraan(data, token) {
   return withLock('master-kendaraan', function() {
     const ss = getDB();
     let id = 'V-' + new Date().getTime();
-    ss.getSheetByName('Kendaraan').appendRow([id, data.plat, data.nama, data.jenis || 'Mobil', data.merk || '', data.model || '', data.kapasitas_tangki || '', data.jumlah_bar || '', data.standar_km_l || '', data.cabang, 'Aktif', data.jenis_indikator || 'DIGITAL_BAR', data.tanggal_pajak || '', data.tanggal_pajak_5_tahunan || '', data.tanggal_kir || '', data.km_terakhir_ganti_oli || '', data.interval_ganti_oli_km || 5000]);
+    ss.getSheetByName('Kendaraan').appendRow([id, data.plat, data.nama, data.jenis || 'Mobil', data.merk || '', data.model || '', data.kapasitas_tangki || '', data.jumlah_bar || '', data.standar_km_l || '', data.cabang, 'Aktif', data.jenis_indikator || 'DIGITAL_BAR', data.tanggal_pajak || '', data.tanggal_pajak_5_tahunan || '', data.tanggal_kir || '', data.km_terakhir_ganti_oli || '', data.interval_ganti_oli_km || defaultOilIntervalKm(data.jenis)]);
     logAudit(userInfo, 'CREATE', 'master', 'Kendaraan ' + id, null, { vehicle_id: id, plat: data.plat, nama: data.nama, cabang: data.cabang });
     return { msg: 'Kendaraan Berhasil Ditambahkan' };
   });
@@ -1580,7 +1581,7 @@ function updateKendaraan(data, token) {
         if (iKmOli > -1) sheet.getRange(i + 1, iKmOli + 1).setValue(data.km_terakhir_ganti_oli || '');
 
         const iIntervalOli = hd.indexOf('interval_ganti_oli_km');
-        if (iIntervalOli > -1) sheet.getRange(i + 1, iIntervalOli + 1).setValue(data.interval_ganti_oli_km || 5000);
+        if (iIntervalOli > -1) sheet.getRange(i + 1, iIntervalOli + 1).setValue(data.interval_ganti_oli_km || defaultOilIntervalKm(data.jenis));
 
         logAudit(userInfo, 'EDIT', 'master', 'Kendaraan ' + data.edit_id,
           { plat: values[i][1], nama: values[i][2] },

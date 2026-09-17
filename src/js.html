@@ -1704,6 +1704,16 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     return html;
   }
 
+  function applyOilIntervalDefault() {
+    var j = document.getElementById('m_jenis_kendaraan');
+    var i = document.getElementById('m_interval_ganti_oli');
+    if (!j || !i) return;
+    var cur = String(i.value || '').trim();
+    if (cur !== '' && cur !== '3000' && cur !== '5000') return;
+    var isMotor = String(j.value || '').toLowerCase().indexOf('motor') !== -1;
+    i.value = isMotor ? 3000 : 5000;
+  }
+
   function resetOilChangeClick(vehicleId) {
     showConfirmModal({ message: 'Tandai oli kendaraan ini sudah diganti? Baseline akan di-set ke odometer saat ini.' }, function() {
       google.script.run.withSuccessHandler(function(res) {
@@ -2877,7 +2887,7 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
       tanggal_pajak: document.getElementById('m_tanggal_pajak') ? document.getElementById('m_tanggal_pajak').value : '',
       tanggal_pajak_5_tahunan: document.getElementById('m_tanggal_pajak_5') ? document.getElementById('m_tanggal_pajak_5').value : '',
       tanggal_kir: document.getElementById('m_tanggal_kir') ? document.getElementById('m_tanggal_kir').value : '',
-      interval_ganti_oli_km: document.getElementById('m_interval_ganti_oli') ? (parseFloat(document.getElementById('m_interval_ganti_oli').value) || 5000) : 5000,
+      interval_ganti_oli_km: document.getElementById('m_interval_ganti_oli') ? document.getElementById('m_interval_ganti_oli').value : '',
       km_terakhir_ganti_oli: document.getElementById('m_km_ganti_oli') ? document.getElementById('m_km_ganti_oli').value : '',
       cabang: document.getElementById('m_cabang').value
     };

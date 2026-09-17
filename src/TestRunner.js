@@ -306,6 +306,13 @@ function __runOilChangeTests() {
   var g1 = warnOilStatus({ km_terakhir_ganti_oli: 100000, interval_ganti_oli_km: 5000 }, 105000);
   results.push(__expectEqual(g1 && g1.status, 'GANTI_OLI', 'oli: tempuh == interval -> GANTI_OLI'));
   results.push(__expectEqual(warnOilStatus({ km_terakhir_ganti_oli: 100000, interval_ganti_oli_km: '' }, 108000).interval_km, 5000, 'oli: interval kosong -> default 5000'));
+  results.push(__expectEqual(warnOilStatus({ km_terakhir_ganti_oli: 100000, interval_ganti_oli_km: '', jenis: 'Mobil' }, 108000).interval_km, 5000, 'oli: interval kosong + Mobil -> default 5000'));
+  var mo = warnOilStatus({ km_terakhir_ganti_oli: 100000, interval_ganti_oli_km: '', jenis: 'Motor' }, 103000);
+  results.push(__expectEqual(mo && mo.interval_km, 3000, 'oli: interval kosong + Motor -> default 3000'));
+  var mw = warnOilStatus({ km_terakhir_ganti_oli: 100000, interval_ganti_oli_km: '', jenis: 'Motor' }, 102500);
+  results.push(__expectEqual(mw && mw.status, 'WASPADA', 'oli: motor sisa 500 -> WASPADA (default 3000)'));
+  results.push(__expectEqual(warnOilStatus({ km_terakhir_ganti_oli: 100000, interval_ganti_oli_km: '', jenis: 'Motor' }, 102499), null, 'oli: motor sisa 501 -> null (default 3000)'));
+  results.push(__expectEqual(warnOilStatus({ km_terakhir_ganti_oli: 100000, interval_ganti_oli_km: 4000, jenis: 'Motor' }, 103600).interval_km, 4000, 'oli: interval eksplisit 4000 dipakai walau Motor'));
   results.push(__expectEqual(warnOilStatus({ km_terakhir_ganti_oli: 90000, interval_ganti_oli_km: 5000 }, 85000), null, 'oli: odo < baseline -> null'));
 
   // Guard & integrasi (butuh DB hidup)
