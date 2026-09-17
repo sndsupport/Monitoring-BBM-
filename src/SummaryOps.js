@@ -11,7 +11,8 @@ function periodKey(dateOrStr) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
 }
 
-function initDashboardSchema() {
+function initDashboardSchema(token) {
+  assertSuperadminOnly(requireUser(token), 'menyiapkan schema Dashboard');
   const ss = getDB();
   const dash = ss.getSheetByName('Dashboard');
   if (!dash) return { success: false, msg: 'Sheet Dashboard tidak ditemukan' };

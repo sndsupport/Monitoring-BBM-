@@ -9,7 +9,7 @@ function superadminEmails() {
   const h = sheetHeaders(sheet);
   const idx = colIndex(h, ['email', 'role', 'status', 'username']);
   // Adaptasi: bila kubus 'email' belum ada (schema lama), jangan crash.
-  // Log peringatan dan kembalikan [] agar sendAdminAlert memakai jalur log.
+  // Log peringatan dan kembalikan [] agar dailyHealthReport memakai jalur log.
   if (idx.email === -1) {
     Logger.log('KOLOM EMAIL BELUM ADA di sheet Pengguna. Jalankan setupDatabase() lalu isi email SUPERADMIN. superadminEmails() mengembalikan kosong.');
     return [];
@@ -26,47 +26,61 @@ function superadminEmails() {
   return out;
 }
 
-function sendAdminAlert(subject, body) {
-  const emails = superadminEmails();
-  if (emails.length === 0) { Logger.log('TIDAK ADA EMAIL SUPERADMIN: ' + subject + ' — ' + body); return { sent: 0 }; }
-  emails.forEach(function(e) {
-    try {
-      MailApp.sendEmail(e, subject, body);
-    } catch (err) {
-      Logger.log('Gagal kirim alert ke ' + e + ': ' + err);
-    }
-  });
-  return { sent: emails.length };
-}
-
+// CATATAN KEAMANAN: sebelumnya fungsi ini top-level dengan subject/body bebas
+// dari pemanggil (sendAdminAlert(subject, body)) — bisa dipakai siapa pun via
+// google.script.run untuk mengirim email apa pun ke seluruh SUPERADMIN atas
+// nama aplikasi (phishing/spam). Digabung ke dalam dailyHealthReport (satu-
+// satunya pemanggilnya) sehingga isi email tidak lagi bisa dikontrol pemanggil
+// luar — dailyHealthReport sendiri hanya dipicu trigger terjadwal, tanpa sesi.
 function dailyHealthReport() {
-  const ss = getDB();
-  const today = new Date();
-  let rowsPenggunaan = 0;
-  const sheet = ss.getSheetByName('Penggunaan_BBM');
-  if (sheet) rowsPenggunaan = Math.max(0, sheet.getLastRow() - 1);
+  try {
+    const ss = getDB();
+    const today = new Date();
+    let rowsPenggunaan = 0;
+    const sheet = ss.getSheetByName('Penggunaan_BBM');
+    if (sheet) rowsPenggunaan = Math.max(0, sheet.getLastRow() - 1);
 
-  let auditCount = 0;
-  const auditSheet = ss.getSheetByName('Audit_Log');
-  if (auditSheet) auditCount = Math.max(0, auditSheet.getLastRow() - 1);
+    let auditCount = 0;
+    const auditSheet = ss.getSheetByName('Audit_Log');
+    if (auditSheet) auditCount = Math.max(0, auditSheet.getLastRow() - 1);
 
-  let cabangCount = 0;
-  const cabangSheet = ss.getSheetByName('Cabang');
-  if (cabangSheet) cabangCount = Math.max(0, cabangSheet.getLastRow() - 1);
+    let cabangCount = 0;
+    const cabangSheet = ss.getSheetByName('Cabang');
+    if (cabangSheet) cabangCount = Math.max(0, cabangSheet.getLastRow() - 1);
 
-  const body = [
-    'Laporan kesehatan harian ' + Utilities.formatDate(today, 'Asia/Jakarta', 'yyyy-MM-dd'),
-    '',
-    'Cabang aktif: ' + cabangCount,
-    'Total laporan (Penggunaan_BBM): ' + rowsPenggunaan,
-    'Baris audit log: ' + auditCount,
-    '',
-    'Backup: jalankan runDailyBackup() bila trigger belum aktif (setupBackupTrigger()).',
-    ''
-  ].join('\n');
+    const body = [
+      'Laporan kesehatan harian ' + Utilities.formatDate(today, 'Asia/Jakarta', 'yyyy-MM-dd'),
+      '',
+      'Cabang aktif: ' + cabangCount,
+      'Total laporan (Penggunaan_BBM): ' + rowsPenggunaan,
+      'Baris audit log: ' + auditCount,
+      '',
+      'Backup: jalankan runDailyBackup() bila trigger belum aktif (setupBackupTrigger()).',
+      ''
+    ].join('\n');
+    const subject = '[BBM] Laporan Kesehatan Harian';
 
-  const res = sendAdminAlert('[BBM] Laporan Kesehatan Harian', body);
-  return { success: true, sent: res.sent };
+    const emails = superadminEmails();
+    if (emails.length === 0) {
+      Logger.log('TIDAK ADA EMAIL SUPERADMIN: ' + subject + ' — ' + body);
+      return { success: true, sent: 0 };
+    }
+    let sent = 0;
+    emails.forEach(function(e) {
+      try {
+        MailApp.sendEmail(e, subject, body);
+        sent++;
+      } catch (err) {
+        Logger.log('Gagal kirim alert ke ' + e + ': ' + err);
+      }
+    });
+    return { success: true, sent: sent };
+  } catch (e) {
+    // Trigger terjadwal: jangan biarkan exception tak tertangani (mis. sheet
+    // sementara tak terjangkau) membuat eksekusi gagal tanpa jejak yang jelas.
+    Logger.log('dailyHealthReport gagal: ' + e.toString());
+    return { success: false, error: e.toString() };
+  }
 }
 
 function setupDailyHealthTrigger() {

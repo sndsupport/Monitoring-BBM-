@@ -15,7 +15,7 @@ function buildPageOutput(html) {
   return HtmlService.createHtmlOutput(html)
     .setTitle('Laporan BBM & Operasional Harian')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
 }
 
 function serveHtml2canvas() {
@@ -52,6 +52,15 @@ function doPost(e) {
         return jsonResponse({ success: false, msg: 'Akses ditolak: hanya SUPERADMIN.' });
       }
       return jsonResponse(diagnoseBackup());
+    }
+    if (action === 'restore_backup') {
+      var user3 = requireUser(body.token);
+      if (user3.role !== 'SUPERADMIN') {
+        return jsonResponse({ success: false, msg: 'Akses ditolak: hanya SUPERADMIN.' });
+      }
+      var restoreRes = restoreFromBackup(body.backupFileId, body.token);
+      try { logAudit(user3, 'RESTORE', 'backup', 'Restore dari backup: ' + body.backupFileId, null, restoreRes); } catch (e2) { /* audit opsional */ }
+      return jsonResponse(restoreRes);
     }
     return jsonResponse({ success: false, msg: 'Action tidak dikenal: ' + action });
   } catch (e) {
@@ -269,11 +278,11 @@ function processDailyImages(data, token) {
   try {
     var user = requireUser(token);
     let result = { success: true, files: {} };
-    let odoAwalFile = uploadImageToDrive(data.foto_odo_awal, data.foto_odo_awal_name, 'KM_Awal', user.cabang);
+    let odoAwalFile = uploadImageToDrive(data.foto_odo_awal, data.foto_odo_awal_name, 'KM_Awal', user.cabang, token);
     if (!odoAwalFile.success) return { success: false, error: 'Upload foto KM awal gagal: ' + odoAwalFile.error };
     result.files.odo_awal = odoAwalFile.fileUrl;
 
-    let odoAkhirFile = uploadImageToDrive(data.foto_odo_akhir, data.foto_odo_akhir_name, 'KM_Akhir', user.cabang);
+    let odoAkhirFile = uploadImageToDrive(data.foto_odo_akhir, data.foto_odo_akhir_name, 'KM_Akhir', user.cabang, token);
     if (!odoAkhirFile.success) return { success: false, error: 'Upload foto KM akhir gagal: ' + odoAkhirFile.error };
     result.files.odo_akhir = odoAkhirFile.fileUrl;
 
@@ -288,54 +297,68 @@ function processDailyImages(data, token) {
 
 function saveDailyTransaction(payload, token) {
   var user = requireUser(token);
-  payload.userInfo = user;
+  payload.token = token;
   var res = saveTransactionEndOfDay(payload);
-  if (res && res.success) invalidatePerforma(user.role, user.cabang);
+  if (res && res.success) {
+    invalidatePerforma(user.role, user.cabang);
+    // Laporan ber-Flazz mengubah Flazz_Card.last_balance — tanpa invalidasi ini,
+    // master cache (termasuk saldo kartu) bisa basi hingga 120 detik bagi pengguna
+    // lain. TAPI invalidateMaster() menaikkan versi cache GLOBAL (bukan per-cabang),
+    // sehingga memanggilnya di SETIAP laporan (aksi paling sering terjadi di
+    // aplikasi ini) membuat master cache nyaris tidak pernah "kena" — semua menu
+    // yang bergantung padanya (History Laporan dst.) jadi selalu baca ulang
+    // seluruh spreadsheet. Maka hanya invalidasi bila laporan ini BENAR-BENAR
+    // memotong saldo Flazz (BBM dan/atau tol), sama seperti kondisi yang dipakai
+    // saveTransactionEndOfDayUnlocked sendiri untuk memutuskan potong saldo.
+    var effMetodeToll = resolveTollMethod(payload.metode_toll, payload.metode_pembayaran, payload.flazz_card_id_toll);
+    var usedFlazz = payload.metode_pembayaran === 'FLAZZ' || effMetodeToll === 'FLAZZ';
+    if (usedFlazz) invalidateMaster(user.role, user.cabang);
+  }
   return res;
 }
 
 function saveMasterCabang(data, token) {
-  var res = insertCabang(data, requireUser(token));
+  var res = insertCabang(data, token);
   if (res && res.msg) invalidateMaster('SUPERADMIN', '');
   return res;
 }
 function saveMasterKendaraan(data, token) {
-  var res = insertKendaraan(data, requireUser(token));
+  var res = insertKendaraan(data, token);
   if (res && res.msg) invalidateMaster('SUPERADMIN', '');
   return res;
 }
 function saveMasterSupir(data, token) {
-  var res = insertSupir(data, requireUser(token));
+  var res = insertSupir(data, token);
   if (res && res.msg) invalidateMaster('SUPERADMIN', '');
   return res;
 }
 function deleteMasterKendaraan(vehicleId, token) {
-  var res = deleteKendaraanById(vehicleId, requireUser(token));
+  var res = deleteKendaraanById(vehicleId, token);
   if (res && res.msg) invalidateMaster('SUPERADMIN', '');
   return res;
 }
 function updateMasterCabang(data, token) {
-  var res = updateCabang(data, requireUser(token));
+  var res = updateCabang(data, token);
   if (res && res.msg) invalidateMaster('SUPERADMIN', '');
   return res;
 }
 function updateMasterKendaraan(data, token) {
-  var res = updateKendaraan(data, requireUser(token));
+  var res = updateKendaraan(data, token);
   if (res && res.msg) invalidateMaster('SUPERADMIN', '');
   return res;
 }
 function updateMasterSupir(data, token) {
-  var res = updateSupir(data, requireUser(token));
+  var res = updateSupir(data, token);
   if (res && res.msg) invalidateMaster('SUPERADMIN', '');
   return res;
 }
 function updateMasterBBM(data, token) {
-  var res = updateBBM(data, requireUser(token));
+  var res = updateBBM(data, token);
   if (res && res.msg) invalidateMaster('SUPERADMIN', '');
   return res;
 }
 function saveMasterBBM(data, token) {
-  var res = insertBBM(data, requireUser(token));
+  var res = insertBBM(data, token);
   if (res && res.msg) invalidateMaster('SUPERADMIN', '');
   return res;
 }
@@ -350,37 +373,37 @@ function apiGetBBMForCabang(token) {
   return out;
 }
 function deleteMasterCabang(kode, token) {
-  var res = deleteCabangById(kode, requireUser(token));
+  var res = deleteCabangById(kode, token);
   if (res && res.msg) invalidateMaster('SUPERADMIN', '');
   return res;
 }
 function deleteMasterSupir(id, token) {
-  var res = deleteSupirById(id, requireUser(token));
+  var res = deleteSupirById(id, token);
   if (res && res.msg) invalidateMaster('SUPERADMIN', '');
   return res;
 }
 function deleteMasterBBM(id, token) {
-  var res = deleteBBMById(id, requireUser(token));
+  var res = deleteBBMById(id, token);
   if (res && res.msg) invalidateMaster('SUPERADMIN', '');
   return res;
 }
 function saveMasterPengguna(data, token) {
-  var res = insertUser(data, requireUser(token));
+  var res = insertUser(data, token);
   if (res && res.msg) invalidateMaster('SUPERADMIN', '');
   return res;
 }
 function updateMasterPengguna(data, token) {
-  var res = updateUser(data, requireUser(token));
+  var res = updateUser(data, token);
   if (res && res.msg) invalidateMaster('SUPERADMIN', '');
   return res;
 }
 function deleteMasterPengguna(userId, token) {
-  var res = setUserStatus(userId, 'Non-Aktif', requireUser(token));
+  var res = setUserStatus(userId, 'Non-Aktif', token);
   if (res && res.msg) invalidateMaster('SUPERADMIN', '');
   return res;
 }
 function activateMasterPengguna(userId, token) {
-  var res = setUserStatus(userId, 'Aktif', requireUser(token));
+  var res = setUserStatus(userId, 'Aktif', token);
   if (res && res.msg) invalidateMaster('SUPERADMIN', '');
   return res;
 }
@@ -389,38 +412,38 @@ function activateMasterPengguna(userId, token) {
 // FLAZZ API WRAPPERS
 // ==========================================
 function apiSaveFlazzCard(payload, token) {
-  var res = saveFlazzCard(payload, requireUser(token));
-  if (res && res.msg) invalidateMaster('SUPERADMIN', '');
+  var res = saveFlazzCard(payload, token);
+  if (res && res.success) invalidateMaster('SUPERADMIN', '');
   return res;
 }
-function apiSaveFlazzTopUp(payload, token) { payload.userInfo = requireUser(token); return saveFlazzTopUp(payload); }
-function apiSaveFlazzTol(payload, token) { payload.userInfo = requireUser(token); return saveFlazzTol(payload); }
-function apiSaveFlazzRecon(payload, token) { payload.userInfo = requireUser(token); return saveFlazzRecon(payload); }
+function apiSaveFlazzTopUp(payload, token) { payload.token = token; return saveFlazzTopUp(payload); }
+function apiSaveFlazzTol(payload, token) { payload.token = token; return saveFlazzTol(payload); }
+function apiSaveFlazzRecon(payload, token) { payload.token = token; return saveFlazzRecon(payload); }
 function apiCheckReconGate(cardId, token) {
   var user = requireUser(token);
   assertFlazzAccess(user, flazzCardBranch(cardId));
   return checkReconGate(cardId);
 }
-function apiSaveFlazzUsage(payload, token) { payload.userInfo = requireUser(token); return saveFlazzUsage(payload); }
+function apiSaveFlazzUsage(payload, token) { payload.token = token; return saveFlazzUsage(payload); }
 
 function apiGetFlazzDashboardData(token) { return getFlazzDashboardData(token); }
 function apiDeleteFlazzCard(cardId, token) {
-  var res = deleteFlazzCard(cardId, requireUser(token));
-  if (res && res.msg) invalidateMaster('SUPERADMIN', '');
+  var res = deleteFlazzCard(cardId, token);
+  if (res && res.success) invalidateMaster('SUPERADMIN', '');
   return res;
 }
 function apiActivateFlazzCard(cardId, token) {
-  var res = activateFlazzCard(cardId, requireUser(token));
-  if (res && res.msg) invalidateMaster('SUPERADMIN', '');
+  var res = activateFlazzCard(cardId, token);
+  if (res && res.success) invalidateMaster('SUPERADMIN', '');
   return res;
 }
-function apiEditFlazzTopUp(payload, token) { return editFlazzTopUp(payload, requireUser(token)); }
-function apiDeleteFlazzTopUp(id, token) { return deleteFlazzTopUp(id, requireUser(token)); }
-function apiEditFlazzTol(payload, token) { return editFlazzTol(payload, requireUser(token)); }
-function apiDeleteFlazzTol(id, token) { return deleteFlazzTol(id, requireUser(token)); }
+function apiEditFlazzTopUp(payload, token) { return editFlazzTopUp(payload, token); }
+function apiDeleteFlazzTopUp(id, token) { return deleteFlazzTopUp(id, token); }
+function apiEditFlazzTol(payload, token) { return editFlazzTol(payload, token); }
+function apiDeleteFlazzTol(id, token) { return deleteFlazzTol(id, token); }
 function apiDeleteFlazzBBM(transactionId, mode, token) {
   var user = requireUser(token);
-  var res = deleteFlazzBBM(transactionId, mode, user);
+  var res = deleteFlazzBBM(transactionId, mode, token);
   if (res && res.success) {
     invalidatePerforma(user.role, user.cabang);
     invalidateMaster(user.role, user.cabang);
@@ -429,13 +452,13 @@ function apiDeleteFlazzBBM(transactionId, mode, token) {
 }
 function apiDeleteFlazzRecon(id, token) {
   var user = requireUser(token);
-  var res = deleteFlazzRecon(id, user);
+  var res = deleteFlazzRecon(id, token);
   if (res && res.success) invalidateMaster('SUPERADMIN', '');
   return res;
 }
 function apiEditDailyTransaction(payload, token) {
   var user = requireUser(token);
-  var res = editDailyTransaction(payload, user);
+  var res = editDailyTransaction(payload, token);
   if (res && res.success) {
     invalidatePerforma(user.role, user.cabang);
     invalidateMaster(user.role, user.cabang);
@@ -444,7 +467,7 @@ function apiEditDailyTransaction(payload, token) {
 }
 function apiDeleteDailyTransaction(transactionId, token) {
   var user = requireUser(token);
-  var res = deleteDailyTransaction(transactionId, user);
+  var res = deleteDailyTransaction(transactionId, token);
   if (res && res.success) {
     invalidatePerforma(user.role, user.cabang);
     invalidateMaster(user.role, user.cabang);
@@ -455,11 +478,11 @@ function apiDeleteDailyTransaction(transactionId, token) {
 // ==========================================
 // JALUR PENGIRIMAN API WRAPPERS
 // ==========================================
-function apiSaveJalur(payload, token) { return saveJalur(payload, requireUser(token)); }
-function apiUpdateJalur(data, token) { return updateJalur(data, requireUser(token)); }
-function apiDeleteJalur(id, token) { return deleteJalur(id, requireUser(token)); }
+function apiSaveJalur(payload, token) { return saveJalur(payload, token); }
+function apiUpdateJalur(data, token) { return updateJalur(data, token); }
+function apiDeleteJalur(id, token) { return deleteJalur(id, token); }
 function apiGetJalurByTanggal(tanggal, token, opts) { return getJalurByTanggal(tanggal, token, opts || {}); }
-function apiGetJalurDriversForDate(tanggal, token) { var userInfo = requireUser(token); return getJalurDriversForDate(tanggal, userInfo); }
+function apiGetJalurDriversForDate(tanggal, token, opts) { var userInfo = requireUser(token); return getJalurDriversForDate(tanggal, userInfo, opts || {}); }
 
 // ==========================================
 // GEMINI FUEL GAUGE (indikator BBM) DETECTION
@@ -570,15 +593,11 @@ function detectFuelLevel(base64DataUrl) {
 // SETTINGS (wrapper server-side; fungsi storage di DatabaseSetup.js)
 // ==========================================
 function saveAppSettings(data, token) {
-  var user = requireUser(token);
-  if (user.role !== 'SUPERADMIN') throw new Error('Akses ditolak: hanya SUPERADMIN yang dapat mengubah pengaturan.');
-  return DatabaseSaveAppSettings(data);
+  return DatabaseSaveAppSettings(data, token);
 }
 
 function uploadLogo(base64Data, fileName, token) {
-  var user = requireUser(token);
-  if (user.role !== 'SUPERADMIN') throw new Error('Akses ditolak: hanya SUPERADMIN yang dapat mengunggah logo.');
-  return DatabaseUploadLogo(base64Data, fileName);
+  return DatabaseUploadLogo(base64Data, fileName, token);
 }
 
 function getAppSettings(token) {
@@ -643,7 +662,7 @@ function diagnoseOrphanPhotos() {
 }
 
 function cleanupOrphanPhotos(token) {
-  if (token) assertSuperadminOnly(requireUser(token), 'menjalankan utilitas pembersihan foto');
+  assertSuperadminOnly(requireUser(token), 'menjalankan utilitas pembersihan foto');
   const ss = getDB();
   const sheet = ss.getSheetByName('Penggunaan_BBM');
   if (!sheet) return { error: 'Sheet tidak ditemukan' };
@@ -681,7 +700,7 @@ function cleanupOrphanPhotos(token) {
 // lalu salin output dari tab "Execution log". Dibaca di: Code.js.
 // ==========================================
 function debugFlazzCard(input, token) {
-  if (token) assertSuperadminOnly(requireUser(token), 'debug kartu Flazz');
+  assertSuperadminOnly(requireUser(token), 'debug kartu Flazz');
   const ss = getDB();
   const key = String(input || '').trim();
   const keyDig = key.replace(/[^0-9]/g, '');

@@ -17,16 +17,40 @@ function _sha256Hex(str) {
   }).join('');
 }
 
+// Iterasi SHA-256 sederhana (mirip PBKDF2) agar hash password baru lebih tahan
+// brute-force offline dibanding satu kali SHA-256+salt. GAS tidak punya bcrypt/
+// scrypt native, jadi ini kompromi realistis: 10.000 ronde, tiap ronde diberi
+// salt lagi agar tidak sekadar rantai hash biasa.
+var PBKDF_ROUNDS = 10000;
+function _iteratedHash(salt, password, rounds) {
+  var hex = _sha256Hex(salt + ':' + String(password));
+  for (var i = 1; i < rounds; i++) {
+    hex = _sha256Hex(hex + ':' + salt);
+  }
+  return hex;
+}
+
+// Password BARU (akun baru / ganti password) selalu memakai format iterasi
+// baru: salt$rounds$hash (3 bagian). Password LAMA (salt$hash, 2 bagian, 1x
+// SHA-256) tetap bisa diverifikasi apa adanya oleh verifyPassword — tidak ada
+// akun yang perlu reset paksa akibat perubahan ini.
 function hashPassword(password) {
   var salt = Utilities.getUuid().replace(/-/g, '').substring(0, 16);
-  return salt + '$' + _sha256Hex(salt + ':' + String(password));
+  return salt + '$' + PBKDF_ROUNDS + '$' + _iteratedHash(salt, password, PBKDF_ROUNDS);
 }
 
 function verifyPassword(plain, stored) {
   if (!stored || stored.indexOf('$') === -1) return false;
   var parts = stored.split('$');
-  if (parts.length !== 2) return false;
-  return _sha256Hex(parts[0] + ':' + String(plain)) === parts[1];
+  if (parts.length === 3) {
+    var rounds = parseInt(parts[1], 10) || PBKDF_ROUNDS;
+    return _iteratedHash(parts[0], plain, rounds) === parts[2];
+  }
+  if (parts.length === 2) {
+    // Format lama (1x SHA-256+salt) — tetap didukung agar akun lama tidak terkunci.
+    return _sha256Hex(parts[0] + ':' + String(plain)) === parts[1];
+  }
+  return false;
 }
 
 function hashLooksLegacy(stored) {

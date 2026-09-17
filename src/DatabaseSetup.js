@@ -44,6 +44,15 @@ var DATABASE_SCHEMA = [
     { name: 'Jalur_Pengiriman', headers: ['id', 'tanggal', 'driver_id', 'nama_driver', 'driver2_id', 'nama_driver2', 'vehicle_id', 'plat_nomor', 'nama_kendaraan', 'jenis_kendaraan', 'rute_tujuan', 'kode_cabang', 'flazz_card_id', 'flazz_card_name', 'created_by', 'created_at', 'updated_at', 'is_deleted', 'status', 'laporan_id'] }
 ];
 
+// CATATAN KEAMANAN: fungsi ini sengaja TIDAK mensyaratkan token sesi.
+// setupDatabase() adalah utilitas bootstrap yang membuat sheet Pengguna itu
+// sendiri — pada spreadsheet baru belum ada akun sama sekali, jadi mewajibkan
+// sesi SUPERADMIN akan membuat fungsi ini mustahil dijalankan pertama kali.
+// Risikonya dibatasi oleh idempotensi: pada sheet yang SUDAH terisi, setiap
+// langkah di bawah hanya menambah kolom yang belum ada di ujung kanan, dan
+// blok seed di bawah hanya jalan bila baris masih kosong (getLastRow() === 1),
+// sehingga pemanggilan ulang terhadap spreadsheet produksi yang sudah berjalan
+// adalah no-op, bukan destruktif.
 function setupDatabase() {
   const ss = getDB();
 
@@ -160,6 +169,11 @@ function ensureAuditLogColumns() {
   }
 }
 
+// CATATAN KEAMANAN: sengaja tanpa token — lihat catatan di setupDatabase()
+// (bootstrap sebelum ada akun sama sekali). Setiap blok seed di bawah hanya
+// jalan bila sheet tujuan masih kosong (getLastRow() === 1), jadi memanggil
+// ulang fungsi ini terhadap spreadsheet produksi yang sudah berisi data
+// adalah no-op.
 function seedDummyData() {
   const ss = getDB();
   
@@ -194,12 +208,17 @@ function seedDummyData() {
   }
   
   // Seed Pengguna: PIC per cabang (SUPERADMIN dibuat manual via createSuperadmin())
+  // Password dibuat acak per akun (bukan hardcoded) — salin dari Execution log
+  // setelah menjalankan fungsi ini, lalu segera minta pengguna menggantinya.
   let sheetPengguna = ss.getSheetByName('Pengguna');
   if (sheetPengguna && sheetPengguna.getLastRow() === 1) {
-    sheetPengguna.appendRow(['U-002', 'picjkt', hashPassword('pic123'), 'PIC Jakarta', 'PIC CABANG', 'CBG-JKT', 'Aktif']);
-    sheetPengguna.appendRow(['U-003', 'picbdg', hashPassword('pic123'), 'PIC Bandung', 'PIC CABANG', 'CBG-BDG', 'Aktif']);
+    const pwJkt = Utilities.getUuid().replace(/-/g, '').substring(0, 10);
+    const pwBdg = Utilities.getUuid().replace(/-/g, '').substring(0, 10);
+    sheetPengguna.appendRow(['U-002', 'picjkt', hashPassword(pwJkt), 'PIC Jakarta', 'PIC CABANG', 'CBG-JKT', 'Aktif']);
+    sheetPengguna.appendRow(['U-003', 'picbdg', hashPassword(pwBdg), 'PIC Bandung', 'PIC CABANG', 'CBG-BDG', 'Aktif']);
+    Logger.log('Akun dibuat — CATAT password ini sekarang, tidak akan tampil lagi: picjkt/' + pwJkt + ', picbdg/' + pwBdg);
   }
-  
+
   Logger.log('Data dummy (Cabang, Kendaraan, Pengguna) berhasil dimasukkan.');
 }
 
@@ -231,7 +250,8 @@ function DatabaseGetAppSettings() {
   };
 }
 
-function DatabaseSaveAppSettings(data) {
+function DatabaseSaveAppSettings(data, token) {
+  assertSuperadminOnly(requireUser(token), 'mengubah pengaturan aplikasi');
   var ss = getDB();
   var sheet = ss.getSheetByName('Pengaturan');
 
@@ -267,8 +287,9 @@ function DatabaseSaveAppSettings(data) {
   return { success: true, msg: 'Pengaturan berhasil disimpan' };
 }
 
-function DatabaseUploadLogo(base64Data, fileName) {
+function DatabaseUploadLogo(base64Data, fileName, token) {
   try {
+    assertSuperadminOnly(requireUser(token), 'mengunggah logo aplikasi');
     var data = base64Data.split(',')[1];
     if (!data) throw new Error('Data base64 tidak valid');
     var bytes = Utilities.base64Decode(data);
@@ -287,7 +308,7 @@ function DatabaseUploadLogo(base64Data, fileName) {
 
     var fileUrl = 'https://drive.google.com/uc?export=view&id=' + file.getId();
 
-    DatabaseSaveAppSettings({ logo_url: fileUrl });
+    DatabaseSaveAppSettings({ logo_url: fileUrl }, token);
 
     return { success: true, url: fileUrl };
   } catch (e) {

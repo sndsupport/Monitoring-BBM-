@@ -2,6 +2,24 @@
 // LIGHTWEIGHT TEST RUNNER (jalankan dari editor atau `clasp run`)
 // ==========================================
 
+// Guard: __runAllTests() TIDAK BOLEH jalan diam-diam terhadap spreadsheet produksi
+// (mis. __runMasterGuardTests membaca baris asli Flazz_TopUp, __runMasterCacheTests
+// membalik master-cache revision produksi). Set Script Property ALLOW_TEST_ON_PROD
+// ke 'true' HANYA bila Anda sengaja ingin menjalankannya terhadap produksi (semua
+// test yang ada di sini dirancang read-only/negative-path, tapi ini bukan jaminan
+// untuk test yang ditambahkan di kemudian hari).
+function __assertTestSpreadsheetSafe() {
+  var isProd = spreadsheetId() === PROD_SPREADSHEET_ID;
+  var allowed = PropertiesService.getScriptProperties().getProperty('ALLOW_TEST_ON_PROD') === 'true';
+  if (isProd && !allowed) {
+    throw new Error(
+      '__runAllTests dibatalkan: SPREADSHEET_ID aktif adalah PROD_SPREADSHEET_ID. ' +
+      'Set Script Property SPREADSHEET_ID ke spreadsheet uji terlebih dahulu, atau ' +
+      'set ALLOW_TEST_ON_PROD="true" di Script Properties bila memang sengaja.'
+    );
+  }
+}
+
 function __expectEqual(actual, expected, label) {
   var a = JSON.stringify(actual);
   var b = JSON.stringify(expected);
@@ -75,24 +93,27 @@ function __runEditUsageTests() {
 }
 
 function __runMasterGuardTests() {
-  var superUser = { user_id: 'U-TEST-RUNNER', username: 'tester', nama: 'Test Runner', role: 'SUPERADMIN', cabang: '' };
+  // Fungsi target kini mengambil identitas dari token sesi asli (bukan objek
+  // userInfo mentah) — lihat catatan keamanan di __runSecurityIsolationTests.
+  var superToken = createSession({ user_id: 'U-TEST-RUNNER', username: 'tester', nama: 'Test Runner', role: 'SUPERADMIN', cabang: '' });
   var results = [];
-  try { updateCabang({ edit_id: '###TAK-ADA###', kode: 'X', nama: 'X', lokasi: '' }, superUser); }
+  try { updateCabang({ edit_id: '###TAK-ADA###', kode: 'X', nama: 'X', lokasi: '' }, superToken); }
   catch (e) { results.push(__expectTrue(e.message.indexOf('tidak ditemukan') > -1, 'updateCabang kode tak dikenal -> error')); }
-  try { deleteCabangById('###TAK-ADA###', superUser); }
+  try { deleteCabangById('###TAK-ADA###', superToken); }
   catch (e) { results.push(__expectTrue(e.message.indexOf('tidak ditemukan') > -1, 'deleteCabangById kode tak dikenal -> error')); }
-  try { deleteSupirById('###TAK-ADA###', superUser); }
+  try { deleteSupirById('###TAK-ADA###', superToken); }
   catch (e) { results.push(__expectTrue(e.message.indexOf('tidak ditemukan') > -1, 'deleteSupirById id tak dikenal -> error')); }
-  try { deleteBBMById('###TAK-ADA###', superUser); }
+  try { deleteBBMById('###TAK-ADA###', superToken); }
   catch (e) { results.push(__expectTrue(e.message.indexOf('tidak ditemukan') > -1, 'deleteBBMById id tak dikenal -> error')); }
   var sheet = getDB().getSheetByName('Flazz_TopUp');
   var data = sheet ? sheet.getDataRange().getValues() : [];
   var found = -1;
   for (var i = 1; i < data.length; i++) { if (data[i][0]) { found = i; break; } }
   if (found > 0) {
-    try { editFlazzTopUp({ id: data[found][0], card_id: '###KARTU-TAK-ADA###', amount: 0 }, superUser); }
+    try { editFlazzTopUp({ id: data[found][0], card_id: '###KARTU-TAK-ADA###', amount: 0 }, superToken); }
     catch (e) { results.push(__expectTrue(e.message.indexOf('Kartu tujuan tidak ditemukan') > -1, 'edit TopUp ke kartu tak dikenal -> error')); }
   }
+  destroySession(superToken);
   return __summarize(results);
 }
 
@@ -141,8 +162,17 @@ function __runSecurityIsolationTests() {
   results.push(__expectDenied(function() { return saveFlazzTopUpUnlocked({ userInfo: pic }); }, 'Akses ditolak: Anda hanya dapat mengelola kartu warehouse', 'PIC top up tanpa kartu -> ditolak scoping cabang'));
   results.push(__expectDenied(function() { return deleteFlazzTopUpUnlocked('###TAK-ADA###', pic); }, 'SUPERADMIN', 'PIC hapus top up Flazz -> ditolak'));
   results.push(__expectDenied(function() { return saveFlazzUsageUnlocked({ userInfo: pic }); }, 'SUPERADMIN', 'PIC serah kartu Flazz -> ditolak'));
-  results.push(__expectDenied(function() { return updateJalur({ id: '###TAK-ADA###' }, pic); }, 'SUPERADMIN', 'PIC update jalur -> ditolak'));
-  results.push(__expectDenied(function() { return deleteJalur('###TAK-ADA###', pic); }, 'SUPERADMIN', 'PIC hapus jalur -> ditolak'));
+  results.push(__expectDenied(function() { return updateJalur({ id: '###TAK-ADA###' }, picToken); }, 'SUPERADMIN', 'PIC update jalur -> ditolak'));
+  results.push(__expectDenied(function() { return deleteJalur('###TAK-ADA###', picToken); }, 'SUPERADMIN', 'PIC hapus jalur -> ditolak'));
+
+  // Regresi celah pemalsuan identitas (audit BUG-001/002/003): pemanggilan langsung
+  // dengan objek userInfo palsu atau tanpa token sama sekali HARUS ditolak sebagai
+  // sesi tidak valid, bukan diterima begitu saja seperti sebelum perbaikan.
+  results.push(__expectDenied(function() { return insertUser({ username: 'x', nama: 'x', password: 'x', role: 'SUPERADMIN', cabang: '' }, { role: 'SUPERADMIN' }); }, 'sesi tidak valid', 'insertUser dgn objek role palsu (bukan token) -> ditolak'));
+  results.push(__expectDenied(function() { return saveFlazzCard({ card_number: '999', card_type: 'BCA_FLAZZ', branch_id: 'CBG-JKT' }, { role: 'SUPERADMIN' }); }, 'sesi tidak valid', 'saveFlazzCard dgn objek role palsu -> ditolak'));
+  results.push(__expectDenied(function() { return saveJalur({ tanggal: '2026-01-01', rows: [] }, { role: 'SUPERADMIN' }); }, 'sesi tidak valid', 'saveJalur dgn objek role palsu -> ditolak'));
+  results.push(__expectDenied(function() { return setCardBalance('FLZ-TAK-ADA', 999999999); }, 'sesi tidak valid', 'setCardBalance tanpa token -> ditolak'));
+  results.push(__expectDenied(function() { return configureSpreadsheet('spreadsheet-id-palsu'); }, 'sesi tidak valid', 'configureSpreadsheet tanpa token -> ditolak'));
 
   destroySession(superToken);
   destroySession(picToken);
@@ -285,6 +315,7 @@ function __runFlazzDefaultGuardTests() {
 }
 
 function __runAllTests() {
+  __assertTestSpreadsheetSafe();
   var r = __runAuthTests();
   r = __runBackupSheetTests();
   r = __runEditUsageTests();

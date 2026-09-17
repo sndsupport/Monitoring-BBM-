@@ -112,6 +112,64 @@ function pruneBackups(keep) {
   return deleted;
 }
 
+// Pulihkan seluruh sheet database dari salinan backup ke spreadsheet aktif.
+// SUPERADMIN-only. Hanya menerima file yang benar-benar berada di folder
+// BBM_BACKUP (mencegah restore dari spreadsheet sembarang/asing).
+//
+// Cara kerja: sebelum menimpa apa pun, backup KEADAAN SAAT INI dulu (safety
+// snapshot) — sehingga restore yang keliru tetap bisa dibatalkan dengan
+// me-restore ulang dari snapshot itu. Hanya NILAI sel (bukan format) yang
+// dipulihkan per sheet database; sheet yang tidak ada di backup dilewati.
+function restoreFromBackup(backupFileId, token) {
+  assertSuperadminOnly(requireUser(token), 'memulihkan data dari backup');
+  if (!backupFileId) return { success: false, msg: 'ID file backup wajib diisi.' };
+
+  try {
+    var backupRoot = getFolderByNameOrCreate('BBM_BACKUP');
+    var isInBackupFolder = false;
+    var filesIt = backupRoot.getFiles();
+    while (filesIt.hasNext()) {
+      if (filesIt.next().getId() === backupFileId) { isInBackupFolder = true; break; }
+    }
+    if (!isInBackupFolder) {
+      return { success: false, msg: 'File backup tidak ditemukan di folder BBM_BACKUP. Restore dibatalkan.' };
+    }
+
+    // Safety snapshot keadaan SEBELUM restore, agar tetap bisa dibatalkan.
+    var stamp = Utilities.formatDate(new Date(), 'Asia/Jakarta', "yyyy-MM-dd'_'HHmmss");
+    var safety = performBackup(spreadsheetId(), 'PRE_RESTORE_SAFETY_' + stamp);
+
+    var backupSS = SpreadsheetApp.openById(backupFileId);
+    var liveSS = getDB();
+    var list = getBackupSheets();
+    var restored = [];
+    var skipped = [];
+
+    list.forEach(function(sheetName) {
+      var src = backupSS.getSheetByName(sheetName);
+      if (!src) { skipped.push(sheetName); return; }
+      var values = src.getDataRange().getValues();
+      var dest = liveSS.getSheetByName(sheetName);
+      if (!dest) dest = liveSS.insertSheet(sheetName);
+      dest.clearContents();
+      if (values.length > 0 && values[0].length > 0) {
+        dest.getRange(1, 1, values.length, values[0].length).setValues(values);
+      }
+      restored.push(sheetName);
+    });
+
+    return {
+      success: true,
+      msg: 'Restore selesai: ' + restored.length + ' sheet dipulihkan' + (skipped.length ? (', ' + skipped.length + ' dilewati (tidak ada di backup): ' + skipped.join(', ')) : '') + '. Snapshot sebelum restore disimpan sebagai "' + safety.name + '" di folder BBM_BACKUP bila perlu dibatalkan.',
+      restored: restored,
+      skipped: skipped,
+      safetySnapshot: safety.name
+    };
+  } catch (e) {
+    return { success: false, msg: 'Restore gagal: ' + e.toString() };
+  }
+}
+
 function diagnoseBackup() {
   try {
     var it = DriveApp.getRootFolder().getFoldersByName('BBM_BACKUP');

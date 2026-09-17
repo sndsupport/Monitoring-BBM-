@@ -233,6 +233,18 @@
           <small>Anda login sebagai Admin. Anda hanya memasukkan laporan untuk kendaraan dan supir di warehouse Anda.</small>
         </div>
 
+        <!-- Banner mode edit laporan (muncul saat mengedit dari History Laporan) -->
+        <div id='edit-mode-banner' class='alert alert-warning mode-edit-banner'>
+          <div>
+            <i class='bi bi-pencil-square me-2'></i>
+            <strong>Mode Edit</strong> &mdash; sedang mengubah laporan
+            <span class='badge text-bg-warning ms-2' id='edit-trx-id'>-</span>
+          </div>
+          <button type='button' class='btn btn-sm btn-outline-secondary' onclick='cancelEditForm()'>
+            <i class='bi bi-x-lg me-1'></i> Batal Edit
+          </button>
+        </div>
+
         
         <div class='mb-4 mt-2'>
           <h4 class='fw-bold mb-1'>Input Laporan Pengiriman</h4>
@@ -468,7 +480,7 @@
 
             <!-- TOMBOL SUBMIT - di bawah form kiri -->
             <div class='col-12 mt-3 d-flex gap-2 justify-content-end'>
-              <button type="button" class="btn btn-outline-danger rounded-3 fw-bold px-4" onclick="confirmResetForm()">
+              <button type="button" class="btn btn-outline-danger rounded-3 fw-bold px-4" onclick="__editingTxId ? cancelEditForm() : confirmResetForm()">
                 <i class='bi bi-x-circle me-1'></i> Batal
               </button>
               <button id='btn-review' class='btn btn-primary rounded-3 fw-bold px-4' onclick='openReviewModal()'>

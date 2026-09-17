@@ -105,6 +105,7 @@ function getActiveVehicles(token) {
 }
 
 function saveTransactionEndOfDay(payload) {
+  payload.userInfo = requireUser(payload.token);
   return withLock('daily-save', function() {
     return saveTransactionEndOfDayUnlocked(payload);
   });
@@ -245,7 +246,16 @@ function saveTransactionEndOfDayUnlocked(payload) {
   for (const cid of Object.keys(flazzChecks)) {
     const chk = flazzChecks[cid];
     const cardInfo = findFlazzCardBalance(cid);
-    if (!cardInfo) continue;
+    if (!cardInfo) {
+      // Kartu tidak ditemukan — JANGAN lanjutkan menyimpan laporan seolah berhasil.
+      // Sebelumnya baris ini "continue" (lewati cek), sehingga laporan tersimpan
+      // dan status jalur berubah SUDAH_LAPORAN padahal saldo Flazz tidak pernah
+      // terpotong — selisih baru ketahuan saat rekonsiliasi.
+      return {
+        success: false,
+        error: 'Kartu Flazz untuk ' + chk.label.join(' + ') + ' (ID: ' + cid + ') tidak ditemukan. Pilih ulang kartu Flazz yang valid sebelum menyimpan laporan.'
+      };
+    }
     if (cardInfo.balance < chk.total) {
       return {
         success: false,
@@ -398,6 +408,15 @@ function autoCreateFlazzUsage(cardId, driverName, vehicleId, refType, refId, use
     if (String(uData[i][uCard]) === String(cardId) && (uStatus < 0 || uData[i][uStatus] === 'DIBERIKAN')) {
       return true; // sudah digunakan, jangan buat ulang
     }
+  }
+
+  // Jangan pernah "menghidupkan kembali" kartu yang sudah dinonaktifkan lewat
+  // deleteFlazzCard — hanya activateFlazzCard (dengan pengecekan saldo/pemakaian)
+  // yang boleh mengembalikan status kartu dari NONAKTIF.
+  const preCheck = findFlazzCardRow(cardSheet, cardId);
+  if (preCheck && String(preCheck.row[preCheck.colIdx.STATUS] || '') === 'NONAKTIF') {
+    Logger.log('autoCreateFlazzUsage: kartu ' + cardId + ' NONAKTIF, penyerahan otomatis dilewati.');
+    return false;
   }
 
   const now = new Date();
@@ -734,6 +753,14 @@ function getRecentTransactions(token) {
     });
   }
 
+  // Peta baris -> indeks dalam trxs milik kendaraannya, dibangun sekali (O(n))
+  // agar pencarian currIdx di bawah tidak perlu Array.indexOf per baris (O(n)
+  // lagi, jadi O(rows x history) bila dilakukan naif di dalam loop utama).
+  let rowIdxInTrxs = new Map();
+  for (let vid in transaksiMap) {
+    transaksiMap[vid].forEach(function(r, pos) { rowIdxInTrxs.set(r, pos); });
+  }
+
   const result = [];
   
   // We can just iterate the whole data and filter/sort later, or keep the existing reverse loop.
@@ -754,7 +781,7 @@ function getRecentTransactions(token) {
     let kmTempuh = parseFloat(row[16]) || 0;
 
     let trxs = transaksiMap[row[6]];
-    let currIdx = trxs ? trxs.indexOf(row) : -1;
+    let currIdx = trxs && rowIdxInTrxs.has(row) ? rowIdxInTrxs.get(row) : -1;
 
     let roll = hitungEfisiensi7Riwayat(trxs, currIdx, literPerBar);
     let efisiensi = roll.efisiensi;
@@ -800,9 +827,13 @@ function getRecentTransactions(token) {
       tanggal: new Date(row[2]).toLocaleDateString('id-ID'),
       timestamp: new Date(row[2]).getTime(),
       sub_timestamp: new Date(row[1]).getTime(),
-      user: row[4], 
-      cabang: cabangNamaMap[row[5]] || row[5], 
+      user: row[4],
+      cabang: cabangNamaMap[row[5]] || row[5],
+      kode_cabang: row[5],
+      vehicle_id: row[6],
       vehicle: row[7],
+      bar_awal: parseFloat(row[11]) || 0,
+      bar_akhir: parseFloat(row[15]) || 0,
       km_tempuh: kmTempuh, 
       isi_bbm: parseFloat(row[18]) || 0,
       liter: Math.round(literKonsumsi * 100) / 100, 
@@ -842,9 +873,10 @@ function getRecentTransactions(token) {
   return result;
 }
 
-function editDailyTransaction(payload, userInfo) {
+function editDailyTransaction(payload, token) {
+  const userInfo = requireUser(token);
   return withLock('daily-edit', function() {
-    return editDailyTransactionUnlocked(payload, userInfo);
+    return editDailyTransactionUnlocked(payload, userInfo, token);
   });
 }
 
@@ -857,7 +889,7 @@ function shouldAutoCreateUsageOnEdit(wasFlazz, isFlazz) {
   return !wasFlazz && isFlazz;
 }
 
-function editDailyTransactionUnlocked(payload, userInfo) {
+function editDailyTransactionUnlocked(payload, userInfo, token) {
   try {
     assertSuperadminOnly(userInfo, 'mengedit laporan BBM');
     const ss = getDB();
@@ -881,6 +913,8 @@ function editDailyTransactionUnlocked(payload, userInfo) {
     const idxStamp = headers.indexOf('timestamp');
     const idxFotoAwal = headers.indexOf('foto_km_awal');
     const idxFotoAkhir = headers.indexOf('foto_km_akhir');
+    const idxBarAwal = headers.indexOf('bar_awal');
+    const idxBarAkhir = headers.indexOf('bar_akhir');
     const idxCabang = headers.indexOf('kode_cabang');
 
     let rowIndex = -1, oldMetode = '', oldCard = null, oldBiaya = 0, oldToll = 0, vehicleId = '', oldCabang = '', oldTgl = '', oldMetodeToll = '', oldCardToll = null, oldNama = '';
@@ -1020,6 +1054,15 @@ function editDailyTransactionUnlocked(payload, userInfo) {
       if (idxSumber > -1) sheet.getRange(rowIndex, idxSumber + 1).setValue('AKTUAL');
     }
 
+    // Bar BBM awal/akhir (edit via form input laporan): tulis hanya bila payload
+    // mengirimnya agar koreksi parsial (dari modal/library lama) tetap aman.
+    if (payload.bar_awal !== undefined && idxBarAwal > -1) {
+      sheet.getRange(rowIndex, idxBarAwal + 1).setValue(parseFloat(payload.bar_awal) || 0);
+    }
+    if (payload.bar_akhir !== undefined && idxBarAkhir > -1) {
+      sheet.getRange(rowIndex, idxBarAkhir + 1).setValue(parseFloat(payload.bar_akhir) || 0);
+    }
+
     const wasBbmFlazz = oldMetode === 'FLAZZ' && oldCard;
     const isBbmFlazz = newMetode === 'FLAZZ' && newCard;
     const wasTolFlazz = oldTollMethod === 'FLAZZ' && oldTollCard;
@@ -1029,7 +1072,7 @@ function editDailyTransactionUnlocked(payload, userInfo) {
     involvedCards.forEach(function(cardId) {
       const delta = flazzEditDelta(oldPayState, newPayState, cardId);
       if (delta !== 0) {
-        setCardBalance(cardId, (getCardBalance(cardId) || 0) + delta);
+        setCardBalance(cardId, (getCardBalance(cardId) || 0) + delta, token);
         if (shouldAdjustUsageOpeningAt(cardId, txStampMs)) {
           adjustActiveUsageOpening(cardId, delta);
         }
@@ -1051,20 +1094,20 @@ function editDailyTransactionUnlocked(payload, userInfo) {
 
     // Ganti foto odometer awal jika ada file baru
     if (payload.foto_odo_awal && idxFotoAwal > -1) {
-      const up = uploadImageToDrive(payload.foto_odo_awal, payload.foto_odo_awal_name || 'odo_awal.jpg', 'KM_Awal', userInfo ? userInfo.cabang : '');
+      const up = uploadImageToDrive(payload.foto_odo_awal, payload.foto_odo_awal_name || 'odo_awal.jpg', 'KM_Awal', userInfo ? userInfo.cabang : '', token);
       if (!up.success) return { success: false, msg: 'Upload foto odometer awal gagal: ' + up.error };
       const oldVal = sheet.getRange(rowIndex, idxFotoAwal + 1).getValue();
       const oldId = extractDriveFileId(oldVal);
-      if (oldId) deleteDriveFileById(oldId);
+      if (oldId) deleteDriveFileById(oldId, token);
       sheet.getRange(rowIndex, idxFotoAwal + 1).setValue(up.fileUrl);
     }
     // Ganti foto odometer akhir jika ada file baru
     if (payload.foto_odo_akhir && idxFotoAkhir > -1) {
-      const up = uploadImageToDrive(payload.foto_odo_akhir, payload.foto_odo_akhir_name || 'odo_akhir.jpg', 'KM_Akhir', userInfo ? userInfo.cabang : '');
+      const up = uploadImageToDrive(payload.foto_odo_akhir, payload.foto_odo_akhir_name || 'odo_akhir.jpg', 'KM_Akhir', userInfo ? userInfo.cabang : '', token);
       if (!up.success) return { success: false, msg: 'Upload foto odometer akhir gagal: ' + up.error };
       const oldVal = sheet.getRange(rowIndex, idxFotoAkhir + 1).getValue();
       const oldId = extractDriveFileId(oldVal);
-      if (oldId) deleteDriveFileById(oldId);
+      if (oldId) deleteDriveFileById(oldId, token);
       sheet.getRange(rowIndex, idxFotoAkhir + 1).setValue(up.fileUrl);
     }
 
@@ -1107,13 +1150,14 @@ function editDailyTransactionUnlocked(payload, userInfo) {
   }
 }
 
-function deleteDailyTransaction(transactionId, userInfo) {
+function deleteDailyTransaction(transactionId, token) {
+  const userInfo = requireUser(token);
   return withLock('daily-delete', function() {
-    return deleteDailyTransactionUnlocked(transactionId, userInfo);
+    return deleteDailyTransactionUnlocked(transactionId, userInfo, token);
   });
 }
 
-function deleteDailyTransactionUnlocked(transactionId, userInfo) {
+function deleteDailyTransactionUnlocked(transactionId, userInfo, token) {
   try {
     assertSuperadminOnly(userInfo, 'menghapus laporan BBM');
     const ss = getDB();
@@ -1182,7 +1226,7 @@ function deleteDailyTransactionUnlocked(transactionId, userInfo) {
     deletionCards.forEach(function(cardId) {
       const delta = flazzCardCharge(delPayState, cardId);
       if (delta > 0) {
-        setCardBalance(cardId, (getCardBalance(cardId) || 0) + delta);
+        setCardBalance(cardId, (getCardBalance(cardId) || 0) + delta, token);
         if (shouldAdjustUsageOpeningAt(cardId, txStampMs)) {
           adjustActiveUsageOpening(cardId, delta);
         }
@@ -1265,22 +1309,35 @@ function assertTransactionAccess(userInfo, branchId) {
   }
 }
 
-function insertCabang(data, userInfo) {
+function insertCabang(data, token) {
+  const userInfo = requireUser(token);
   assertSuperadminOnly(userInfo, 'mengelola master cabang');
-  const ss = getDB();
-  ss.getSheetByName('Cabang').appendRow([data.kode, data.nama, data.lokasi || '', 'Aktif']);
-  logAudit(userInfo, 'CREATE', 'master', 'Cabang ' + data.kode, null, { kode: data.kode, nama: data.nama, lokasi: data.lokasi || '' });
-  return { msg: 'Cabang Berhasil Ditambahkan' };
+  return withLock('master-cabang', function() {
+    const ss = getDB();
+    const sheet = ss.getSheetByName('Cabang');
+    const existing = sheet.getDataRange().getValues();
+    for (let j = 1; j < existing.length; j++) {
+      if (String(existing[j][0]) === String(data.kode)) {
+        throw new Error('Kode cabang "' + data.kode + '" sudah terpakai.');
+      }
+    }
+    sheet.appendRow([data.kode, data.nama, data.lokasi || '', 'Aktif']);
+    logAudit(userInfo, 'CREATE', 'master', 'Cabang ' + data.kode, null, { kode: data.kode, nama: data.nama, lokasi: data.lokasi || '' });
+    return { msg: 'Cabang Berhasil Ditambahkan' };
+  });
 }
 
-function insertKendaraan(data, userInfo) {
+function insertKendaraan(data, token) {
+  const userInfo = requireUser(token);
   const role = assertMasterAccess(userInfo, 'menambah kendaraan');
   if (role !== 'SUPERADMIN') assertOwnWarehouse(userInfo, data.cabang);
-  const ss = getDB();
-  let id = 'V-' + new Date().getTime();
-  ss.getSheetByName('Kendaraan').appendRow([id, data.plat, data.nama, data.jenis || 'Mobil', data.merk || '', data.model || '', data.kapasitas_tangki || '', data.jumlah_bar || '', data.standar_km_l || '', data.cabang, 'Aktif', data.jenis_indikator || 'DIGITAL_BAR', data.tanggal_pajak || '', data.tanggal_pajak_5_tahunan || '', data.tanggal_kir || '']);
-  logAudit(userInfo, 'CREATE', 'master', 'Kendaraan ' + id, null, { vehicle_id: id, plat: data.plat, nama: data.nama, cabang: data.cabang });
-  return { msg: 'Kendaraan Berhasil Ditambahkan' };
+  return withLock('master-kendaraan', function() {
+    const ss = getDB();
+    let id = 'V-' + new Date().getTime();
+    ss.getSheetByName('Kendaraan').appendRow([id, data.plat, data.nama, data.jenis || 'Mobil', data.merk || '', data.model || '', data.kapasitas_tangki || '', data.jumlah_bar || '', data.standar_km_l || '', data.cabang, 'Aktif', data.jenis_indikator || 'DIGITAL_BAR', data.tanggal_pajak || '', data.tanggal_pajak_5_tahunan || '', data.tanggal_kir || '']);
+    logAudit(userInfo, 'CREATE', 'master', 'Kendaraan ' + id, null, { vehicle_id: id, plat: data.plat, nama: data.nama, cabang: data.cabang });
+    return { msg: 'Kendaraan Berhasil Ditambahkan' };
+  });
 }
 
 function getActiveDrivers(token) {
@@ -1310,31 +1367,37 @@ function getActiveDrivers(token) {
   return activeDrivers;
 }
 
-function insertSupir(data, userInfo) {
+function insertSupir(data, token) {
+  const userInfo = requireUser(token);
   const role = assertMasterAccess(userInfo, 'menambah supir');
   if (role !== 'SUPERADMIN') assertOwnWarehouse(userInfo, data.cabang);
-  const ss = getDB();
-  let id = 'DRV-' + new Date().getTime();
-  ss.getSheetByName('Supir').appendRow([id, data.nama, data.cabang, 'Aktif', data.default_vehicle_id || '']);
-  logAudit(userInfo, 'CREATE', 'master', 'Supir ' + id, null, { id: id, nama: data.nama, cabang: data.cabang });
-  return { msg: 'Supir Berhasil Ditambahkan' };
+  return withLock('master-supir', function() {
+    const ss = getDB();
+    let id = 'DRV-' + new Date().getTime();
+    ss.getSheetByName('Supir').appendRow([id, data.nama, data.cabang, 'Aktif', data.default_vehicle_id || '']);
+    logAudit(userInfo, 'CREATE', 'master', 'Supir ' + id, null, { id: id, nama: data.nama, cabang: data.cabang });
+    return { msg: 'Supir Berhasil Ditambahkan' };
+  });
 }
 
-function deleteKendaraanById(vehicleId, userInfo) {
+function deleteKendaraanById(vehicleId, token) {
+  const userInfo = requireUser(token);
   const role = assertMasterAccess(userInfo, 'menghapus kendaraan');
-  const ss = getDB();
-  const sheet = ss.getSheetByName('Kendaraan');
-  if (!sheet) return { msg: 'Sheet tidak ditemukan' };
-  const data = sheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === vehicleId) {
-      if (role !== 'SUPERADMIN') assertOwnWarehouse(userInfo, data[i][9]);
-      sheet.getRange(i + 1, 11).setValue('Non-Aktif');
-      logAudit(userInfo, 'DELETE', 'master', 'Kendaraan ' + vehicleId, { plat: data[i][1], nama: data[i][2] }, null);
-      return { msg: 'Kendaraan Berhasil Dihapus' };
+  return withLock('master-kendaraan', function() {
+    const ss = getDB();
+    const sheet = ss.getSheetByName('Kendaraan');
+    if (!sheet) return { msg: 'Sheet tidak ditemukan' };
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === vehicleId) {
+        if (role !== 'SUPERADMIN') assertOwnWarehouse(userInfo, data[i][9]);
+        sheet.getRange(i + 1, 11).setValue('Non-Aktif');
+        logAudit(userInfo, 'DELETE', 'master', 'Kendaraan ' + vehicleId, { plat: data[i][1], nama: data[i][2] }, null);
+        return { msg: 'Kendaraan Berhasil Dihapus' };
+      }
     }
-  }
-  return { msg: 'Kendaraan tidak ditemukan' };
+    return { msg: 'Kendaraan tidak ditemukan' };
+  });
 }
 
 function getActiveBBM() {
@@ -1378,33 +1441,36 @@ function getActiveBBMForCabang(token) {
   return Object.keys(merged).map(function(k) { return merged[k]; });
 }
 
-function updateCabang(data, userInfo) {
+function updateCabang(data, token) {
+  const userInfo = requireUser(token);
   assertSuperadminOnly(userInfo, 'memperbarui master cabang');
-  const ss = getDB();
-  const sheet = ss.getSheetByName('Cabang');
-  const values = sheet.getDataRange().getValues();
-  for (let i = 1; i < values.length; i++) {
-    if (values[i][0] == data.edit_id) {
-      // Kode cabang adalah primary key dan dipakai sebagai referensi lintas sheet.
-      // Mengubahnya memerlukan migrasi ke semua sheet anak; untuk saat ini kode tidak boleh diubah.
-      if (String(data.kode || '') !== String(data.edit_id || '')) {
-        throw new Error('Kode cabang tidak dapat diubah. Hanya nama/lokasi yang boleh diedit.');
-      }
-      // Cek duplikat: pastikan tidak ada baris lain yang sudah memakai kode yang sama
-      for (let j = 1; j < values.length; j++) {
-        if (j === i) continue;
-        if (String(values[j][0]) === String(data.edit_id)) {
-          throw new Error('Kode cabang "' + data.edit_id + '" sudah terpakai oleh baris lain.');
+  return withLock('master-cabang', function() {
+    const ss = getDB();
+    const sheet = ss.getSheetByName('Cabang');
+    const values = sheet.getDataRange().getValues();
+    for (let i = 1; i < values.length; i++) {
+      if (values[i][0] == data.edit_id) {
+        // Kode cabang adalah primary key dan dipakai sebagai referensi lintas sheet.
+        // Mengubahnya memerlukan migrasi ke semua sheet anak; untuk saat ini kode tidak boleh diubah.
+        if (String(data.kode || '') !== String(data.edit_id || '')) {
+          throw new Error('Kode cabang tidak dapat diubah. Hanya nama/lokasi yang boleh diedit.');
         }
+        // Cek duplikat: pastikan tidak ada baris lain yang sudah memakai kode yang sama
+        for (let j = 1; j < values.length; j++) {
+          if (j === i) continue;
+          if (String(values[j][0]) === String(data.edit_id)) {
+            throw new Error('Kode cabang "' + data.edit_id + '" sudah terpakai oleh baris lain.');
+          }
+        }
+        sheet.getRange(i + 1, 1, 1, 3).setValues([[data.kode, data.nama, data.lokasi || '']]);
+        logAudit(userInfo, 'EDIT', 'master', 'Cabang ' + data.edit_id,
+          { kode: values[i][0], nama: values[i][1], lokasi: values[i][2] },
+          { kode: data.kode, nama: data.nama, lokasi: data.lokasi || '' });
+        return { msg: 'Cabang Berhasil Diupdate' };
       }
-      sheet.getRange(i + 1, 1, 1, 3).setValues([[data.kode, data.nama, data.lokasi || '']]);
-      logAudit(userInfo, 'EDIT', 'master', 'Cabang ' + data.edit_id,
-        { kode: values[i][0], nama: values[i][1], lokasi: values[i][2] },
-        { kode: data.kode, nama: data.nama, lokasi: data.lokasi || '' });
-      return { msg: 'Cabang Berhasil Diupdate' };
     }
-  }
-  throw new Error('Cabang tidak ditemukan');
+    throw new Error('Cabang tidak ditemukan');
+  });
 }
 
 // Cek apakah kode cabang masih dirujuk oleh data pada sheet-sheet lain.
@@ -1428,142 +1494,167 @@ function cabangHasDependencies(ss, kode) {
   return found;
 }
 
-function updateKendaraan(data, userInfo) {
+function updateKendaraan(data, token) {
+  const userInfo = requireUser(token);
   const role = assertMasterAccess(userInfo, 'memperbarui kendaraan');
-  const ss = getDB();
-  const sheet = ss.getSheetByName('Kendaraan');
-  const values = sheet.getDataRange().getValues();
-  for (let i = 1; i < values.length; i++) {
-    if (values[i][0] == data.edit_id) {
-      if (role !== 'SUPERADMIN') {
-        assertOwnWarehouse(userInfo, values[i][9]);
-        assertOwnWarehouse(userInfo, data.cabang);
+  return withLock('master-kendaraan', function() {
+    const ss = getDB();
+    const sheet = ss.getSheetByName('Kendaraan');
+    const values = sheet.getDataRange().getValues();
+    for (let i = 1; i < values.length; i++) {
+      if (values[i][0] == data.edit_id) {
+        if (role !== 'SUPERADMIN') {
+          assertOwnWarehouse(userInfo, values[i][9]);
+          assertOwnWarehouse(userInfo, data.cabang);
+        }
+        sheet.getRange(i + 1, 2, 1, 9).setValues([[
+          data.plat, data.nama, data.jenis || 'Mobil',
+          data.merk || '', data.model || '', data.kapasitas_tangki || '',
+          data.jumlah_bar || '', data.standar_km_l || '', data.cabang
+        ]]);
+        const hd = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+        // Tulis via lookup header (bukan angka kolom literal) agar tidak diam-diam
+        // salah kolom bila urutan header sheet berubah — konsisten dengan
+        // tanggal_pajak/tanggal_pajak_5_tahunan/tanggal_kir di bawah.
+        const iIndikator = hd.indexOf('jenis_indikator');
+        if (iIndikator > -1) sheet.getRange(i + 1, iIndikator + 1).setValue(data.jenis_indikator || 'DIGITAL_BAR');
+        const iPajak = hd.indexOf('tanggal_pajak');
+        if (iPajak > -1) sheet.getRange(i + 1, iPajak + 1).setValue(data.tanggal_pajak || '');
+
+        const iPajak5 = hd.indexOf('tanggal_pajak_5_tahunan');
+        if (iPajak5 > -1) sheet.getRange(i + 1, iPajak5 + 1).setValue(data.tanggal_pajak_5_tahunan || '');
+
+        const iKir = hd.indexOf('tanggal_kir');
+        if (iKir > -1) sheet.getRange(i + 1, iKir + 1).setValue(data.tanggal_kir || '');
+
+        logAudit(userInfo, 'EDIT', 'master', 'Kendaraan ' + data.edit_id,
+          { plat: values[i][1], nama: values[i][2] },
+          { plat: data.plat, nama: data.nama, cabang: data.cabang });
+        return { msg: 'Kendaraan Berhasil Diupdate' };
       }
-      sheet.getRange(i + 1, 2, 1, 9).setValues([[
-        data.plat, data.nama, data.jenis || 'Mobil',
-        data.merk || '', data.model || '', data.kapasitas_tangki || '',
-        data.jumlah_bar || '', data.standar_km_l || '', data.cabang
-      ]]);
-      sheet.getRange(i + 1, 12).setValue(data.jenis_indikator || 'DIGITAL_BAR');
-      const hd = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-      const iPajak = hd.indexOf('tanggal_pajak');
-      if (iPajak > -1) sheet.getRange(i + 1, iPajak + 1).setValue(data.tanggal_pajak || '');
-      
-      const iPajak5 = hd.indexOf('tanggal_pajak_5_tahunan');
-      if (iPajak5 > -1) sheet.getRange(i + 1, iPajak5 + 1).setValue(data.tanggal_pajak_5_tahunan || '');
-      
-      const iKir = hd.indexOf('tanggal_kir');
-      if (iKir > -1) sheet.getRange(i + 1, iKir + 1).setValue(data.tanggal_kir || '');
-      
-      logAudit(userInfo, 'EDIT', 'master', 'Kendaraan ' + data.edit_id,
-        { plat: values[i][1], nama: values[i][2] },
-        { plat: data.plat, nama: data.nama, cabang: data.cabang });
-      return { msg: 'Kendaraan Berhasil Diupdate' };
     }
-  }
-  throw new Error('Kendaraan tidak ditemukan');
+    throw new Error('Kendaraan tidak ditemukan');
+  });
 }
 
-function updateSupir(data, userInfo) {
+function updateSupir(data, token) {
+  const userInfo = requireUser(token);
   const role = assertMasterAccess(userInfo, 'memperbarui supir');
-  const ss = getDB();
-  const sheet = ss.getSheetByName('Supir');
-  const values = sheet.getDataRange().getValues();
-  for (let i = 1; i < values.length; i++) {
-    if (values[i][0] == data.edit_id) {
-      if (role !== 'SUPERADMIN') {
-        assertOwnWarehouse(userInfo, values[i][2]);
-        assertOwnWarehouse(userInfo, data.cabang);
+  return withLock('master-supir', function() {
+    const ss = getDB();
+    const sheet = ss.getSheetByName('Supir');
+    const values = sheet.getDataRange().getValues();
+    for (let i = 1; i < values.length; i++) {
+      if (values[i][0] == data.edit_id) {
+        if (role !== 'SUPERADMIN') {
+          assertOwnWarehouse(userInfo, values[i][2]);
+          assertOwnWarehouse(userInfo, data.cabang);
+        }
+        // update nama, cabang, and default_vehicle_id (col 2, 3, 5)
+        sheet.getRange(i + 1, 2, 1, 2).setValues([[data.nama, data.cabang]]);
+        sheet.getRange(i + 1, 5).setValue(data.default_vehicle_id || '');
+        logAudit(userInfo, 'EDIT', 'master', 'Supir ' + data.edit_id,
+          { nama: values[i][1], cabang: values[i][2] },
+          { nama: data.nama, cabang: data.cabang });
+        return { msg: 'Supir Berhasil Diupdate' };
       }
-      // update nama, cabang, and default_vehicle_id (col 2, 3, 5)
-      sheet.getRange(i + 1, 2, 1, 2).setValues([[data.nama, data.cabang]]);
-      sheet.getRange(i + 1, 5).setValue(data.default_vehicle_id || '');
-      logAudit(userInfo, 'EDIT', 'master', 'Supir ' + data.edit_id,
-        { nama: values[i][1], cabang: values[i][2] },
-        { nama: data.nama, cabang: data.cabang });
-      return { msg: 'Supir Berhasil Diupdate' };
     }
-  }
-  throw new Error('Supir tidak ditemukan');
+    throw new Error('Supir tidak ditemukan');
+  });
 }
 
-function updateBBM(data, userInfo) {
+function updateBBM(data, token) {
+  const userInfo = requireUser(token);
   assertSuperadminOnly(userInfo, 'memperbarui master BBM');
-  const ss = getDB();
-  const sheet = ss.getSheetByName('BBM');
-  const values = sheet.getDataRange().getValues();
-  for (let i = 1; i < values.length; i++) {
-    if (values[i][0] == data.edit_id) {
-      sheet.getRange(i + 1, 1, 1, 5).setValues([[data.edit_id, data.jenis, data.harga, data.kode_cabang || '', 'Aktif']]);
-      logAudit(userInfo, 'EDIT', 'master', 'BBM ' + data.edit_id,
-        { jenis: values[i][1], harga: values[i][2] },
-        { jenis: data.jenis, harga: data.harga });
-      return { msg: 'BBM Berhasil Diupdate' };
-    }
-  }
-  throw new Error('BBM tidak ditemukan');
-}
-
-function insertBBM(data, userInfo) {
-  assertSuperadminOnly(userInfo, 'menambah master BBM');
-  const ss = getDB();
-  let id = 'BBM-' + new Date().getTime();
-  ss.getSheetByName('BBM').appendRow([id, data.jenis, data.harga, data.kode_cabang || '', 'Aktif']);
-  logAudit(userInfo, 'CREATE', 'master', 'BBM ' + id, null, { id: id, jenis: data.jenis, harga: data.harga });
-  return { msg: 'BBM Berhasil Ditambahkan' };
-}
-
-function deleteCabangById(kode, userInfo) {
-  assertSuperadminOnly(userInfo, 'menghapus master cabang');
-  const ss = getDB();
-  const sheet = ss.getSheetByName('Cabang');
-  const data = sheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] == kode) {
-      const deps = cabangHasDependencies(ss, kode);
-      if (deps.length > 0) {
-        throw new Error('Cabang masih memiliki data terkait (' + deps.join(', ') + '). Hapus atau timpa data terkait terlebih dahulu.');
+  return withLock('master-bbm', function() {
+    const ss = getDB();
+    const sheet = ss.getSheetByName('BBM');
+    const values = sheet.getDataRange().getValues();
+    for (let i = 1; i < values.length; i++) {
+      if (values[i][0] == data.edit_id) {
+        sheet.getRange(i + 1, 1, 1, 5).setValues([[data.edit_id, data.jenis, data.harga, data.kode_cabang || '', 'Aktif']]);
+        logAudit(userInfo, 'EDIT', 'master', 'BBM ' + data.edit_id,
+          { jenis: values[i][1], harga: values[i][2] },
+          { jenis: data.jenis, harga: data.harga });
+        return { msg: 'BBM Berhasil Diupdate' };
       }
-      // Soft-delete: ubah status menjadi Non-Aktif agar baris dan jejak tetap tersimpan
-      sheet.getRange(i + 1, 4).setValue('Non-Aktif');
-      logAudit(userInfo, 'DELETE', 'master', 'Cabang ' + kode, { kode: data[i][0], nama: data[i][1] }, null);
-      return { msg: 'Cabang Berhasil Dihapus' };
     }
-  }
-  throw new Error('Cabang tidak ditemukan');
+    throw new Error('BBM tidak ditemukan');
+  });
 }
 
-function deleteSupirById(id, userInfo) {
+function insertBBM(data, token) {
+  const userInfo = requireUser(token);
+  assertSuperadminOnly(userInfo, 'menambah master BBM');
+  return withLock('master-bbm', function() {
+    const ss = getDB();
+    let id = 'BBM-' + new Date().getTime();
+    ss.getSheetByName('BBM').appendRow([id, data.jenis, data.harga, data.kode_cabang || '', 'Aktif']);
+    logAudit(userInfo, 'CREATE', 'master', 'BBM ' + id, null, { id: id, jenis: data.jenis, harga: data.harga });
+    return { msg: 'BBM Berhasil Ditambahkan' };
+  });
+}
+
+function deleteCabangById(kode, token) {
+  const userInfo = requireUser(token);
+  assertSuperadminOnly(userInfo, 'menghapus master cabang');
+  return withLock('master-cabang', function() {
+    const ss = getDB();
+    const sheet = ss.getSheetByName('Cabang');
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] == kode) {
+        const deps = cabangHasDependencies(ss, kode);
+        if (deps.length > 0) {
+          throw new Error('Cabang masih memiliki data terkait (' + deps.join(', ') + '). Hapus atau timpa data terkait terlebih dahulu.');
+        }
+        // Soft-delete: ubah status menjadi Non-Aktif agar baris dan jejak tetap tersimpan
+        sheet.getRange(i + 1, 4).setValue('Non-Aktif');
+        logAudit(userInfo, 'DELETE', 'master', 'Cabang ' + kode, { kode: data[i][0], nama: data[i][1] }, null);
+        return { msg: 'Cabang Berhasil Dihapus' };
+      }
+    }
+    throw new Error('Cabang tidak ditemukan');
+  });
+}
+
+function deleteSupirById(id, token) {
+  const userInfo = requireUser(token);
   const role = assertMasterAccess(userInfo, 'menghapus supir');
-  const ss = getDB();
-  const sheet = ss.getSheetByName('Supir');
-  const data = sheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] == id) {
-      if (role !== 'SUPERADMIN') assertOwnWarehouse(userInfo, data[i][2]);
-      // Soft-delete: ubah status menjadi Non-Aktif agar riwayat penggunaan tetap utuh
-      sheet.getRange(i + 1, 4).setValue('Non-Aktif');
-      logAudit(userInfo, 'DELETE', 'master', 'Supir ' + id, { nama: data[i][1], cabang: data[i][2] }, null);
-      return { msg: 'Supir Berhasil Dihapus' };
+  return withLock('master-supir', function() {
+    const ss = getDB();
+    const sheet = ss.getSheetByName('Supir');
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] == id) {
+        if (role !== 'SUPERADMIN') assertOwnWarehouse(userInfo, data[i][2]);
+        // Soft-delete: ubah status menjadi Non-Aktif agar riwayat penggunaan tetap utuh
+        sheet.getRange(i + 1, 4).setValue('Non-Aktif');
+        logAudit(userInfo, 'DELETE', 'master', 'Supir ' + id, { nama: data[i][1], cabang: data[i][2] }, null);
+        return { msg: 'Supir Berhasil Dihapus' };
+      }
     }
-  }
-  throw new Error('Supir tidak ditemukan');
+    throw new Error('Supir tidak ditemukan');
+  });
 }
 
-function deleteBBMById(id, userInfo) {
+function deleteBBMById(id, token) {
+  const userInfo = requireUser(token);
   assertSuperadminOnly(userInfo, 'menghapus master BBM');
-  const ss = getDB();
-  const sheet = ss.getSheetByName('BBM');
-  const data = sheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] == id) {
-      // Soft-delete: ubah status menjadi Non-Aktif agar harga riwayat tetap tersimpan
-      sheet.getRange(i + 1, 5).setValue('Non-Aktif');
-      logAudit(userInfo, 'DELETE', 'master', 'BBM ' + id, { jenis: data[i][1], harga: data[i][2] }, null);
-      return { msg: 'BBM Berhasil Dihapus' };
+  return withLock('master-bbm', function() {
+    const ss = getDB();
+    const sheet = ss.getSheetByName('BBM');
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] == id) {
+        // Soft-delete: ubah status menjadi Non-Aktif agar harga riwayat tetap tersimpan
+        sheet.getRange(i + 1, 5).setValue('Non-Aktif');
+        logAudit(userInfo, 'DELETE', 'master', 'BBM ' + id, { jenis: data[i][1], harga: data[i][2] }, null);
+        return { msg: 'BBM Berhasil Dihapus' };
+      }
     }
-  }
-  throw new Error('BBM tidak ditemukan');
+    throw new Error('BBM tidak ditemukan');
+  });
 }
 
 // ==========================================
@@ -1614,91 +1705,100 @@ function countActiveSuperadmin(sheet) {
   return count;
 }
 
-function insertUser(data, userInfo) {
+function insertUser(data, token) {
+  const userInfo = requireUser(token);
   assertSuperadminOnly(userInfo, 'mengelola akun pengguna');
-  const ss = getDB();
-  const sheet = ss.getSheetByName('Pengguna');
-  if (!sheet) throw new Error('Sheet Pengguna tidak ditemukan');
-  const uname = String(data.username || '').trim();
-  const nama = String(data.nama || '').trim();
-  const password = String(data.password || '');
-  const role = data.role || '';
-  const cabang = (data.cabang || '').trim();
-  if (!uname) throw new Error('Username wajib diisi');
-  if (!nama) throw new Error('Nama wajib diisi');
-  if (!password) throw new Error('Password wajib diisi');
-  if (role !== 'SUPERADMIN' && role !== 'PIC CABANG') throw new Error('Role tidak valid');
-  if (role === 'PIC CABANG' && !cabang) throw new Error('Warehouse wajib diisi untuk PIC CABANG');
-  if (getUserByUsername(sheet, uname)) throw new Error('Username sudah terpakai');
-  const id = 'U-' + new Date().getTime();
-  sheet.appendRow([id, uname, hashPassword(password), nama, role, cabang, 'Aktif']);
-  logAudit(userInfo, 'CREATE', 'pengguna', 'Pengguna ' + uname, null, { user_id: id, username: uname, nama: nama, role: role, cabang: cabang });
-  return { msg: 'Pengguna Berhasil Ditambahkan' };
+  return withLock('master-pengguna', function() {
+    const ss = getDB();
+    const sheet = ss.getSheetByName('Pengguna');
+    if (!sheet) throw new Error('Sheet Pengguna tidak ditemukan');
+    const uname = String(data.username || '').trim();
+    const nama = String(data.nama || '').trim();
+    const password = String(data.password || '');
+    const role = data.role || '';
+    const cabang = (data.cabang || '').trim();
+    if (!uname) throw new Error('Username wajib diisi');
+    if (!nama) throw new Error('Nama wajib diisi');
+    if (!password) throw new Error('Password wajib diisi');
+    if (role !== 'SUPERADMIN' && role !== 'PIC CABANG') throw new Error('Role tidak valid');
+    if (role === 'PIC CABANG' && !cabang) throw new Error('Warehouse wajib diisi untuk PIC CABANG');
+    if (getUserByUsername(sheet, uname)) throw new Error('Username sudah terpakai');
+    const id = 'U-' + new Date().getTime();
+    sheet.appendRow([id, uname, hashPassword(password), nama, role, cabang, 'Aktif']);
+    logAudit(userInfo, 'CREATE', 'pengguna', 'Pengguna ' + uname, null, { user_id: id, username: uname, nama: nama, role: role, cabang: cabang });
+    return { msg: 'Pengguna Berhasil Ditambahkan' };
+  });
 }
 
-function updateUser(data, userInfo) {
+function updateUser(data, token) {
+  const userInfo = requireUser(token);
   assertSuperadminOnly(userInfo, 'mengelola akun pengguna');
-  const ss = getDB();
-  const sheet = ss.getSheetByName('Pengguna');
-  if (!sheet) throw new Error('Sheet Pengguna tidak ditemukan');
-  const userId = String(data.user_id || '');
-  const uname = String(data.username || '').trim();
-  const nama = String(data.nama || '').trim();
-  const role = data.role || '';
-  const cabang = (data.cabang || '').trim();
+  return withLock('master-pengguna', function() {
+    const ss = getDB();
+    const sheet = ss.getSheetByName('Pengguna');
+    if (!sheet) throw new Error('Sheet Pengguna tidak ditemukan');
+    const userId = String(data.user_id || '');
+    const uname = String(data.username || '').trim();
+    const nama = String(data.nama || '').trim();
+    const role = data.role || '';
+    const cabang = (data.cabang || '').trim();
 
-  const values = sheet.getDataRange().getValues();
-  let rowIndex = -1;
-  for (let i = 1; i < values.length; i++) {
-    if (String(values[i][0]) === userId) { rowIndex = i + 1; break; }
-  }
-  if (rowIndex === -1) throw new Error('Pengguna tidak ditemukan');
+    const values = sheet.getDataRange().getValues();
+    let rowIndex = -1;
+    for (let i = 1; i < values.length; i++) {
+      if (String(values[i][0]) === userId) { rowIndex = i + 1; break; }
+    }
+    if (rowIndex === -1) throw new Error('Pengguna tidak ditemukan');
 
-  if (!uname) throw new Error('Username wajib diisi');
-  if (!nama) throw new Error('Nama wajib diisi');
-  if (role !== 'SUPERADMIN' && role !== 'PIC CABANG') throw new Error('Role tidak valid');
-  if (role === 'PIC CABANG' && !cabang) throw new Error('Warehouse wajib diisi untuk PIC CABANG');
+    if (!uname) throw new Error('Username wajib diisi');
+    if (!nama) throw new Error('Nama wajib diisi');
+    if (role !== 'SUPERADMIN' && role !== 'PIC CABANG') throw new Error('Role tidak valid');
+    if (role === 'PIC CABANG' && !cabang) throw new Error('Warehouse wajib diisi untuk PIC CABANG');
 
-  const existing = getUserByUsername(sheet, uname);
-  if (existing && String(existing.row[0]) !== userId) throw new Error('Username sudah terpakai');
+    const existing = getUserByUsername(sheet, uname);
+    if (existing && String(existing.row[0]) !== userId) throw new Error('Username sudah terpakai');
 
-  const currentRow = values[rowIndex - 1];
-  if (String(userInfo.username) === String(currentRow[1]) &&
-      currentRow[4] === 'SUPERADMIN' && role !== 'SUPERADMIN' &&
-      countActiveSuperadmin(sheet) <= 1) {
-    throw new Error('Tidak bisa menghapus peran SUPERADMIN terakhir');
-  }
+    const currentRow = values[rowIndex - 1];
+    if (String(userInfo.username) === String(currentRow[1]) &&
+        currentRow[4] === 'SUPERADMIN' && role !== 'SUPERADMIN' &&
+        countActiveSuperadmin(sheet) <= 1) {
+      throw new Error('Tidak bisa menghapus peran SUPERADMIN terakhir');
+    }
 
-  const password = String(data.password || '');
-  const newPassword = password ? hashPassword(password) : String(currentRow[2]);
-  sheet.getRange(rowIndex, 2, 1, 5).setValues([[uname, newPassword, nama, role, cabang]]);
-  logAudit(userInfo, 'EDIT', 'pengguna', 'Update user ' + userId);
-  return { msg: 'Pengguna Berhasil Diupdate' };
+    const password = String(data.password || '');
+    const newPassword = password ? hashPassword(password) : String(currentRow[2]);
+    sheet.getRange(rowIndex, 2, 1, 5).setValues([[uname, newPassword, nama, role, cabang]]);
+    logAudit(userInfo, 'EDIT', 'pengguna', 'Update user ' + userId);
+    return { msg: 'Pengguna Berhasil Diupdate' };
+  });
 }
 
-function setUserStatus(userId, status, userInfo) {
+function setUserStatus(userId, status, token) {
+  const userInfo = requireUser(token);
   assertSuperadminOnly(userInfo, 'mengelola status akun pengguna');
-  const ss = getDB();
-  const sheet = ss.getSheetByName('Pengguna');
-  if (!sheet) throw new Error('Sheet Pengguna tidak ditemukan');
-  const values = sheet.getDataRange().getValues();
-  let rowIndex = -1;
-  for (let i = 1; i < values.length; i++) {
-    if (String(values[i][0]) === String(userId)) { rowIndex = i + 1; break; }
-  }
-  if (rowIndex === -1) throw new Error('Pengguna tidak ditemukan');
-  const row = values[rowIndex - 1];
-  if (status === 'Non-Aktif') {
-    if (userInfo && String(userInfo.username) === String(row[1])) {
-      throw new Error('Tidak bisa menonaktifkan akun sendiri');
+  return withLock('master-pengguna', function() {
+    const ss = getDB();
+    const sheet = ss.getSheetByName('Pengguna');
+    if (!sheet) throw new Error('Sheet Pengguna tidak ditemukan');
+    const values = sheet.getDataRange().getValues();
+    let rowIndex = -1;
+    for (let i = 1; i < values.length; i++) {
+      if (String(values[i][0]) === String(userId)) { rowIndex = i + 1; break; }
     }
-    if (row[4] === 'SUPERADMIN' && countActiveSuperadmin(sheet) <= 1) {
-      throw new Error('Tidak bisa menonaktifkan SUPERADMIN aktif terakhir');
+    if (rowIndex === -1) throw new Error('Pengguna tidak ditemukan');
+    const row = values[rowIndex - 1];
+    if (status === 'Non-Aktif') {
+      if (userInfo && String(userInfo.username) === String(row[1])) {
+        throw new Error('Tidak bisa menonaktifkan akun sendiri');
+      }
+      if (row[4] === 'SUPERADMIN' && countActiveSuperadmin(sheet) <= 1) {
+        throw new Error('Tidak bisa menonaktifkan SUPERADMIN aktif terakhir');
+      }
     }
-  }
-  sheet.getRange(rowIndex, 7).setValue(status);
-  logAudit(userInfo, 'DELETE', 'pengguna', (status === 'Aktif' ? 'Aktifkan ' : 'Nonaktifkan ') + userId);
-  return { msg: status === 'Aktif' ? 'Pengguna Berhasil Diaktifkan Kembali' : 'Pengguna Berhasil Dinonaktifkan' };
+    sheet.getRange(rowIndex, 7).setValue(status);
+    logAudit(userInfo, 'DELETE', 'pengguna', (status === 'Aktif' ? 'Aktifkan ' : 'Nonaktifkan ') + userId);
+    return { msg: status === 'Aktif' ? 'Pengguna Berhasil Diaktifkan Kembali' : 'Pengguna Berhasil Dinonaktifkan' };
+  });
 }
 
 // Kolom lama yang dihapus dari pipeline laporan BBM.
@@ -1773,7 +1873,7 @@ function ensureFlazzUsageRefColumns() {
 }
 
 function migrateLegacyPasswords(token) {
-  if (token) assertSuperadminOnly(requireUser(token), 'migrasi password legacy');
+  assertSuperadminOnly(requireUser(token), 'migrasi password legacy');
   const ss = getDB();
   const sheet = ss.getSheetByName('Pengguna');
   if (!sheet) throw new Error('Sheet Pengguna tidak ditemukan');

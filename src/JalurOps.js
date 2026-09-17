@@ -316,8 +316,9 @@ function jalurComputePajak(tanggalPajakStr) {
   return { sisa_hari_pajak: days, status_pajak: status };
 }
 
-function saveJalur(payload, userInfo) {
+function saveJalur(payload, token) {
   try {
+    const userInfo = requireUser(token);
     const sheet = jalurSheet();
     if (!sheet) throw new Error('Sheet Jalur_Pengiriman tidak ditemukan. Jalankan setupDatabase.');
     const role = assertMasterAccess(userInfo, 'menyimpan jadwal pengiriman');
@@ -418,8 +419,9 @@ function saveJalur(payload, userInfo) {
   }
 }
 
-function updateJalur(data, userInfo) {
+function updateJalur(data, token) {
   try {
+    const userInfo = requireUser(token);
     assertSuperadminOnly(userInfo, 'memperbarui jadwal pengiriman');
     const sheet = jalurSheet();
     if (!sheet) throw new Error('Sheet Jalur_Pengiriman tidak ditemukan.');
@@ -428,6 +430,38 @@ function updateJalur(data, userInfo) {
     const idx = found.idx;
     const oldCard = (idx['flazz_card_id'] !== undefined) ? String(found.row[idx['flazz_card_id']] || '') : '';
     const newCard = data.etoll_card_id !== undefined ? String(data.etoll_card_id || '') : oldCard;
+
+    // Validasi referensi SEBELUM menulis apa pun — mencegah baris jalur berisi
+    // driver_id/vehicle_id/kartu etoll yang tidak ada (nama/plat jadi kosong senyap).
+    let vNew = null;
+    if (data.driver_id !== undefined && data.driver_id && !jalurDriverNameById(data.driver_id)) {
+      throw new Error('Driver utama tidak ditemukan.');
+    }
+    if (data.driver2_id !== undefined && data.driver2_id && !jalurDriverNameById(data.driver2_id)) {
+      throw new Error('Driver kedua tidak ditemukan.');
+    }
+    if (data.vehicle_id !== undefined) {
+      vNew = jalurVehicleById(data.vehicle_id);
+      if (!vNew) throw new Error('Kendaraan tidak ditemukan.');
+    }
+    if (data.etoll_card_id && typeof findFlazzCardBalance === 'function' && !findFlazzCardBalance(data.etoll_card_id)) {
+      throw new Error('Kartu etoll tidak ditemukan.');
+    }
+
+    // Balance gate: bila kendaraan diganti, kendaraan BARU juga harus lolos gate
+    // yang sama seperti saat membuat jalur baru (sebelumnya hanya dicek di saveJalur,
+    // sehingga edit bisa memindahkan jalur ke kendaraan yang masih terblokir).
+    const oldVehicleId = idx['vehicle_id'] !== undefined ? String(found.row[idx['vehicle_id']] || '') : '';
+    if (data.vehicle_id !== undefined && String(data.vehicle_id) !== oldVehicleId) {
+      const tanggalCheck = data.tanggal !== undefined ? data.tanggal : found.row[idx['tanggal']];
+      const check = checkIncompleteJalurForVehicle(data.vehicle_id, tanggalCheck);
+      if (check.blocked && check.incompleteJalur) {
+        const b = check.incompleteJalur;
+        const aksi = b.flazz_card_id ? 'rekonsiliasi saldo flazz' : 'input laporan';
+        throw new Error('Kendaraan ' + (b.plat_nomor || b.id) + ' (jalur ' + b.tanggal + ', status ' + b.status + ') masih belum selesai. Harap ' + aksi + ' terlebih dahulu sebelum memindahkan jalur ini ke kendaraan tersebut.');
+      }
+    }
+
     if (data.tanggal !== undefined) sheet.getRange(found.rowIndex, idx['tanggal'] + 1).setValue(data.tanggal);
     if (data.rute_tujuan !== undefined) sheet.getRange(found.rowIndex, idx['rute_tujuan'] + 1).setValue(String(data.rute_tujuan).trim());
     if (data.driver_id !== undefined) {
@@ -439,7 +473,7 @@ function updateJalur(data, userInfo) {
       sheet.getRange(found.rowIndex, idx['nama_driver2'] + 1).setValue(data.driver2_id ? jalurDriverNameById(data.driver2_id) : '');
     }
     if (data.vehicle_id !== undefined) {
-      const v = jalurVehicleById(data.vehicle_id);
+      const v = vNew;
       sheet.getRange(found.rowIndex, idx['vehicle_id'] + 1).setValue(data.vehicle_id);
       sheet.getRange(found.rowIndex, idx['plat_nomor'] + 1).setValue(v ? v.plat_nomor : '');
       sheet.getRange(found.rowIndex, idx['nama_kendaraan'] + 1).setValue(v ? v.nama : '');
@@ -472,8 +506,9 @@ function updateJalur(data, userInfo) {
   }
 }
 
-function deleteJalur(id, userInfo) {
+function deleteJalur(id, token) {
   try {
+    const userInfo = requireUser(token);
     assertSuperadminOnly(userInfo, 'menghapus jadwal pengiriman');
     const sheet = jalurSheet();
     if (!sheet) throw new Error('Sheet Jalur_Pengiriman tidak ditemukan.');
@@ -605,7 +640,7 @@ function getJalurByTanggal(tanggal, token, opts) {
 }
 
 function backfillJalurStatus(token) {
-  if (token) assertSuperadminOnly(requireUser(token), 'backfill status jalur');
+  assertSuperadminOnly(requireUser(token), 'backfill status jalur');
   try {
     const ss = getDB();
     const jalurSheetRef = ss.getSheetByName('Jalur_Pengiriman');

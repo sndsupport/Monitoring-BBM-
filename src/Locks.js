@@ -4,16 +4,17 @@
 
 function withLock(label, fn) {
   var lock = LockService.getScriptLock();
-  var acquired = false;
   try {
     lock.waitLock(30000);
-    acquired = true;
-    return fn();
   } catch (e) {
     throw new Error('Antrean operasi "' + label + '" penuh (>30 detik). Coba lagi.');
+  }
+  // Lock sudah didapat — error dari fn() (mis. validasi "sudah terpakai",
+  // "tidak ditemukan") HARUS diteruskan apa adanya, bukan tertimpa pesan
+  // antrean di atas (bug lama: catch di sini menutupi semua error fn()).
+  try {
+    return fn();
   } finally {
-    if (acquired) {
-      try { lock.releaseLock(); } catch (e) { /* abaikan */ }
-    }
+    try { lock.releaseLock(); } catch (e) { /* abaikan */ }
   }
 }

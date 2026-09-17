@@ -863,4 +863,16 @@
   #jalur-shot .badge { font-size: 0.7rem; }
   #jalur-shot .table { font-size: 0.85rem; }
   #jalur-shot-canvas img, #jalur-shot-canvas canvas { max-width: 100%; height: auto; }
+
+  /* Banner mode edit: selalu tersembunyi kecuali mode edit aktif (JS menambah class .editing).
+     CSS dikontrol sendiri (bukan .d-flex Bootstrap) agar display:none tidak dikalahkan
+     oleh display:flex !important dari utility class. */
+  .mode-edit-banner { display: none; }
+  .mode-edit-banner.editing {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
 </style>

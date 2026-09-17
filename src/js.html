@@ -5,6 +5,8 @@
   window.masterData = { kendaraan: [], cabang: [], supir: [], bbm: [], pengguna: [] };
   let allVehicles = [];
   let allDrivers = [];
+  let __editingTxId = null;
+  let __editingSupir = '';
 
   var SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
   var __dashCache = null;
@@ -105,8 +107,9 @@ document.getElementById('page-login').style.display = 'flex';
     var t = bbmToken();
     localStorage.removeItem('bbm_token');
     localStorage.removeItem('bbm_user');
+    try { if (typeof exitEditMode === 'function') exitEditMode(); } catch (e) { /* abaikan */ }
     if (t) {
-      try { google.script.run.doLogout(t); } catch (e) { /* abaikan */ }
+      try { google.script.run.withFailureHandler(function() { /* abaikan: logout tetap lanjut di client */ }).doLogout(t); } catch (e) { /* abaikan */ }
     }
     document.getElementById('user-info').innerHTML = '';
     var sidebarUserInfo = document.getElementById('sidebar-user-info');
@@ -282,6 +285,8 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
             google.script.run.withSuccessHandler(function(list) {
               window.__bbmForCabang = list || [];
               renderBBMOptions(window.__bbmForCabang);
+            }).withFailureHandler(function(err) {
+              showToast('Gagal memuat daftar BBM: ' + err.message, 'error');
             }).apiGetBBMForCabang(bbmToken());
           }
         }
@@ -371,6 +376,14 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
       opt.setAttribute('data-flazz-card-id', j.flazz_card_id || '');
       sel.appendChild(opt);
     });
+    // Mode edit: pastikan supir laporan yang sedang diedit selalu tersedia di
+    // dropdown walaupun jalurnya sudah DIISI / tidak punya jalur BELUM_DIISI.
+    if (__editingSupir && !hasOption(sel, __editingSupir)) {
+      var optEdit = document.createElement('option');
+      optEdit.value = __editingSupir;
+      optEdit.text = __editingSupir;
+      sel.appendChild(optEdit);
+    }
     // Jaga pilihan tetap terpilih bila masih ada di daftar baru (mis. saat refresh switchTab).
     if (prev) {
       var keep = false;
@@ -379,40 +392,64 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     }
   }
 
+  function hasOption(sel, value) {
+    if (!sel) return false;
+    for (var i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === value) return true;
+    }
+    return false;
+  }
+
   // Hanya memuat dropdown supir jalur untuk tanggal terpilih (tanpa reset field lain).
-  function refreshJalurDriverOptions() {
+  function refreshJalurDriverOptions(onDone) {
     var tglInput = document.getElementById('tanggal');
     var tgl = tglInput ? tglInput.value : '';
-    if (!tgl) { populateJalurDriverSelect([]); return; }
+    if (!tgl) { populateJalurDriverSelect([]); if (onDone) onDone(); return; }
+    var opts = {};
+    // SUPERADMIN: filter juga berdasarkan warehouse terpilih di form input laporan.
+    if (userRole === 'SUPERADMIN') {
+      var cabEl = document.getElementById('input-cabang');
+      if (cabEl && cabEl.value) opts.cabang = cabEl.value;
+    }
     google.script.run
       .withFailureHandler(function(err) {
         console.error('Gagal load jalur drivers:', err);
         populateJalurDriverSelect([]);
+        if (onDone) onDone();
       })
       .withSuccessHandler(function(res) {
-        if (!res || !res.success || !res.list) { populateJalurDriverSelect([]); return; }
+        if (!res || !res.success || !res.list) { populateJalurDriverSelect([]); if (onDone) onDone(); return; }
         window.__jalurDrivers = res.list;
         populateJalurDriverSelect(res.list);
+        if (onDone) onDone();
       })
-      .apiGetJalurDriversForDate(tgl, bbmToken());
+      .apiGetJalurDriversForDate(tgl, bbmToken(), opts);
   }
 
   function onLaporanDateChange() {
     var tglInput = document.getElementById('tanggal');
-    var supirInput = document.getElementById('nama_supir');
-    var selectVeh = document.getElementById('vehicle');
     var selectFlazzTol = document.getElementById('flazz_card_id_toll');
-
-    if (supirInput) supirInput.value = '';
-    if (selectVeh) selectVeh.selectedIndex = 0;
-    if (selectFlazzTol) selectFlazzTol.value = '';
     var tolStripReset = document.getElementById('flazz_card_id_toll_strip');
     if (tolStripReset) tolStripReset.textContent = '-';
     var mtRadios = document.getElementsByName('metode_toll');
     for (var i = 0; i < mtRadios.length; i++) { mtRadios[i].checked = (mtRadios[i].value === 'TUNAI'); }
     if (typeof toggleTolFlazzCardSelection === 'function') toggleTolFlazzCardSelection();
 
-    refreshJalurDriverOptions();
+    // Muat ulang dropdown supir berdasarkan tanggal baru. Supir yang masih punya
+    // jalur BELUM_DIISI pada tanggal itu dipertahankan; yang tidak, ikut terhapus
+    // otomatis. Kendaraan mengikuti supir yang tersisa (via onLaporanDriverChange).
+    refreshJalurDriverOptions(function() {
+      var supirSel = document.getElementById('nama_supir');
+      if (supirSel && supirSel.value) {
+        if (typeof onLaporanDriverChange === 'function') onLaporanDriverChange();
+      } else {
+        var vehSel = document.getElementById('vehicle');
+        if (vehSel) vehSel.selectedIndex = 0;
+        if (typeof onVehicleChange === 'function') onVehicleChange();
+        if (selectFlazzTol) selectFlazzTol.value = '';
+        if (tolStripReset) tolStripReset.textContent = '-';
+      }
+    });
   }
 
   function onLaporanDriverChange() {
@@ -810,6 +847,15 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     if (fcReset) fcReset.value = '';
     var fcTolReset = document.getElementById('flazz_card_id_toll');
     if (fcTolReset) fcTolReset.value = '';
+    // Warehouse: kembalikan ke "Semua Warehouse" agar tidak nyangkut ke warehouse
+    // laporan terakhir yang diedit (lihat loadEditInForm) — tanpa ini, dropdown
+    // kendaraan & kartu Flazz tetap terfilter ke warehouse itu untuk laporan
+    // BARU berikutnya setelah tombol Batal ditekan.
+    var inputCabangReset = document.getElementById('input-cabang');
+    if (inputCabangReset) {
+      inputCabangReset.value = '';
+      if (typeof filterFormByCabang === 'function') filterFormByCabang();
+    }
     var vehReset = document.getElementById('vehicle');
     if (vehReset) vehReset.value = '';
     var jenisReset = document.getElementById('jenis_bbm');
@@ -855,6 +901,7 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
 
     if (typeof onVehicleChange === 'function') onVehicleChange();
 
+    exitEditMode();
     formDataPayload = {};
     var fStrip = document.getElementById('flazz_card_id_strip');
     if (fStrip) fStrip.style.display = 'inline';
@@ -1048,10 +1095,147 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     modal.show();
   }
 
+  // Simpan koreksi laporan dari form input laporan (mode edit) ke API edit.
+  // Payload mengikuti kontrak server editDailyTransaction (nama field seperti
+  // modal edit lama), dengan tambahan bar_awal/bar_akhir untuk field bar.
+  async function processDailyEditReport() {
+    if (window.__bbmSubmitting) return;
+    if (!checkFlazzBalanceBeforeSubmit()) return;
+    if (!validateDailyForm()) return;
+    try {
+      var modalEl = document.getElementById('modal-ringkasan');
+      if (modalEl) {
+        var existingModal = bootstrap.Modal.getInstance(modalEl);
+        if (existingModal) existingModal.hide();
+      }
+    } catch(e) {}
+    var transactions = window.__recent || [];
+    var row = transactions.find(function(r) { return String(r.transaction_id) === String(__editingTxId); });
+    if (!row) { showToast('Data transaksi tidak ditemukan.', 'error'); exitEditMode(); resetDailyForm(); return; }
+
+    let odoAwal = document.getElementById('foto_odo_awal').files[0];
+    let odoAkhir = document.getElementById('foto_odo_akhir').files[0];
+    window.__bbmSubmitting = true;
+
+    let isiBensinVal = document.getElementById('isi_bensin') ? document.getElementById('isi_bensin').value : 'Ya';
+    let biaya_bbmSubmit = document.getElementById('biaya_bbm') ? (parseFloat(document.getElementById('biaya_bbm').value) || 0) : 0;
+    var __mpRadios = document.getElementsByName('metode_pembayaran');
+    var __mpVal = 'TUNAI';
+    for (var r of __mpRadios) { if (r.checked) { __mpVal = r.value; break; } }
+    let metode_pembayaran = __mpVal;
+    if (isiBensinVal !== 'Ya' || biaya_bbmSubmit <= 0) metode_pembayaran = '';
+    let flazz_card_id = document.getElementById('flazz_card_id') ? document.getElementById('flazz_card_id').value : '';
+    var __mtRadios = document.getElementsByName('metode_toll');
+    var __mtVal = 'TUNAI';
+    for (var r of __mtRadios) { if (r.checked) { __mtVal = r.value; break; } }
+    let metode_toll = __mtVal;
+    let flazz_card_id_toll = document.getElementById('flazz_card_id_toll') ? document.getElementById('flazz_card_id_toll').value : '';
+    let biaya_tollSubmit = document.getElementById('biaya_toll') ? (parseFloat(document.getElementById('biaya_toll').value) || 0) : 0;
+
+    if (isiBensinVal === 'Ya' && metode_pembayaran === 'FLAZZ' && !flazz_card_id) {
+       showToast('Harap pilih Kartu Flazz jika metode pembayaran menggunakan Flazz.', 'error');
+       window.__bbmSubmitting = false;
+       return;
+    }
+    if (biaya_tollSubmit > 0 && metode_toll === 'FLAZZ' && !flazz_card_id_toll) {
+       showToast('Pilih kartu Flazz untuk pembayaran tol, atau ubah metode pembayaran tol menjadi Tunai.', 'error');
+       window.__bbmSubmitting = false;
+       return;
+    }
+    if (!isSupirNameValid()) { showToast('Nama supir tidak valid, pilih dari daftar', 'error'); window.__bbmSubmitting = false; return; }
+
+    let btn = document.getElementById('btn-process');
+    let originalText = btn.innerHTML;
+    showToast('Memproses...', 'warning');
+    btn.disabled = true;
+    btn.innerHTML = "<span class='spinner-border spinner-border-sm'></span> Sedang Menyimpan Perubahan...";
+
+    var saveTokens = { done: false };
+    var wdTimer1 = setTimeout(function () {
+      if (!saveTokens.done) showToast('Masih memproses... harap tunggu.', 'warning');
+    }, 45000);
+    var wdTimer2 = setTimeout(function () {
+      if (saveTokens.done) return;
+      saveTokens.done = true;
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      window.__bbmSubmitting = false;
+      showToast('Proses melebihi 2 menit. Muat ulang halaman atau cek spreadsheet.', 'error');
+    }, 120000);
+    function finalizeEditSave() {
+      saveTokens.done = true;
+      window.__bbmSubmitting = false;
+      clearTimeout(wdTimer1);
+      clearTimeout(wdTimer2);
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+    }
+
+    try {
+      var payload = {
+        transaction_id: __editingTxId,
+        tanggal: document.getElementById('tanggal').value,
+        nama_supir: document.getElementById('nama_supir').value,
+        km_awal: document.getElementById('km_awal_val').value,
+        km_akhir: document.getElementById('km_akhir_val').value,
+        bar_awal: document.getElementById('bar_awal').value,
+        bar_akhir: document.getElementById('bar_akhir').value,
+        biaya_bbm: biaya_bbmSubmit,
+        biaya_toll: biaya_tollSubmit,
+        liter_bbm: document.getElementById('liter_bbm') ? document.getElementById('liter_bbm').value || 0 : 0,
+        metode_pembayaran: metode_pembayaran,
+        flazz_card_id: (metode_pembayaran === 'FLAZZ') ? flazz_card_id : '',
+        metode_toll: metode_toll,
+        flazz_card_id_toll: (metode_toll === 'FLAZZ') ? flazz_card_id_toll : ''
+      };
+      if (odoAwal) {
+        var odoAwalC = await compressPhoto(odoAwal);
+        if (!odoAwalC) { showToast('Gagal mengompresi foto KM awal, coba foto lain.', 'error'); finalizeEditSave(); return; }
+        payload.foto_odo_awal = odoAwalC.dataUrl;
+        payload.foto_odo_awal_name = odoAwalC.name;
+      }
+      if (odoAkhir) {
+        var odoAkhirC = await compressPhoto(odoAkhir);
+        if (!odoAkhirC) { showToast('Gagal mengompresi foto KM akhir, coba foto lain.', 'error'); finalizeEditSave(); return; }
+        payload.foto_odo_akhir = odoAkhirC.dataUrl;
+        payload.foto_odo_akhir_name = odoAkhirC.name;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          finalizeEditSave();
+          if (res.success) {
+            showToast(res.msg || 'Perubahan berhasil disimpan!', 'success');
+            if (typeof flazzDataCache !== 'undefined') flazzDataCache = null;
+            window.__dashForce = true;
+            window.__perfForce = true;
+            exitEditMode();
+            resetDailyForm();
+            if (typeof loadDashboard === 'function') loadDashboard();
+            if (typeof loadFlazzDataWrapper === 'function') loadFlazzDataWrapper(true);
+            switchTab('dashboard');
+          } else {
+            showToast(res.msg || 'Gagal menyimpan perubahan.', 'error');
+          }
+        })
+        .withFailureHandler(function(err) {
+          finalizeEditSave();
+          showToast('Gagal menyimpan: ' + err.message, 'error');
+        })
+        .apiEditDailyTransaction(payload, bbmToken());
+    } catch (e) {
+      finalizeEditSave();
+      showToast('Error menyimpan perubahan: ' + e.toString(), 'error');
+    }
+  }
+
   async function processDailyReport() {
     if (window.__bbmSubmitting) {
       showToast('Laporan sedang diproses, harap tunggu...', 'warning');
       return;
+    }
+    if (__editingTxId) {
+      return processDailyEditReport();
     }
     if (!checkFlazzBalanceBeforeSubmit()) return;
     window.__bbmSubmitting = true;
@@ -1895,82 +2079,245 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     if (userRole !== 'SUPERADMIN') { showToast('Akses ditolak: hanya SUPERADMIN.', 'error'); return; }
     let row = (window.__recent || []).find(r => String(r.transaction_id) === String(id));
     if(!row) return showToast('Data tidak ditemukan', 'error');
-    let btnEdit = document.getElementById('btn-save-edit');
-    if (btnEdit) { btnEdit.disabled = false; btnEdit.innerHTML = btnEdit.dataset.origHtml || 'Simpan'; }
-    document.getElementById('ed_trx').value = row.transaction_id;
-    let edTgl = document.getElementById('ed_tanggal');
-    if (edTgl) {
-      let d = row.timestamp ? new Date(row.timestamp) : null;
-      if (d && !isNaN(d.getTime())) {
-        edTgl.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-      } else {
-        edTgl.value = '';
-      }
+    loadEditInForm(row);
+  }
+  // ─── Edit via Form Input Laporan (bukan modal popup) ────────────────────
+  // Ketika tombol Edit history diklik, kembali ke form input dengan seluruh
+  // field terisi data laporan lama. Pengguna mengoreksi langsung di form utama.
+  function enterEditMode(txId, supirName) {
+    if (userRole !== 'SUPERADMIN') return;
+    __editingTxId = txId;
+    __editingSupir = supirName || '';
+    var banner = document.getElementById('edit-mode-banner');
+    if (banner) banner.classList.add('editing');
+    var btnReview = document.getElementById('btn-review');
+    if (btnReview && !btnReview.dataset.origHtml) {
+      btnReview.dataset.origHtml = btnReview.innerHTML;
+      btnReview.innerHTML = '<i class="bi bi-pencil me-1"></i> Tinjau & Simpan Perubahan';
     }
-    document.getElementById('ed_nama_supir').value = row.supir || '';
-    document.getElementById('ed_km_awal').value = row.km_awal || '';
-    document.getElementById('ed_km_akhir').value = row.km_akhir || '';
-    document.getElementById('ed_biaya').value = row.biaya_bbm || '';
-    document.getElementById('ed_liter').value = row.isi_bbm || '';
-    let edToll = document.getElementById('ed_biaya_toll');
-    if (edToll) edToll.value = (row.toll !== undefined && row.toll !== null) ? row.toll : '';
+    var ringkasanLabel = document.getElementById('modal-ringkasan-label');
+    if (ringkasanLabel && !ringkasanLabel.dataset.origHtml) {
+      ringkasanLabel.dataset.origHtml = ringkasanLabel.innerHTML;
+      ringkasanLabel.innerHTML = '<i class="bi bi-pencil me-2"></i>Ringkasan Perubahan';
+    }
+    var edId = document.getElementById('edit-trx-id');
+    if (edId) edId.textContent = txId || '';
+  }
 
-    let jenisSel = document.getElementById('ed_jenis_bbm');
-    if(jenisSel){
-      let bbms = (window.__bbmForCabang || (window.masterData && window.masterData.bbm) || []);
-      jenisSel.innerHTML = '<option value="">-- Pilih BBM --</option>' + bbms.map(function(b) {
-        var harga = b.harga_per_liter !== undefined ? b.harga_per_liter : b.harga;
-        var jenis = b.jenis_bbm || b.jenis || '';
-        return '<option value="' + harga + '">' + esc(jenis) + ' \u2014 Rp ' + Number(harga).toLocaleString('id-ID') + '/L</option>';
-      }).join('');
-      if (bbms.length && row.biaya_bbm) jenisSel.value = String(bbms[0].harga_per_liter !== undefined ? bbms[0].harga_per_liter : bbms[0].harga);
-      calcEditLiter();
+  function exitEditMode() {
+    __editingTxId = null;
+    __editingSupir = '';
+    var banner = document.getElementById('edit-mode-banner');
+    if (banner) banner.classList.remove('editing');
+    var btnReview = document.getElementById('btn-review');
+    if (btnReview && btnReview.dataset.origHtml) {
+      btnReview.innerHTML = btnReview.dataset.origHtml;
+      delete btnReview.dataset.origHtml;
+    }
+    var ringkasanLabel = document.getElementById('modal-ringkasan-label');
+    if (ringkasanLabel && ringkasanLabel.dataset.origHtml) {
+      ringkasanLabel.innerHTML = ringkasanLabel.dataset.origHtml;
+      delete ringkasanLabel.dataset.origHtml;
+    }
+    var fAwal = document.getElementById('foto_odo_awal');
+    var fAkhir = document.getElementById('foto_odo_akhir');
+    if (fAwal) fAwal.required = true;
+    if (fAkhir) fAkhir.required = true;
+  }
+
+  function cancelEditForm() {
+    exitEditMode();
+    resetDailyForm();
+    showToast('Edit dibatalkan.', 'info');
+  }
+
+  // Muat data transaksi lama ke form input laporan.
+  function loadEditInForm(row) {
+    enterEditMode(row.transaction_id, row.supir || '');
+
+    // Warehouse: set dulu SEBELUM mengisi kendaraan/kartu Flazz, agar dropdown
+    // tersebut ikut difilter ke warehouse asli laporan (bukan filter form yang
+    // kebetulan masih aktif dari sesi sebelumnya) — mencegah kendaraan/kartu
+    // Flazz salah/kosong saat laporan lintas-warehouse diedit oleh SUPERADMIN.
+    var inputCabang = document.getElementById('input-cabang');
+    if (inputCabang && row.kode_cabang) {
+      inputCabang.value = row.kode_cabang;
+      if (typeof filterFormByCabang === 'function') filterFormByCabang();
     }
 
-    let metode = document.getElementById('ed_metode');
-    if(metode){
-      metode.value = row.metode_pembayaran || 'TUNAI';
-      toggleEditFlazz();
-    }
-    let flazz = document.getElementById('ed_flazz_card_id');
-    if(flazz){
-      let cards = (window.masterData && window.masterData.flazzCards) ? window.masterData.flazzCards : [];
-      flazz.innerHTML = '<option value="">-- Pilih Kartu --</option>' + cards.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.card_number) + (c.driver_id ? ' [' + esc(c.driver_id) + ']' : '') + '</option>').join('');
-      flazz.value = row.flazz_card_id || '';
-      // Autofill kartu dari supir bila transaksi ini ber-Flazz dan kartu belum terpilih
-      if (metode && metode.value === 'FLAZZ' && !flazz.value) {
-        autofillEditFlazzByDriver();
+    // Tanggal
+    var tglInput = document.getElementById('tanggal');
+    if (tglInput && row.timestamp) {
+      var d = new Date(row.timestamp);
+      if (!isNaN(d.getTime())) {
+        tglInput.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
       }
     }
-    let flazzTol = document.getElementById('ed_flazz_card_id_toll');
-    if(flazzTol){
-      let cardsTol = (window.masterData && window.masterData.flazzCards) ? window.masterData.flazzCards : [];
-      flazzTol.innerHTML = '<option value="">-- Pilih Kartu --</option>' + cardsTol.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.card_number) + (c.driver_id ? ' [' + esc(c.driver_id) + ']' : '') + '</option>').join('');
-      flazzTol.value = row.flazz_card_id_toll || '';
-      if (metode && metode.value === 'FLAZZ' && !flazzTol.value) {
-        flazzTol.value = flazz ? flazz.value : '';
+
+    // Pilih tab form (memicu refresh dropdown supir berbasis jalur).
+    switchTab('form');
+
+    // Supir: pastikan nama supir laporan tersedia di dropdown.
+    var supirSel = document.getElementById('nama_supir');
+    if (supirSel) {
+      // Tambahkan supir lama bila belum ada (jalur mungkin sudah DIISI/tak punya jalur).
+      var exists = false;
+      for (var s = 0; s < supirSel.options.length; s++) {
+        if (supirSel.options[s].value === row.supir) { exists = true; break; }
+      }
+      if (!exists && row.supir) {
+        var optS = document.createElement('option');
+        optS.value = row.supir;
+        optS.text = row.supir;
+        supirSel.appendChild(optS);
+      }
+      supirSel.value = row.supir || '';
+    }
+
+    // Kendaraan: pilih vehicle_id transaksi di dropdown (bila ada opsinya).
+    var vehSel = document.getElementById('vehicle');
+    if (vehSel && row.vehicle_id) {
+      var vehFound = false;
+      for (var v = 0; v < vehSel.options.length; v++) {
+        if (String(vehSel.options[v].value) === String(row.vehicle_id)) {
+          vehSel.selectedIndex = v;
+          vehFound = true;
+          break;
+        }
+      }
+      if (!vehFound && (allVehicles || []).length) {
+        var foundV = (allVehicles || []).find(function(x) { return String(x.vehicle_id) === String(row.vehicle_id); });
+        if (foundV) {
+          var optV = document.createElement('option');
+          optV.value = foundV.vehicle_id;
+          optV.setAttribute('data-indikator', (foundV.jenis_indikator || 'DIGITAL_BAR'));
+          optV.text = foundV.plat_nomor + ' - ' + foundV.nama;
+          vehSel.appendChild(optV);
+          vehSel.value = foundV.vehicle_id;
+        }
+      }
+      onVehicleChange();
+    }
+
+    // KM
+    var kmA = document.getElementById('km_awal_val');
+    var kmK = document.getElementById('km_akhir_val');
+    if (kmA) kmA.value = row.km_awal || '';
+    if (kmK) kmK.value = row.km_akhir || '';
+
+    // Bar
+    var bA = document.getElementById('bar_awal');
+    var bK = document.getElementById('bar_akhir');
+    if (bA) bA.value = row.bar_awal || '';
+    if (bK) bK.value = row.bar_akhir || '';
+    // Level jarum: sinkronkan nilai bar ke slider bila indikator jarum aktif.
+    if (bA && parseFloat(row.bar_awal) > 0 && (typeof levelSlider === 'function')) {
+      var sliderA = document.getElementById('bar_awal_slider');
+      if (sliderA && sliderA.style.display !== 'none') levelSlider('awal', row.bar_awal);
+    }
+    if (bK && parseFloat(row.bar_akhir) > 0 && (typeof levelSlider === 'function')) {
+      var sliderK = document.getElementById('bar_akhir_slider');
+      if (sliderK && sliderK.style.display !== 'none') levelSlider('akhir', row.bar_akhir);
+    }
+
+    // Transaksi BBM: biaya, liter, jenis BBM, metode, kartu
+    var biayaInput = document.getElementById('biaya_bbm');
+    var tollInput = document.getElementById('biaya_toll');
+    if (biayaInput) biayaInput.value = row.biaya_bbm || '';
+    if (tollInput) tollInput.value = row.toll || '';
+    var isiBensin = document.getElementById('isi_bensin');
+    if (isiBensin) isiBensin.value = ((parseFloat(row.biaya_bbm) || 0) > 0 || (parseFloat(row.toll) || 0) > 0) ? 'Ya' : 'Tidak';
+
+    var jenisSel = document.getElementById('jenis_bbm');
+    if (jenisSel) {
+      // Cocokkan jenis BBM dari harga per liter (biaya / liter) bila memungkinkan.
+      var litVal = parseFloat(row.isi_bbm) || 0;
+      var biVal = parseFloat(row.biaya_bbm) || 0;
+      var targetPrice = (litVal > 0 && biVal > 0) ? (biVal / litVal) : 0;
+      var matchedIndex = -1;
+      if (targetPrice > 0) {
+        var bestDiff = Infinity;
+        for (var jb = 0; jb < jenisSel.options.length; jb++) {
+          var price = parseFloat(jenisSel.options[jb].value) || 0;
+          var diff = Math.abs(price - targetPrice);
+          if (diff < bestDiff) { bestDiff = diff; matchedIndex = jb; }
+        }
+      }
+      if (matchedIndex > 0) {
+        jenisSel.selectedIndex = matchedIndex;
+      } else if (jenisSel.options.length > 1 && biVal > 0) {
+        jenisSel.selectedIndex = 1;
+      }
+      if (typeof calcLiter === 'function' && litVal > 0) {
+        // Pertahankan liter asli laporan; jangan tulis ulang dari harga.
+        // calcLiter tidak dipanggil agar liter tersimpan tetap dipertahankan.
+      }
+      var literInput = document.getElementById('liter_bbm');
+      if (literInput) literInput.value = row.isi_bbm || (litVal > 0 ? litVal : '');
+    }
+    var literInput2 = document.getElementById('liter_bbm');
+    if (literInput2 && !literInput2.value) literInput2.value = row.isi_bbm || '';
+
+    // Metode pembayaran BBM
+    var metode = row.metode_pembayaran || 'TUNAI';
+    document.querySelectorAll('input[name="metode_pembayaran"]').forEach(function(r) {
+      if (r.value === metode) r.checked = true;
+      else if (metode === '' && r.value === 'TUNAI') r.checked = true;
+    });
+    if (typeof toggleFlazzCardSelection === 'function') toggleFlazzCardSelection();
+    var flazzSel = document.getElementById('flazz_card_id');
+    if (flazzSel) {
+      flazzSel.value = row.flazz_card_id || '';
+      var fStrip = document.getElementById('flazz_card_id_strip');
+      if (fStrip) {
+        var cardOpt = (row.flazz_card_id && flazzSel.selectedOptions[0]) ? flazzSel.selectedOptions[0].text : '-';
+        if (row.flazz_card_id && flazzSel.value === row.flazz_card_id) fStrip.textContent = cardOpt;
       }
     }
-    let metodeTol = document.getElementById('ed_metode_toll');
-    if(metodeTol){
-      metodeTol.value = row.metode_toll || 'TUNAI';
-      toggleEditTolFlazzCard();
+
+    // Metode tol & kartu tol
+    var metodeTol = row.metode_toll || 'TUNAI';
+    document.querySelectorAll('input[name="metode_toll"]').forEach(function(r) {
+      if (r.value === metodeTol) r.checked = true;
+      else if (metodeTol === '' && r.value === 'TUNAI') r.checked = true;
+    });
+    if (typeof toggleTolFlazzCardSelection === 'function') toggleTolFlazzCardSelection();
+    var flazzTolSel = document.getElementById('flazz_card_id_toll');
+    if (flazzTolSel) {
+      flazzTolSel.value = row.flazz_card_id_toll || '';
+      var tStrip = document.getElementById('flazz_card_id_toll_strip');
+      if (tStrip && row.flazz_card_id_toll && flazzTolSel.value === row.flazz_card_id_toll) {
+        tStrip.textContent = flazzTolSel.selectedOptions[0].text;
+      }
     }
-    var pA = document.getElementById('ed_preview_odo_awal');
-    if (pA) {
-      if (row.foto_odo_awal) { pA.src = row.foto_odo_awal_thumb || row.foto_odo_awal; pA.style.display = 'block'; }
-      else { pA.src = ''; pA.style.display = 'none'; }
-      var fA = document.getElementById('ed_foto_odo_awal');
-      if (fA) fA.value = '';
+
+    // Foto: preview foto lama; input foto tidak lagi wajib saat edit.
+    var fAwalEl = document.getElementById('foto_odo_awal');
+    var fAkhirEl = document.getElementById('foto_odo_akhir');
+    if (fAwalEl) {
+      fAwalEl.required = false;
+      var prevA = document.getElementById('preview-awal');
+      if (prevA && row.foto_odo_awal) {
+        prevA.style.display = 'block';
+        prevA.querySelector('img').src = row.foto_odo_awal_thumb || row.foto_odo_awal;
+        var upA = fAwalEl.closest('.photo-upload');
+        if (upA) { upA.classList.add('has-image'); upA.querySelector('span').textContent = 'Foto lama tersimpan'; }
+      }
     }
-    var pK = document.getElementById('ed_preview_odo_akhir');
-    if (pK) {
-      if (row.foto_odo_akhir) { pK.src = row.foto_odo_akhir_thumb || row.foto_odo_akhir; pK.style.display = 'block'; }
-      else { pK.src = ''; pK.style.display = 'none'; }
-      var fK = document.getElementById('ed_foto_odo_akhir');
-      if (fK) fK.value = '';
+    if (fAkhirEl) {
+      fAkhirEl.required = false;
+      var prevK = document.getElementById('preview-akhir');
+      if (prevK && row.foto_odo_akhir) {
+        prevK.style.display = 'block';
+        prevK.querySelector('img').src = row.foto_odo_akhir_thumb || row.foto_odo_akhir;
+        var upK = fAkhirEl.closest('.photo-upload');
+        if (upK) { upK.classList.add('has-image'); upK.querySelector('span').textContent = 'Foto lama tersimpan'; }
+      }
     }
-    new bootstrap.Modal(document.getElementById('modal-edit-daily')).show();
+
+    if (typeof syncBensinTersirat === 'function') syncBensinTersirat();
+    if (typeof updateLiveSummary === 'function') updateLiveSummary();
+    showToast('Mode edit: perbaiki data lalu simpan.', 'info');
   }
   // Autofill kartu Flazz berdasarkan nama supir (kartu terikat pada supir / driver_id)
   function autofillEditFlazzByDriver() {
@@ -2068,6 +2415,8 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
          if (typeof loadFlazzDataWrapper === 'function') loadFlazzDataWrapper(true);
       }
       else showToast(res.msg, 'error');
+    }).withFailureHandler(function(err) {
+      showToast('Gagal menghapus: ' + err.message, 'error');
     }).apiDeleteDailyTransaction(id, bbmToken());
     });
   }
@@ -2294,6 +2643,22 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     return sel && sel.value !== '';
   }
 
+  function populateFlazzCardSelect(selectId, cabang) {
+    var sel = document.getElementById(selectId);
+    if (!sel) return;
+    var cards = (window.masterData && window.masterData.flazzCards) || [];
+    sel.innerHTML = '<option value="">Pilih Kartu...</option>';
+    cards.forEach(function(f) {
+      if (f.status === 'NONAKTIF') return;
+      if (cabang && String(f.branch_id) !== String(cabang)) return;
+      var opt = document.createElement('option');
+      opt.value = f.id;
+      var driverName = f.driver_id ? ' [' + f.driver_id + ']' : '';
+      opt.text = f.card_number + ' - ' + f.card_type + driverName;
+      sel.appendChild(opt);
+    });
+  }
+
   function filterFormByCabang() {
     var cabang = document.getElementById('input-cabang').value;
     var selectVeh = document.getElementById('vehicle');
@@ -2312,6 +2677,22 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     });
     refreshJalurDriverOptions();
     onVehicleChange();
+
+    // Reset & filter ulang kartu pembayaran (BBM + tol) agar tidak nyangkut dari
+    // warehouse sebelumnya; hanya kartu milik warehouse terpilih yang tampil.
+    document.querySelectorAll('input[name="metode_pembayaran"]').forEach(function(r){ r.checked = (r.value === 'TUNAI'); });
+    document.querySelectorAll('input[name="metode_toll"]').forEach(function(r){ r.checked = (r.value === 'TUNAI'); });
+    var fcBbm = document.getElementById('flazz_card_id');
+    if (fcBbm) fcBbm.value = '';
+    var fcTol = document.getElementById('flazz_card_id_toll');
+    if (fcTol) fcTol.value = '';
+    populateFlazzCardSelect('flazz_card_id', cabang);
+    populateFlazzCardSelect('flazz_card_id_toll', cabang);
+    var tStripReset = document.getElementById('flazz_card_id_toll_strip');
+    if (tStripReset) tStripReset.textContent = '-';
+    if (typeof toggleFlazzCardSelection === 'function') toggleFlazzCardSelection();
+    if (typeof toggleTolFlazzCardSelection === 'function') toggleTolFlazzCardSelection();
+    if (typeof updateLiveSummary === 'function') updateLiveSummary();
   }
 
 

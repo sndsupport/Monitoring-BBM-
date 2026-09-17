@@ -7,7 +7,8 @@ function getFolderByNameOrCreate(folderName, parentFolder = DriveApp.getRootFold
   }
 }
 
-function initDriveFolders() {
+function initDriveFolders(token) {
+  assertSuperadminOnly(requireUser(token), 'menyiapkan folder Drive');
   let mainFolder = getFolderByNameOrCreate('BBM_OPERASIONAL');
   let branches = getDB().getSheetByName('Cabang');
   let cabangs = [];
@@ -27,8 +28,9 @@ function initDriveFolders() {
   return mainFolder.getId();
 }
 
-function uploadImageToDrive(base64Data, filename, subfolderName, cabang) {
+function uploadImageToDrive(base64Data, filename, subfolderName, cabang, token) {
   try {
+    requireUser(token);
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 
     let mimeType = 'image/jpeg';
@@ -66,7 +68,8 @@ function uploadImageToDrive(base64Data, filename, subfolderName, cabang) {
   }
 }
 
-function fixPhotoPermissions() {
+function fixPhotoPermissions(token) {
+  assertSuperadminOnly(requireUser(token), 'memperbaiki izin foto Drive');
   const main = getFolderByNameOrCreate('BBM_OPERASIONAL');
   let count = 0;
   function process(folder) {
@@ -93,8 +96,9 @@ function extractDriveFileId(urlOrId) {
   return m ? m[0] : '';
 }
 
-function deleteDriveFileById(fileId) {
+function deleteDriveFileById(fileId, token) {
   try {
+    requireUser(token);
     if (!fileId) return { success: true };
     DriveApp.getFileById(fileId).setTrashed(true);
     return { success: true };

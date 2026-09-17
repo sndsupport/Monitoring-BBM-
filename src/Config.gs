@@ -7,7 +7,7 @@ var PROD_SPREADSHEET_ID = '1FU7_VOhAi3SOl9HiqMEaitYqmk5IqEv3v7VXfXcYfW8';
 
 // Naikkan SELALU setiap ada perubahan file UI (Index/css/js/Flazz*/Jalur*/Settings)
 // agar doGet tidak menyajikan halaman hasil cache lama.
-var PAGE_VER = '20260916v4';
+var PAGE_VER = '20260917v2';
 
 function spreadsheetId() {
   var id = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
@@ -15,7 +15,7 @@ function spreadsheetId() {
 }
 
 function configureSpreadsheet(id, token) {
-  if (token) assertSuperadminOnly(requireUser(token), 'konfigurasi spreadsheet');
+  assertSuperadminOnly(requireUser(token), 'konfigurasi spreadsheet');
   if (!id) return { success: false, msg: 'ID kosong' };
   PropertiesService.getScriptProperties().setProperty('SPREADSHEET_ID', String(id).trim());
   return { success: true, msg: 'Spreadsheet aktif diubah ke ' + id };

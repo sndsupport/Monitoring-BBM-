@@ -100,7 +100,11 @@ function getCardBalance(cardId) {
 }
 
 // Helper: Menulis saldo kartu Flazz + updated_at
-function setCardBalance(cardId, newBalance) {
+// token WAJIB: harus sesi valid milik pemanggil yang sudah lolos otorisasi
+// di lapisan pemanggil (assertFlazzAccess/assertSuperadminOnly dsb). Fungsi ini
+// sendiri tidak menilai role — hanya menutup celah pemanggilan langsung tanpa sesi.
+function setCardBalance(cardId, newBalance, token) {
+  requireUser(token);
   const ss = getDB();
   const sheet = ss.getSheetByName('Flazz_Card');
   if (!sheet) return;
@@ -111,6 +115,13 @@ function setCardBalance(cardId, newBalance) {
   if (bal < 0) bal = 0;
   sheet.getRange(found.rowIndex, found.colIdx.BALANCE + 1).setValue(bal);
   sheet.getRange(found.rowIndex, found.colIdx.UPDATED + 1).setValue(new Date());
+}
+
+function flazzTimestampMs(cell) {
+  if (cell == null) return null;
+  const d = (cell instanceof Date) ? cell : new Date(cell);
+  const t = d.getTime();
+  return isNaN(t) ? null : t;
 }
 
 // Validasi akses server-side untuk operasi Flazz.
@@ -125,7 +136,7 @@ function assertFlazzAccess(userInfo, branchId) {
 
 // Backfill nama kartu ke semua jalur pengiriman yang memakai kartu etoll ini.
 function backfillFlazzCardName(cardId, cardName, token) {
-  if (token) assertSuperadminOnly(requireUser(token), 'backfill nama kartu Flazz');
+  assertSuperadminOnly(requireUser(token), 'backfill nama kartu Flazz');
   try {
     const ss = getDB();
     const sheet = ss.getSheetByName('Jalur_Pengiriman');
@@ -191,8 +202,10 @@ function getFlazzCards(token) {
 }
 
 // Tambah/Update Kartu Master
-function saveFlazzCard(cardData, userInfo) {
+function saveFlazzCard(cardData, token) {
   try {
+    const userInfo = requireUser(token);
+    return withLock('flazz-card', function() {
     assertFlazzAccess(userInfo, cardData.branch_id);
     const ss = getDB();
     const sheet = ss.getSheetByName('Flazz_Card');
@@ -203,6 +216,14 @@ function saveFlazzCard(cardData, userInfo) {
 
     const cardNumber = String(cardData.card_number || '').trim();
     if (!cardNumber) throw new Error('Nomor kartu wajib diisi.');
+    const validCardTypes = ['BCA_FLAZZ', 'MANDIRI_EMONEY', 'BRI_BRIZZI', 'BNI_TAPCASH'];
+    if (validCardTypes.indexOf(cardData.card_type) === -1) {
+      throw new Error('Jenis kartu tidak valid.');
+    }
+    const validCardRoles = ['UTAMA', 'CADANGAN'];
+    if (validCardRoles.indexOf(cardData.card_role || 'CADANGAN') === -1) {
+      throw new Error('Peran kartu tidak valid.');
+    }
     if ((cardData.card_role === 'UTAMA' || cardData.card_role === 'CADANGAN') && !cardData.card_name) {
       throw new Error('Nama kartu wajib diisi untuk kartu ' + cardData.card_role + '.');
     }
@@ -245,7 +266,7 @@ function saveFlazzCard(cardData, userInfo) {
       sheet.getRange(r, c.UPDATED + 1).setValue(now);
 
       // Backfill nama kartu ke jalur pengiriman yang memakai kartu ini agar tetap konsisten
-      backfillFlazzCardName(cardData.id, cardData.card_name || '');
+      backfillFlazzCardName(cardData.id, cardData.card_name || '', token);
 
       logAudit(userInfo, 'EDIT', 'flazz', 'Kartu ' + cardData.id, null, { id: cardData.id, card_number: cardNumber, card_name: cardData.card_name || '', branch_id: cardData.branch_id });
       return { success: true, msg: 'Kartu berhasil diperbarui.' };
@@ -270,6 +291,7 @@ function saveFlazzCard(cardData, userInfo) {
       logAudit(userInfo, 'CREATE', 'flazz', 'Kartu ' + id, null, { id: id, card_number: cardNumber, card_name: cardData.card_name || '', branch_id: cardData.branch_id });
       return { success: true, msg: 'Kartu berhasil ditambahkan.' };
     }
+    });
   } catch (err) {
     return { success: false, msg: err.message };
   }
@@ -293,6 +315,7 @@ function recordFlazzExpense(cardId, type, amount, evidenceUrl, dateStr) {
 
 // Top Up Flazz
 function saveFlazzTopUp(payload) {
+  payload.userInfo = requireUser(payload.token);
   return withLock('flazz-topup', function() {
     return saveFlazzTopUpUnlocked(payload);
   });
@@ -315,7 +338,7 @@ function saveFlazzTopUpUnlocked(payload) {
 
     let evidenceUrl = '';
     if (payload.foto_bukti && payload.foto_bukti_name) {
-      let uploadRes = uploadImageToDrive(payload.foto_bukti, payload.foto_bukti_name, 'Flazz_TopUp', payload.userInfo ? payload.userInfo.cabang : '');
+      let uploadRes = uploadImageToDrive(payload.foto_bukti, payload.foto_bukti_name, 'Flazz_TopUp', payload.userInfo ? payload.userInfo.cabang : '', payload.token);
       if (uploadRes.success) evidenceUrl = uploadRes.fileUrl;
     }
 
@@ -344,13 +367,14 @@ function saveFlazzTopUpUnlocked(payload) {
 }
 
 // Edit Top Up Flazz (sesuaikan saldo dengan selisih nominal)
-function editFlazzTopUp(payload, userInfo) {
+function editFlazzTopUp(payload, token) {
+  const userInfo = requireUser(token);
   return withLock('flazz-edit-topup', function() {
-    return editFlazzTopUpUnlocked(payload, userInfo);
+    return editFlazzTopUpUnlocked(payload, userInfo, token);
   });
 }
 
-function editFlazzTopUpUnlocked(payload, userInfo) {
+function editFlazzTopUpUnlocked(payload, userInfo, token) {
   try {
     assertSuperadminOnly(userInfo, 'mengedit top up Flazz');
     const ss = getDB();
@@ -364,13 +388,15 @@ function editFlazzTopUpUnlocked(payload, userInfo) {
     const idxNotes = headers.indexOf('notes');
     const idxDate = headers.indexOf('date');
     const idxCard = headers.indexOf('card_id');
+    const idxCreated = headers.indexOf('created_at');
 
-    let rowIndex = -1, oldAmount = 0, oldCard = null;
+    let rowIndex = -1, oldAmount = 0, oldCard = null, oldStamp = null;
     for (let i = 1; i < data.length; i++) {
       if (data[i][idxId] === payload.id) {
         rowIndex = i + 1;
         oldAmount = parseFloat(data[i][idxAmount]) || 0;
         oldCard = data[i][idxCard];
+        oldStamp = flazzTimestampMs(idxCreated > -1 ? data[i][idxCreated] : data[i][idxDate]);
         break;
       }
     }
@@ -397,10 +423,18 @@ function editFlazzTopUpUnlocked(payload, userInfo) {
 
     // Kembalikan saldo kartu lama, potong dari kartu baru bila berbeda
     if (newCard !== oldCard) {
-      setCardBalance(oldCard, (getCardBalance(oldCard) || 0) - oldAmount);
-      setCardBalance(newCard, (getCardBalance(newCard) || 0) + newAmount);
+      setCardBalance(oldCard, (getCardBalance(oldCard) || 0) - oldAmount, token);
+      setCardBalance(newCard, (getCardBalance(newCard) || 0) + newAmount, token);
+      if (typeof shouldAdjustUsageOpeningAt === 'function' && typeof adjustActiveUsageOpening === 'function') {
+        if (shouldAdjustUsageOpeningAt(oldCard, oldStamp)) adjustActiveUsageOpening(oldCard, -oldAmount);
+        if (shouldAdjustUsageOpeningAt(newCard, oldStamp)) adjustActiveUsageOpening(newCard, newAmount);
+      }
     } else {
-      setCardBalance(newCard, (getCardBalance(newCard) || 0) + diff);
+      setCardBalance(newCard, (getCardBalance(newCard) || 0) + diff, token);
+      if (typeof shouldAdjustUsageOpeningAt === 'function' && typeof adjustActiveUsageOpening === 'function'
+          && shouldAdjustUsageOpeningAt(newCard, oldStamp)) {
+        adjustActiveUsageOpening(newCard, diff);
+      }
     }
 
     logAudit(userInfo, 'EDIT', 'flazz', 'TopUp ' + payload.id,
@@ -413,13 +447,14 @@ function editFlazzTopUpUnlocked(payload, userInfo) {
 }
 
 // Hapus (soft) Top Up Flazz — tandai is_deleted dan kembalikan saldo
-function deleteFlazzTopUp(id, userInfo) {
+function deleteFlazzTopUp(id, token) {
+  const userInfo = requireUser(token);
   return withLock('flazz-del-topup', function() {
-    return deleteFlazzTopUpUnlocked(id, userInfo);
+    return deleteFlazzTopUpUnlocked(id, userInfo, token);
   });
 }
 
-function deleteFlazzTopUpUnlocked(id, userInfo) {
+function deleteFlazzTopUpUnlocked(id, userInfo, token) {
   try {
     assertSuperadminOnly(userInfo, 'menghapus top up Flazz');
     const ss = getDB();
@@ -432,13 +467,16 @@ function deleteFlazzTopUpUnlocked(id, userInfo) {
     const idxAmount = headers.indexOf('amount');
     const idxCard = headers.indexOf('card_id');
     const idxDel = headers.indexOf('is_deleted');
+    const idxCreated = headers.indexOf('created_at');
+    const idxDate = headers.indexOf('date');
 
-    let rowIndex = -1, oldAmount = 0, oldCard = null;
+    let rowIndex = -1, oldAmount = 0, oldCard = null, oldStamp = null;
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][idxId]) === String(id)) {
         rowIndex = i + 1;
         oldAmount = parseFloat(data[i][idxAmount]) || 0;
         oldCard = data[i][idxCard];
+        oldStamp = flazzTimestampMs(idxCreated > -1 ? data[i][idxCreated] : data[i][idxDate]);
         break;
       }
     }
@@ -451,7 +489,13 @@ function deleteFlazzTopUpUnlocked(id, userInfo) {
     } else {
       sheet.deleteRow(rowIndex);
     }
-    if (oldCard) setCardBalance(oldCard, (getCardBalance(oldCard) || 0) - oldAmount);
+    if (oldCard) {
+      setCardBalance(oldCard, (getCardBalance(oldCard) || 0) - oldAmount, token);
+      if (typeof shouldAdjustUsageOpeningAt === 'function' && typeof adjustActiveUsageOpening === 'function'
+          && shouldAdjustUsageOpeningAt(oldCard, oldStamp)) {
+        adjustActiveUsageOpening(oldCard, -oldAmount);
+      }
+    }
 
     logAudit(userInfo, 'DELETE', 'flazz', 'TopUp ' + id, { card_id: oldCard, amount: oldAmount }, null);
     return { success: true, msg: 'Top up berhasil dihapus dan saldo disesuaikan.' };
@@ -462,6 +506,7 @@ function deleteFlazzTopUpUnlocked(id, userInfo) {
 
 // Catat Tol Flazz
 function saveFlazzTol(payload) {
+  payload.userInfo = requireUser(payload.token);
   return withLock('flazz-tol', function() {
     return saveFlazzTolUnlocked(payload);
   });
@@ -485,7 +530,7 @@ function saveFlazzTolUnlocked(payload) {
 
     let evidenceUrl = '';
     if (payload.foto_bukti && payload.foto_bukti_name) {
-      let uploadRes = uploadImageToDrive(payload.foto_bukti, payload.foto_bukti_name, 'Flazz_Tol', payload.userInfo ? payload.userInfo.cabang : '');
+      let uploadRes = uploadImageToDrive(payload.foto_bukti, payload.foto_bukti_name, 'Flazz_Tol', payload.userInfo ? payload.userInfo.cabang : '', payload.token);
       if (uploadRes.success) evidenceUrl = uploadRes.fileUrl;
     }
     if (!evidenceUrl) throw new Error('Bukti Tol wajib dilampirkan.');
@@ -520,13 +565,14 @@ function saveFlazzTolUnlocked(payload) {
 }
 
 // Edit Tol Flazz (sesuaikan saldo dengan selisih nominal, tanda terbalik karena mengurangi saldo)
-function editFlazzTol(payload, userInfo) {
+function editFlazzTol(payload, token) {
+  const userInfo = requireUser(token);
   return withLock('flazz-edit-tol', function() {
-    return editFlazzTolUnlocked(payload, userInfo);
+    return editFlazzTolUnlocked(payload, userInfo, token);
   });
 }
 
-function editFlazzTolUnlocked(payload, userInfo) {
+function editFlazzTolUnlocked(payload, userInfo, token) {
   try {
     assertSuperadminOnly(userInfo, 'mengedit tol Flazz');
     const ss = getDB();
@@ -540,13 +586,15 @@ function editFlazzTolUnlocked(payload, userInfo) {
     const idxNotes = headers.indexOf('notes');
     const idxDate = headers.indexOf('date');
     const idxCard = headers.indexOf('card_id');
+    const idxCreated = headers.indexOf('created_at');
 
-    let rowIndex = -1, oldAmount = 0, oldCard = null;
+    let rowIndex = -1, oldAmount = 0, oldCard = null, oldStamp = null;
     for (let i = 1; i < data.length; i++) {
       if (data[i][idxId] === payload.id) {
         rowIndex = i + 1;
         oldAmount = parseFloat(data[i][idxAmount]) || 0;
         oldCard = data[i][idxCard];
+        oldStamp = flazzTimestampMs(idxCreated > -1 ? data[i][idxCreated] : data[i][idxDate]);
         break;
       }
     }
@@ -572,10 +620,18 @@ function editFlazzTolUnlocked(payload, userInfo) {
     if (newCard !== oldCard) sheet.getRange(rowIndex, idxCard + 1).setValue(newCard);
 
     if (newCard !== oldCard) {
-      setCardBalance(oldCard, (getCardBalance(oldCard) || 0) + oldAmount);
-      setCardBalance(newCard, (getCardBalance(newCard) || 0) - newAmount);
+      setCardBalance(oldCard, (getCardBalance(oldCard) || 0) + oldAmount, token);
+      setCardBalance(newCard, (getCardBalance(newCard) || 0) - newAmount, token);
+      if (typeof shouldAdjustUsageOpeningAt === 'function' && typeof adjustActiveUsageOpening === 'function') {
+        if (shouldAdjustUsageOpeningAt(oldCard, oldStamp)) adjustActiveUsageOpening(oldCard, oldAmount);
+        if (shouldAdjustUsageOpeningAt(newCard, oldStamp)) adjustActiveUsageOpening(newCard, -newAmount);
+      }
     } else {
-      setCardBalance(newCard, (getCardBalance(newCard) || 0) + diff);
+      setCardBalance(newCard, (getCardBalance(newCard) || 0) + diff, token);
+      if (typeof shouldAdjustUsageOpeningAt === 'function' && typeof adjustActiveUsageOpening === 'function'
+          && shouldAdjustUsageOpeningAt(newCard, oldStamp)) {
+        adjustActiveUsageOpening(newCard, diff);
+      }
     }
 
     logAudit(userInfo, 'EDIT', 'flazz', 'Tol ' + payload.id,
@@ -588,13 +644,14 @@ function editFlazzTolUnlocked(payload, userInfo) {
 }
 
 // Hapus (soft) Tol Flazz — tandai is_deleted dan kembalikan saldo
-function deleteFlazzTol(id, userInfo) {
+function deleteFlazzTol(id, token) {
+  const userInfo = requireUser(token);
   return withLock('flazz-del-tol', function() {
-    return deleteFlazzTolUnlocked(id, userInfo);
+    return deleteFlazzTolUnlocked(id, userInfo, token);
   });
 }
 
-function deleteFlazzTolUnlocked(id, userInfo) {
+function deleteFlazzTolUnlocked(id, userInfo, token) {
   try {
     assertSuperadminOnly(userInfo, 'menghapus tol Flazz');
     const ss = getDB();
@@ -607,13 +664,16 @@ function deleteFlazzTolUnlocked(id, userInfo) {
     const idxAmount = headers.indexOf('amount');
     const idxCard = headers.indexOf('card_id');
     const idxDel = headers.indexOf('is_deleted');
+    const idxCreated = headers.indexOf('created_at');
+    const idxDate = headers.indexOf('date');
 
-    let rowIndex = -1, oldAmount = 0, oldCard = null;
+    let rowIndex = -1, oldAmount = 0, oldCard = null, oldStamp = null;
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][idxId]) === String(id)) {
         rowIndex = i + 1;
         oldAmount = parseFloat(data[i][idxAmount]) || 0;
         oldCard = data[i][idxCard];
+        oldStamp = flazzTimestampMs(idxCreated > -1 ? data[i][idxCreated] : data[i][idxDate]);
         break;
       }
     }
@@ -626,7 +686,13 @@ function deleteFlazzTolUnlocked(id, userInfo) {
     } else {
       sheet.deleteRow(rowIndex);
     }
-    if (oldCard) setCardBalance(oldCard, (getCardBalance(oldCard) || 0) + oldAmount);
+    if (oldCard) {
+      setCardBalance(oldCard, (getCardBalance(oldCard) || 0) + oldAmount, token);
+      if (typeof shouldAdjustUsageOpeningAt === 'function' && typeof adjustActiveUsageOpening === 'function'
+          && shouldAdjustUsageOpeningAt(oldCard, oldStamp)) {
+        adjustActiveUsageOpening(oldCard, oldAmount);
+      }
+    }
 
     logAudit(userInfo, 'DELETE', 'flazz', 'Tol ' + id, { card_id: oldCard, amount: oldAmount }, null);
     return { success: true, msg: 'Tol berhasil dihapus dan saldo disesuaikan.' };
@@ -887,6 +953,7 @@ function checkReconGate(cardId) {
 
 // Rekonsiliasi Flazz (Return & Closing)
 function saveFlazzRecon(payload) {
+  payload.userInfo = requireUser(payload.token);
   return withLock('flazz-recon', function() {
     return saveFlazzReconUnlocked(payload);
   });
@@ -906,7 +973,7 @@ function saveFlazzReconUnlocked(payload) {
 
     let evidenceUrl = '';
     if (payload.foto_bukti && payload.foto_bukti_name) {
-      let uploadRes = uploadImageToDrive(payload.foto_bukti, payload.foto_bukti_name, 'Flazz_Recon', payload.userInfo ? payload.userInfo.cabang : '');
+      let uploadRes = uploadImageToDrive(payload.foto_bukti, payload.foto_bukti_name, 'Flazz_Recon', payload.userInfo ? payload.userInfo.cabang : '', payload.token);
       if (uploadRes.success) evidenceUrl = uploadRes.fileUrl;
     }
 
@@ -1040,7 +1107,8 @@ function ensureFlazzReconIsDeletedColumn() {
 // Flazz baru setelah rekon (laporan BBM/tol ber-Flazz, top up, atau penyerahan baru).
 // Efek rekon dibalikkan penuh: saldo kartu ke opening_balance, status SEDANG_DIGUNAKAN,
 // usage DIKEMBALIKAN kembali DIBERIKAN, jalur SELESAI kembali SUDAH_LAPORAN.
-function deleteFlazzRecon(id, userInfo) {
+function deleteFlazzRecon(id, token) {
+  const userInfo = requireUser(token);
   return withLock('flazz-del-recon', function() {
     return deleteFlazzReconUnlocked(id, userInfo);
   });
@@ -1239,6 +1307,7 @@ function deleteFlazzReconUnlocked(id, userInfo) {
 
 // Assign/Usage Flazz (Berikan ke Supir)
 function saveFlazzUsage(payload) {
+  payload.userInfo = requireUser(payload.token);
   return withLock('flazz-usage', function() {
     return saveFlazzUsageUnlocked(payload);
   });
@@ -1260,6 +1329,13 @@ function saveFlazzUsageUnlocked(payload) {
     const usageType = payload.usage_type || 'PRIMARY';
     const cardId = payload.card_id;
     const currentBalance = getCardBalance(cardId);
+
+    // Kartu yang sudah dinonaktifkan (deleteFlazzCard) tidak boleh diserahkan lagi
+    // ke supir — harus diaktifkan dulu lewat activateFlazzCard.
+    const preCheck = findFlazzCardRow(cardSheet, cardId);
+    if (preCheck && String(preCheck.row[preCheck.colIdx.STATUS] || '') === 'NONAKTIF') {
+      throw new Error('Kartu ini NONAKTIF. Aktifkan kembali kartu sebelum diserahkan ke supir.');
+    }
 
     appendFlazzRow(sheet, {
       id: id,
@@ -1568,7 +1644,8 @@ function getFlazzDashboardData(token) {
   };
 }
 // Nonaktifkan Kartu Flazz (soft-delete, tidak menghapus baris)
-function deleteFlazzCard(cardId, userInfo) {
+function deleteFlazzCard(cardId, token) {
+  const userInfo = requireUser(token);
   return withLock('flazz-del-card', function() {
     return deleteFlazzCardUnlocked(cardId, userInfo);
   });
@@ -1602,23 +1679,26 @@ function deleteFlazzCardUnlocked(cardId, userInfo) {
   }
 }
 
-function activateFlazzCard(id, userInfo) {
+function activateFlazzCard(id, token) {
   try {
-    const ss = getDB();
-    const sheet = ss.getSheetByName('Flazz_Card');
-    if (!sheet) throw new Error('Sheet Flazz_Card tidak ditemukan.');
+    const userInfo = requireUser(token);
+    return withLock('flazz-card', function() {
+      const ss = getDB();
+      const sheet = ss.getSheetByName('Flazz_Card');
+      if (!sheet) throw new Error('Sheet Flazz_Card tidak ditemukan.');
 
-    const found = findFlazzCardRow(sheet, id);
-    if (!found) throw new Error('Kartu tidak ditemukan.');
-    assertFlazzAccess(userInfo, found.row[found.colIdx.BRANCH]);
+      const found = findFlazzCardRow(sheet, id);
+      if (!found) throw new Error('Kartu tidak ditemukan.');
+      assertFlazzAccess(userInfo, found.row[found.colIdx.BRANCH]);
 
-    const status = String(found.row[found.colIdx.STATUS] || '');
-    if (status !== 'NONAKTIF') throw new Error('Kartu ini belum dinonaktifkan.');
+      const status = String(found.row[found.colIdx.STATUS] || '');
+      if (status !== 'NONAKTIF') throw new Error('Kartu ini belum dinonaktifkan.');
 
-    sheet.getRange(found.rowIndex, found.colIdx.STATUS + 1).setValue('TERSEDIA');
-    sheet.getRange(found.rowIndex, found.colIdx.UPDATED + 1).setValue(new Date());
-    logAudit(userInfo, 'EDIT', 'flazz', 'Kartu ' + id, { status: 'NONAKTIF' }, { status: 'TERSEDIA' });
-    return { success: true, msg: 'Kartu berhasil diaktifkan kembali menjadi TERSEDIA.' };
+      sheet.getRange(found.rowIndex, found.colIdx.STATUS + 1).setValue('TERSEDIA');
+      sheet.getRange(found.rowIndex, found.colIdx.UPDATED + 1).setValue(new Date());
+      logAudit(userInfo, 'EDIT', 'flazz', 'Kartu ' + id, { status: 'NONAKTIF' }, { status: 'TERSEDIA' });
+      return { success: true, msg: 'Kartu berhasil diaktifkan kembali menjadi TERSEDIA.' };
+    });
   } catch (err) {
     return { success: false, msg: err.message };
   }
@@ -1627,13 +1707,14 @@ function activateFlazzCard(id, userInfo) {
 // Hapus/lepas transaksi BBM Flazz dari Penggunaan_BBM
 // mode 'full'   : hapus baris total + kembalikan saldo
 // mode 'detach' : kosongkan metode_pembayaran & flazz_card_id, baris tetap, kembalikan saldo
-function deleteFlazzBBM(transactionId, mode, userInfo) {
+function deleteFlazzBBM(transactionId, mode, token) {
+  const userInfo = requireUser(token);
   return withLock('flazz-del-bbm', function() {
-    return deleteFlazzBBMUnlocked(transactionId, mode, userInfo);
+    return deleteFlazzBBMUnlocked(transactionId, mode, userInfo, token);
   });
 }
 
-function deleteFlazzBBMUnlocked(transactionId, mode, userInfo) {
+function deleteFlazzBBMUnlocked(transactionId, mode, userInfo, token) {
   try {
     const ss = getDB();
     const sheet = ss.getSheetByName('Penggunaan_BBM');
@@ -1706,7 +1787,7 @@ function deleteFlazzBBMUnlocked(transactionId, mode, userInfo) {
     involvedCards.forEach(function(cardId) {
       const delta = flazzCardCharge(payState, cardId);
       if (delta > 0) {
-        setCardBalance(cardId, (getCardBalance(cardId) || 0) + delta);
+        setCardBalance(cardId, (getCardBalance(cardId) || 0) + delta, token);
         if (shouldAdjustUsageOpeningAt(cardId, txStampMs)) {
           adjustActiveUsageOpening(cardId, delta);
         }
