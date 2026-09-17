@@ -641,7 +641,11 @@ function driveThumbnail(url) {
 function hitungEfisiensi7Riwayat(trxs, currIdx, literPerBar) {
   if (!trxs || currIdx < 0) return { efisiensi: '', label: '', isDataCukup: false };
 
-  let recentRows = trxs.slice(currIdx - 6, currIdx + 1);
+  // Math.max(0, ...) wajib: slice() dengan start negatif diinterpretasikan
+  // relatif dari AKHIR array (bukan diklem ke 0), sehingga untuk currIdx < 6
+  // pada trxs yang panjang, start bisa > end dan slice() balik array kosong
+  // -> recentRows[0] undefined -> crash saat diakses di bawah.
+  let recentRows = trxs.slice(Math.max(0, currIdx - 6), currIdx + 1);
   let isDataCukup = recentRows.length === 7;
 
   let totalKm = 0;
