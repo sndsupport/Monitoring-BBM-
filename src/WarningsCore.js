@@ -46,3 +46,37 @@ function warnCardIsLow(card) {
   if (String(card.status || '').toUpperCase() === 'NONAKTIF') return false;
   return (parseFloat(card.last_balance) || 0) < 100000;
 }
+
+// ==========================================
+// GANTI OLI — pure. warnOilStatus(veh, currentKm) mengembalikan null
+// bila tidak memenuhi ambang, atau objek berstatus WASPADA/GANTI_OLI.
+// veh memakai field getActiveVehicles + kolom km_terakhir_ganti_oli /
+// interval_ganti_oli_km (default 5000).
+// ==========================================
+var OIL_WASPADA_BEFORE_KM = 500;
+
+function warnOilStatus(veh, currentKm) {
+  var baseline = parseFloat(veh.km_terakhir_ganti_oli);
+  if (!baseline || baseline < 0) return null;
+  var interval = parseFloat(veh.interval_ganti_oli_km);
+  if (!interval || isNaN(interval) || interval <= 0) interval = 5000;
+  var km = parseFloat(currentKm);
+  if (isNaN(km)) km = baseline; // belum ada transaksi sejak terakhir ganti -> tempuh 0
+  var tempuh = Math.max(0, km - baseline);
+  var sisa = interval - tempuh;
+  var status = '';
+  if (tempuh >= interval) status = 'GANTI_OLI';
+  else if (sisa <= OIL_WASPADA_BEFORE_KM) status = 'WASPADA';
+  else return null;
+  return {
+    vehicle_id: veh.vehicle_id,
+    plat_nomor: veh.plat_nomor,
+    nama_kendaraan: veh.nama,
+    cabang: veh.cabang,
+    baseline_km: baseline,
+    interval_km: interval,
+    tempuh_km: tempuh,
+    sisa_km: sisa,
+    status: status
+  };
+}

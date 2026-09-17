@@ -295,6 +295,21 @@ function __runCacheGzipTests() {
   return __summarize(results);
 }
 
+function __runOilChangeTests() {
+  var results = [];
+  results.push(__expectEqual(warnOilStatus({}, null), null, 'oli: tanpa baseline -> null'));
+  results.push(__expectEqual(warnOilStatus({ km_terakhir_ganti_oli: 0 }, 10), null, 'oli: baseline 0 -> null'));
+  results.push(__expectEqual(warnOilStatus({ km_terakhir_ganti_oli: 100000, interval_ganti_oli_km: 5000 }, 104499), null, 'oli: sisa 501 -> null'));
+  var w1 = warnOilStatus({ km_terakhir_ganti_oli: 100000, interval_ganti_oli_km: 5000 }, 104500);
+  results.push(__expectEqual(w1 && w1.status, 'WASPADA', 'oli: sisa 500 -> WASPADA'));
+  results.push(__expectEqual(w1 && w1.sisa_km, 500, 'oli: sisa_km 500'));
+  var g1 = warnOilStatus({ km_terakhir_ganti_oli: 100000, interval_ganti_oli_km: 5000 }, 105000);
+  results.push(__expectEqual(g1 && g1.status, 'GANTI_OLI', 'oli: tempuh == interval -> GANTI_OLI'));
+  results.push(__expectEqual(warnOilStatus({ km_terakhir_ganti_oli: 100000, interval_ganti_oli_km: '' }, 108000).interval_km, 5000, 'oli: interval kosong -> default 5000'));
+  results.push(__expectEqual(warnOilStatus({ km_terakhir_ganti_oli: 90000, interval_ganti_oli_km: 5000 }, 85000), null, 'oli: odo < baseline -> null'));
+  return __summarize(results);
+}
+
 // Kebijakan perubahan supir default kartu (guard pure):
 // kartu yang sedang dipakai (SEDANG_DIGUNAKAN) TIDAK boleh diubah default-nya,
 // sehingga pemegang sementara tidak bisa 'nempel' jadi default via form/edit.
@@ -327,6 +342,7 @@ function __runAllTests() {
   r = __runCacheParsingTests();
   r = __runFlazzDefaultGuardTests();
   r = __runCacheGzipTests();
+  r = __runOilChangeTests();
   Logger.log('==== ALL TESTS DONE ====');
   return r;
 }
