@@ -27,7 +27,19 @@ function warningsSummary(token) {
       last_balance: parseFloat(c.last_balance) || 0, status: String(c.status || '')
     };
   }).sort(function (x, y) { return x.last_balance - y.last_balance; });
-  return { pajakKIR: pajakKIR, saldo: saldo };
+  var odo = currentOdoPerVehicle();
+  var oli = [];
+  vehs.forEach(function (v) {
+    var o = warnOilStatus(v, odo ? odo[String(v.vehicle_id)] : null);
+    if (o) oli.push(o);
+  });
+  oli.sort(function (a, b) {
+    var lv = { GANTI_OLI: 2, WASPADA: 1 };
+    var d = (lv[b.status] || 0) - (lv[a.status] || 0);
+    if (d) return d;
+    return a.sisa_km - b.sisa_km;
+  });
+  return { pajakKIR: pajakKIR, saldo: saldo, oli: oli };
 }
 
 function warnDateStr(v) {

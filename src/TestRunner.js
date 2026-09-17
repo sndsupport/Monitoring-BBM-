@@ -307,6 +307,32 @@ function __runOilChangeTests() {
   results.push(__expectEqual(g1 && g1.status, 'GANTI_OLI', 'oli: tempuh == interval -> GANTI_OLI'));
   results.push(__expectEqual(warnOilStatus({ km_terakhir_ganti_oli: 100000, interval_ganti_oli_km: '' }, 108000).interval_km, 5000, 'oli: interval kosong -> default 5000'));
   results.push(__expectEqual(warnOilStatus({ km_terakhir_ganti_oli: 90000, interval_ganti_oli_km: 5000 }, 85000), null, 'oli: odo < baseline -> null'));
+
+  // Guard & integrasi (butuh DB hidup)
+  results.push(__expectDenied(function() { return resetOilChange('###TAK-ADA###', 'token-palsu-xyz'); }, 'sesi tidak valid', 'resetOilChange token palsu -> ditolak'));
+  results.push(__expectDenied(function() { return resetOilChange('###TAK-ADA###', createSession({ user_id: 'U-O-T', username: 'o-t', nama: 'O T', role: 'SUPERADMIN', cabang: '' })); }, 'tidak ditemukan', 'resetOilChange kendaraan tak dikenal -> error'));
+
+  var supToken = createSession({ user_id: 'U-O-SUP', username: 'o-sup', nama: 'O Sup', role: 'SUPERADMIN', cabang: '' });
+  var picJktToken = createSession({ user_id: 'U-O-PIC', username: 'o-pic', nama: 'O Pic', role: 'PIC CABANG', cabang: 'CBG-JKT' });
+  var vehs = getActiveVehicles(supToken);
+  if (vehs && vehs.length) {
+    var v = vehs[0];
+    var r = resetOilChange(v.vehicle_id, supToken);
+    results.push(__expectEqual(!!(r && r.success), true, 'resetOilChange SUPERADMIN pada ' + v.vehicle_id + ' -> sukses'));
+    if (String(v.cabang) !== 'CBG-JKT') {
+      results.push(__expectDenied(function() { return resetOilChange(v.vehicle_id, picJktToken); }, 'warehouse', 'PIC JKT reset kendaraan ' + v.cabang + ' -> ditolak'));
+    } else {
+      var r2 = resetOilChange(v.vehicle_id, picJktToken);
+      results.push(__expectEqual(!!(r2 && r2.success), true, 'PIC JKT reset kendaraan cabang sendiri -> sukses'));
+    }
+  } else {
+    results.push(__expectTrue(false, 'tidak ada kendaraan aktif utk test reset'));
+  }
+
+  // Kategori oli hadir & sadar schema (token masih hidup)
+  var out = getDashboardWarnings(supToken);
+  results.push(__expectEqual(Array.isArray(out.oli), true, 'getDashboardWarnings -> oli array'));
+  destroySession(supToken); destroySession(picJktToken);
   return __summarize(results);
 }
 

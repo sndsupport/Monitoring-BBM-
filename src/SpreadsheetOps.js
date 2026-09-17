@@ -565,6 +565,36 @@ function currentOdoPerVehicle() {
   return out;
 }
 
+// Reset baseline ganti oli kendaraan ke odometer saat ini.
+// Guard: SUPERADMIN penuh; PIC CABANG hanya untuk warehouse-nya.
+function oilChangeReset(vehicleId, userInfo) {
+  const role = assertMasterAccess(userInfo, 'mereset baseline ganti oli');
+  const ss = getDB();
+  const sheet = ss.getSheetByName('Kendaraan');
+  if (!sheet) throw new Error('Sheet Kendaraan tidak ditemukan');
+  const data = sheet.getDataRange().getValues();
+  const h = data[0];
+  const iId = h.indexOf('vehicle_id');
+  const iCabang = h.indexOf('kode_cabang');
+  const iBaseline = h.indexOf('km_terakhir_ganti_oli');
+  const iInterval = h.indexOf('interval_ganti_oli_km');
+  if (iId < 0 || iBaseline < 0) throw new Error('Kolom km_terakhir_ganti_oli belum tersedia. Jalankan setupDatabase().');
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][iId]) === String(vehicleId)) {
+      if (role !== 'SUPERADMIN') assertOwnWarehouse(userInfo, data[i][iCabang]);
+      const odo = currentOdoPerVehicle();
+      const km = (odo && odo[String(vehicleId)] != null) ? odo[String(vehicleId)] : 0;
+      const sebelum = { km_terakhir_ganti_oli: data[i][iBaseline], interval_ganti_oli_km: iInterval > -1 ? data[i][iInterval] : null };
+      sheet.getRange(i + 1, iBaseline + 1).setValue(km);
+      sheet.getRange(i + 1, iInterval + 1).setValue((iInterval > -1 && data[i][iInterval] != null && String(data[i][iInterval]) !== '') ? data[i][iInterval] : 5000);
+      logAudit(userInfo, 'GANTI_OLI', 'kendaraan', 'Kendaraan ' + vehicleId,
+        sebelum, { km_terakhir_ganti_oli: km });
+      return { success: true, msg: 'Baseline ganti oli diperbarui ke KM ' + km + '.', km: km };
+    }
+  }
+  throw new Error('Kendaraan tidak ditemukan');
+}
+
 function buildOdoWarning(kmAwalBaru, prevKmAkhir, prevTanggal) {
   const selisih = kmAwalBaru - prevKmAkhir;
   const tgl = prevTanggal instanceof Date

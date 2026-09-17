@@ -55,3 +55,9 @@ function invalidateMasterLookup() {
   var c = CacheService.getScriptCache();
   c.remove(masterLookupCacheKey());
 }
+
+function invalidateDashwarn(role, cabang) {
+  var c = CacheService.getScriptCache();
+  c.remove(dashwarnCacheKey(role || '', cabang || ''));
+  if (String(role || '') !== 'SUPERADMIN') c.remove(dashwarnCacheKey('SUPERADMIN', ''));
+}

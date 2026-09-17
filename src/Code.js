@@ -347,6 +347,15 @@ function updateMasterKendaraan(data, token) {
   if (res && res.msg) invalidateMaster('SUPERADMIN', '');
   return res;
 }
+function resetOilChange(vehicleId, token) {
+  var user = requireUser(token);
+  var res = oilChangeReset(vehicleId, user);
+  if (res && res.success) {
+    invalidateMaster('SUPERADMIN', '');
+    invalidateDashwarn(user.role, user.cabang);
+  }
+  return res;
+}
 function updateMasterSupir(data, token) {
   var res = updateSupir(data, token);
   if (res && res.msg) invalidateMaster('SUPERADMIN', '');
