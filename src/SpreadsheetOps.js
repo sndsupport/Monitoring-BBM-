@@ -941,7 +941,6 @@ function shouldAutoCreateUsageOnEdit(wasFlazz, isFlazz) {
 
 function editDailyTransactionUnlocked(payload, userInfo, token) {
   try {
-    assertSuperadminOnly(userInfo, 'mengedit laporan BBM');
     const ss = getDB();
     const sheet = ss.getSheetByName('Penggunaan_BBM');
     if (!sheet) throw new Error('Sheet Penggunaan_BBM tidak ditemukan.');
@@ -1209,7 +1208,6 @@ function deleteDailyTransaction(transactionId, token) {
 
 function deleteDailyTransactionUnlocked(transactionId, userInfo, token) {
   try {
-    assertSuperadminOnly(userInfo, 'menghapus laporan BBM');
     const ss = getDB();
     const sheet = ss.getSheetByName('Penggunaan_BBM');
     if (!sheet) throw new Error('Sheet Penggunaan_BBM tidak ditemukan.');

@@ -157,8 +157,15 @@ function __runSecurityIsolationTests() {
   catch (e) { results.push(__expectTrue(false, 'getActiveVehicles PIC tidak melempar: ' + e.message)); }
 
   // PIC read-only: aksi operasional ditolak sebelum mutasi apa pun.
-  results.push(__expectDenied(function() { return editDailyTransactionUnlocked({}, pic); }, 'SUPERADMIN', 'PIC edit laporan -> ditolak'));
-  results.push(__expectDenied(function() { return deleteDailyTransactionUnlocked('###TAK-ADA###', pic); }, 'SUPERADMIN', 'PIC hapus laporan -> ditolak'));
+  results.push(__expectDenied(function() { return editDailyTransactionUnlocked({}, pic); }, 'Transaksi tidak ditemukan', 'PIC edit laporan -> lolos gate role, divalidasi data'));
+  results.push(__expectDenied(function() { return deleteDailyTransactionUnlocked('###TAK-ADA###', pic); }, 'Transaksi tidak ditemukan', 'PIC hapus laporan -> lolos gate role, divalidasi data'));
+  results.push(__expectDenied(function() { return assertTransactionAccess(pic, 'CBG-BDG'); }, 'hanya dapat mengelola transaksi warehouse', 'PIC transaksi cabang lain -> ditolak scoping'));
+  try {
+    assertTransactionAccess(pic, 'CBG-JKT');
+    results.push(__expectEqual(true, true, 'PIC transaksi cabang sendiri -> lolos scoping'));
+  } catch (e) {
+    results.push(__expectEqual(true, false, 'PIC transaksi cabang sendiri -> lolos scoping (gagal: ' + e.message + ')'));
+  }
   results.push(__expectDenied(function() { return saveFlazzTopUpUnlocked({ userInfo: pic }); }, 'Akses ditolak: Anda hanya dapat mengelola kartu warehouse', 'PIC top up tanpa kartu -> ditolak scoping cabang'));
   results.push(__expectDenied(function() { return deleteFlazzTopUpUnlocked('###TAK-ADA###', pic); }, 'SUPERADMIN', 'PIC hapus top up Flazz -> ditolak'));
   results.push(__expectDenied(function() { return saveFlazzUsageUnlocked({ userInfo: pic }); }, 'SUPERADMIN', 'PIC serah kartu Flazz -> ditolak'));
