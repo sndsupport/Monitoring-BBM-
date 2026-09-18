@@ -834,18 +834,61 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     showConfirmModal({ message: 'Laporan yang sudah diisi akan dihapus. Lanjutkan?' }, function() { resetDailyForm(); });
   }
 
-  function resetDailyForm() {
-    document.getElementById('daily-form').reset();
-    document.getElementById('isi_bensin').value = 'Tidak';
-    var bbmSec = document.getElementById('bbm-section');
-    if (bbmSec) bbmSec.style.display = 'block';
+  // Tombol "Reset" di header kartu Transaksi BBM & Pembayaran Tol: kosongkan hanya
+  // bagian transaksi (bukan seluruh form/kendaraan/tanggal). Sebelumnya hanya
+  // menghapus nominal BBM & liter, metode bayar dan kartu Flazz tertinggal.
+  function resetTransaksiSection() {
+    var jenisSel = document.getElementById('jenis_bbm');
+    if (jenisSel) jenisSel.value = '';
+    var biayaBbm = document.getElementById('biaya_bbm');
+    if (biayaBbm) biayaBbm.value = '';
     document.querySelectorAll('input[name="metode_pembayaran"]').forEach(function(r){ r.checked = (r.value === 'TUNAI'); });
-    document.getElementById('flazz_card_id').style.display = 'none';
-    var tolSec = document.getElementById('tol-section');
-    if (tolSec) tolSec.style.display = 'block';
+    var fcBbm = document.getElementById('flazz_card_id');
+    if (fcBbm) fcBbm.value = '';
+    var fStrip = document.getElementById('flazz_card_id_strip');
+    if (fStrip) fStrip.textContent = '-';
+    if (typeof toggleFlazzCardSelection === 'function') toggleFlazzCardSelection();
+
+    resetTolFields();
     document.querySelectorAll('input[name="metode_toll"]').forEach(function(r){ r.checked = (r.value === 'TUNAI'); });
+    var fcTol = document.getElementById('flazz_card_id_toll');
+    if (fcTol) fcTol.value = '';
+    var tStrip = document.getElementById('flazz_card_id_toll_strip');
+    if (tStrip) tStrip.textContent = '-';
+    if (typeof toggleTolFlazzCardSelection === 'function') toggleTolFlazzCardSelection();
+
+    calcLiter();
+    if (typeof syncBensinTersirat === 'function') syncBensinTersirat();
+    updateLiveSummary();
+  }
+
+  // PENTING: semua clear field langsung (.value/.checked/.textContent) HARUS berjalan
+  // duluan dan tanpa syarat, SEBELUM memanggil fungsi lain yang lebih kompleks
+  // (filterFormByCabang/onVehicleChange/dll). Kalau salah satu fungsi itu melempar
+  // error, baris SESUDAHNYA di fungsi lama berhenti total tanpa sempat mengosongkan
+  // field lain — itu sebabnya field seperti Nominal/Liter BBM bisa nyangkut walau
+  // field lain (metode bayar, kartu Flazz) sudah kosong. Panggilan berisiko sekarang
+  // masing-masing dibungkus try/catch di bagian akhir, terpisah satu sama lain.
+  function resetDailyForm() {
+    try { document.getElementById('daily-form').reset(); } catch (e) { /* abaikan */ }
+
+    document.querySelectorAll('input[name="metode_pembayaran"]').forEach(function(r){ r.checked = (r.value === 'TUNAI'); });
+    document.querySelectorAll('input[name="metode_toll"]').forEach(function(r){ r.checked = (r.value === 'TUNAI'); });
+    var flazzCardEl = document.getElementById('flazz_card_id');
+    if (flazzCardEl) { flazzCardEl.style.display = 'none'; flazzCardEl.value = ''; }
     var tolFlazzSec = document.getElementById('flazz_card_id_toll');
-    if (tolFlazzSec) tolFlazzSec.style.display = 'none';
+    if (tolFlazzSec) { tolFlazzSec.style.display = 'none'; tolFlazzSec.value = ''; }
+    var fStrip = document.getElementById('flazz_card_id_strip');
+    if (fStrip) { fStrip.style.display = 'inline'; fStrip.textContent = '-'; }
+    var tStrip = document.getElementById('flazz_card_id_toll_strip');
+    if (tStrip) { tStrip.style.display = 'inline'; tStrip.textContent = '-'; }
+
+    var isiBensinReset = document.getElementById('isi_bensin');
+    if (isiBensinReset) isiBensinReset.value = 'Tidak';
+    var bbmSecReset = document.getElementById('bbm-section');
+    if (bbmSecReset) bbmSecReset.style.display = 'block';
+    var tolSecReset = document.getElementById('tol-section');
+    if (tolSecReset) tolSecReset.style.display = 'block';
 
     var bAwalReset = document.getElementById('bar_awal');
     var bAkhirReset = document.getElementById('bar_akhir');
@@ -859,6 +902,7 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     var vAkR = document.getElementById('bar_akhir_slider_val');
     if (vAwR) vAwR.textContent = '0%';
     if (vAkR) vAkR.textContent = '0%';
+
     var tglReset = document.getElementById('tanggal');
     if (tglReset) {
       var ddReset = new Date();
@@ -866,19 +910,6 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     }
     var supirReset = document.getElementById('nama_supir');
     if (supirReset) supirReset.value = '';
-    var fcReset = document.getElementById('flazz_card_id');
-    if (fcReset) fcReset.value = '';
-    var fcTolReset = document.getElementById('flazz_card_id_toll');
-    if (fcTolReset) fcTolReset.value = '';
-    // Warehouse: kembalikan ke "Semua Warehouse" agar tidak nyangkut ke warehouse
-    // laporan terakhir yang diedit (lihat loadEditInForm) — tanpa ini, dropdown
-    // kendaraan & kartu Flazz tetap terfilter ke warehouse itu untuk laporan
-    // BARU berikutnya setelah tombol Batal ditekan.
-    var inputCabangReset = document.getElementById('input-cabang');
-    if (inputCabangReset) {
-      inputCabangReset.value = '';
-      if (typeof filterFormByCabang === 'function') filterFormByCabang();
-    }
     var vehReset = document.getElementById('vehicle');
     if (vehReset) vehReset.value = '';
     var jenisReset = document.getElementById('jenis_bbm');
@@ -887,53 +918,60 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     if (biayaReset) biayaReset.value = '';
     var literReset = document.getElementById('liter_bbm');
     if (literReset) literReset.value = '';
+    var biayaTollReset = document.getElementById('biaya_toll');
+    if (biayaTollReset) biayaTollReset.value = '';
+    var fotoStrukTollReset = document.getElementById('foto_struk_toll');
+    if (fotoStrukTollReset) fotoStrukTollReset.value = '';
+    var kmAwalReset = document.getElementById('km_awal_val');
+    if (kmAwalReset) kmAwalReset.value = '';
+    var kmAkhirReset = document.getElementById('km_akhir_val');
+    if (kmAkhirReset) kmAkhirReset.value = '';
+    var chkAwal = document.getElementById('chk_km_awal');
+    var chkAkhir = document.getElementById('chk_km_akhir');
+    if (chkAwal) chkAwal.checked = false;
+    if (chkAkhir) chkAkhir.checked = false;
+    if (typeof toggleOdoBroken === 'function') { toggleOdoBroken('awal'); toggleOdoBroken('akhir'); }
 
-    var isiBensinReset = document.getElementById('isi_bensin');
-    if (isiBensinReset) isiBensinReset.value = 'Tidak';
-    var bbmSecReset = document.getElementById('bbm-section');
-    if (bbmSecReset) bbmSecReset.style.display = 'block';
-    var tolSecReset = document.getElementById('tol-section');
-    if (tolSecReset) tolSecReset.style.display = 'block';
     var lanjutanCollapse = document.getElementById('lanjutan-collapse');
     if (lanjutanCollapse) {
       lanjutanCollapse.classList.remove('show');
       var chevron = document.getElementById('lanjutan-chevron');
       if (chevron) chevron.className = 'bi bi-chevron-down me-2';
     }
-
-    ['preview-awal', 'preview-akhir'].forEach(id => {
-      const p = document.getElementById(id);
+    ['preview-awal', 'preview-akhir'].forEach(function(id) {
+      var p = document.getElementById(id);
       if (!p) return;
       p.style.display = 'none';
-      const img = p.querySelector('img');
+      var img = p.querySelector('img');
       if (img) img.src = '';
     });
-
-    document.querySelectorAll('#daily-form .photo-upload').forEach(u => {
+    document.querySelectorAll('#daily-form .photo-upload').forEach(function(u) {
       u.classList.remove('has-image');
-      const span = u.querySelector('span');
+      var span = u.querySelector('span');
       if (span) span.textContent = 'Tap untuk upload foto';
     });
 
-    document.getElementById('km_awal_val').value = '';
-    document.getElementById('km_akhir_val').value = '';
-    var chkAwal = document.getElementById('chk_km_awal');
-    var chkAkhir = document.getElementById('chk_km_akhir');
-    if (chkAwal) { chkAwal.checked = false; toggleOdoBroken('awal'); }
-    if (chkAkhir) { chkAkhir.checked = false; toggleOdoBroken('akhir'); }
-
-    exitEditMode();
-    if (typeof onVehicleChange === 'function') onVehicleChange();
-
     formDataPayload = {};
-    var fStrip = document.getElementById('flazz_card_id_strip');
-    if (fStrip) { fStrip.style.display = 'inline'; fStrip.textContent = '-'; }
-    var tStrip = document.getElementById('flazz_card_id_toll_strip');
-    if (tStrip) { tStrip.style.display = 'inline'; tStrip.textContent = '-'; }
-    if (typeof resetTolFields === 'function') resetTolFields();
-    if (typeof calcLiter === 'function') calcLiter();
-    if (typeof syncBensinTersirat === 'function') syncBensinTersirat();
-    if (typeof updateLiveSummary === 'function') updateLiveSummary();
+    __editingTxId = null;
+    __editingSupir = '';
+
+    // Warehouse: kembalikan ke "Semua Warehouse" agar tidak nyangkut ke warehouse
+    // laporan terakhir yang diedit (lihat loadEditInForm) — tanpa ini, dropdown
+    // kendaraan & kartu Flazz tetap terfilter ke warehouse itu untuk laporan
+    // BARU berikutnya setelah tombol Batal ditekan.
+    var inputCabangReset = document.getElementById('input-cabang');
+    if (inputCabangReset) inputCabangReset.value = '';
+
+    // Dari sini: fungsi yang lebih kompleks, masing-masing terisolasi try/catch
+    // supaya satu gagal tidak menggagalkan yang lain (field di atas sudah aman).
+    try { if (typeof exitEditMode === 'function') exitEditMode(); } catch (e) { console.error('resetDailyForm: exitEditMode gagal', e); }
+    try { if (typeof filterFormByCabang === 'function') filterFormByCabang(); } catch (e) { console.error('resetDailyForm: filterFormByCabang gagal', e); }
+    try { if (typeof onVehicleChange === 'function') onVehicleChange(); } catch (e) { console.error('resetDailyForm: onVehicleChange gagal', e); }
+    try { if (typeof toggleFlazzCardSelection === 'function') toggleFlazzCardSelection(); } catch (e) { console.error('resetDailyForm: toggleFlazzCardSelection gagal', e); }
+    try { if (typeof toggleTolFlazzCardSelection === 'function') toggleTolFlazzCardSelection(); } catch (e) { console.error('resetDailyForm: toggleTolFlazzCardSelection gagal', e); }
+    try { if (typeof calcLiter === 'function') calcLiter(); } catch (e) { console.error('resetDailyForm: calcLiter gagal', e); }
+    try { if (typeof syncBensinTersirat === 'function') syncBensinTersirat(); } catch (e) { console.error('resetDailyForm: syncBensinTersirat gagal', e); }
+    try { if (typeof updateLiveSummary === 'function') updateLiveSummary(); } catch (e) { console.error('resetDailyForm: updateLiveSummary gagal', e); }
   }
 
   function prefillFormFromLast(userInfo) {
