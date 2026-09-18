@@ -689,11 +689,6 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
       // "odometer estimasi" + data lama tampil padahal belum ada input baru.
       if (__editingTxId && !__enteringEdit) {
         resetDailyForm();
-        var tglNowA = document.getElementById('tanggal');
-        if (tglNowA && !tglNowA.value) {
-          var ddA = new Date();
-          tglNowA.value = ddA.getFullYear() + '-' + String(ddA.getMonth() + 1).padStart(2, '0') + '-' + String(ddA.getDate()).padStart(2, '0');
-        }
       }
       // Muat ulang opsi supir dari jalur BELUM_DIISI setiap form dibuka,
       // agar supir dari jalur yang baru dibuat langsung tampil tanpa reload.
@@ -865,7 +860,10 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     if (vAwR) vAwR.textContent = '0%';
     if (vAkR) vAkR.textContent = '0%';
     var tglReset = document.getElementById('tanggal');
-    if (tglReset) tglReset.value = '';
+    if (tglReset) {
+      var ddReset = new Date();
+      tglReset.value = ddReset.getFullYear() + '-' + String(ddReset.getMonth() + 1).padStart(2, '0') + '-' + String(ddReset.getDate()).padStart(2, '0');
+    }
     var supirReset = document.getElementById('nama_supir');
     if (supirReset) supirReset.value = '';
     var fcReset = document.getElementById('flazz_card_id');
@@ -924,14 +922,14 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     if (chkAwal) { chkAwal.checked = false; toggleOdoBroken('awal'); }
     if (chkAkhir) { chkAkhir.checked = false; toggleOdoBroken('akhir'); }
 
+    exitEditMode();
     if (typeof onVehicleChange === 'function') onVehicleChange();
 
-    exitEditMode();
     formDataPayload = {};
     var fStrip = document.getElementById('flazz_card_id_strip');
-    if (fStrip) fStrip.style.display = 'inline';
+    if (fStrip) { fStrip.style.display = 'inline'; fStrip.textContent = '-'; }
     var tStrip = document.getElementById('flazz_card_id_toll_strip');
-    if (tStrip) tStrip.style.display = 'inline';
+    if (tStrip) { tStrip.style.display = 'inline'; tStrip.textContent = '-'; }
     if (typeof resetTolFields === 'function') resetTolFields();
     if (typeof calcLiter === 'function') calcLiter();
     if (typeof syncBensinTersirat === 'function') syncBensinTersirat();
@@ -950,12 +948,9 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
       .withSuccessHandler(function (res) {
         if (!res || !res.pref) return;
         var p = res.pref;
-        var vehSel = document.getElementById('vehicle');
-        var supirSel = document.getElementById('nama_supir');
-        var ba = document.getElementById('bar_awal');
-        if (ba) ba.value = p.bar_awal != null ? p.bar_awal : '';
-        var bk = document.getElementById('bar_akhir');
-        if (bk) bk.value = p.bar_akhir != null ? p.bar_akhir : '';
+        // Bar Bensin Awal/Akhir sengaja TIDAK di-prefill: nilainya adalah bacaan
+        // indikator fisik kendaraan saat ini, tidak masuk akal dibawa dari laporan
+        // terakhir (apalagi bila kendaraan yang dipilih berbeda). Selalu isi manual.
         var bb = document.getElementById('biaya_bbm');
         if (bb) bb.value = p.biaya_bbm || '';
         var lit = document.getElementById('liter_bbm');
@@ -2671,7 +2666,10 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
       // tetap tersedia di panel "Peringatan Dini" dashboard dan label riwayat,
       // sehingga banner tidak muncul "sebelum input apa pun" di form.
       var vehForBanner = __editingTxId ? (found || ((vehSel && vehSel.value) ? (allVehicles || []).find(function (v) { return v.vehicle_id === vehSel.value; }) : null)) : null;
-      banner.style.display = (vehForBanner && vehForBanner.odo_estimasi_terakhir) ? '' : 'none';
+      // classList (bukan style.display): elemen ini pakai class alert Bootstrap yang
+      // sebagian utility-nya (mis. d-flex) di-!important, sehingga inline style bisa
+      // kalah dan banner "tidak pernah benar-benar tersembunyi". Lihat .odo-estimasi-banner.
+      banner.classList.toggle('show', !!(vehForBanner && vehForBanner.odo_estimasi_terakhir));
     }
     if (!isJarum) {
       ['chk_km_awal', 'chk_km_akhir'].forEach(function (id) {

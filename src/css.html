@@ -875,4 +875,9 @@
     flex-wrap: wrap;
     gap: 0.5rem;
   }
+
+  /* Sama seperti .mode-edit-banner di atas: hindari .d-flex Bootstrap (selalu
+     !important) supaya toggle display:none via JS benar-benar menyembunyikan. */
+  .odo-estimasi-banner { display: none; }
+  .odo-estimasi-banner.show { display: flex; }
 </style>
