@@ -110,6 +110,9 @@ document.getElementById('page-login').style.display = 'flex';
     localStorage.removeItem('bbm_token');
     localStorage.removeItem('bbm_user');
     try { if (typeof exitEditMode === 'function') exitEditMode(); } catch (e) { /* abaikan */ }
+    // Bersihkan form input laporan saat logout, agar data residual (supir, kartu
+    // Flazz tol, kendaraan terpilih, banner) tidak "nyangkut" di login berikutnya.
+    try { if (typeof resetDailyForm === 'function') resetDailyForm(); } catch (e) { /* abaikan */ }
     if (t) {
       try { google.script.run.withFailureHandler(function() { /* abaikan: logout tetap lanjut di client */ }).doLogout(t); } catch (e) { /* abaikan */ }
     }
@@ -136,6 +139,9 @@ document.getElementById('page-login').style.display = 'flex';
 
   function loadInitialData(uInfo) {
     document.getElementById('page-login').style.display = 'none';
+    // Jamin form input laporan mulai bersih pada setiap login (tanpa sisa nilai
+    // dari sesi sebelumnya karena logout tidak me-reload halaman).
+    try { if (typeof resetDailyForm === 'function') resetDailyForm(); } catch (e) { /* abaikan */ }
     
     let btn = document.getElementById('btn-login');
     if(btn) btn.innerText = 'Memuat Data...';
@@ -958,11 +964,16 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
         document.querySelectorAll('input[name="metode_pembayaran"]').forEach(function(r){ r.checked = (r.value === mpTarget); });
         var fc = document.getElementById('flazz_card_id');
         if (fc) fc.value = p.flazz_card_id || '';
-        var mtTarget = p.metode_toll || 'TUNAI';
+        var mtTarget = 'TUNAI';
         document.querySelectorAll('input[name="metode_toll"]').forEach(function(r){ r.checked = (r.value === mtTarget); });
         var fcTol = document.getElementById('flazz_card_id_toll');
-        if (fcTol) fcTol.value = p.flazz_card_id_toll || '';
+        if (fcTol) fcTol.value = '';
+        var tolStripPr = document.getElementById('flazz_card_id_toll_strip');
+        if (tolStripPr) tolStripPr.textContent = '-';
         if (typeof toggleFlazzCardSelection === 'function') toggleFlazzCardSelection();
+        // Catatan: kartu Flazz BAYAR TOL sengaja TIDAK diisi dari laporan terakhir,
+        // karena tol bersifat spesifik-trip; kalau jalur superir punya kartu tol,
+        // akan terisi otomatis saat supir dipilih (onLaporanDriverChange).
         if (typeof toggleTolFlazzCardSelection === 'function') toggleTolFlazzCardSelection();
         var isiPrefill = document.getElementById('isi_bensin');
         if (isiPrefill) {
@@ -2655,7 +2666,11 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
 
     var banner = document.getElementById('banner-odo-estimasi');
     if (banner) {
-      var vehForBanner = found || ((vehSel && vehSel.value) ? (allVehicles || []).find(function (v) { return v.vehicle_id === vehSel.value; }) : null);
+      // Banner hanya relevan saat EDIT laporan (mengingatkan bahwa trip terakhir
+      // kendaraan ini memakai KM estimasi). Saat mengisi laporan BARU, peringatan
+      // tetap tersedia di panel "Peringatan Dini" dashboard dan label riwayat,
+      // sehingga banner tidak muncul "sebelum input apa pun" di form.
+      var vehForBanner = __editingTxId ? (found || ((vehSel && vehSel.value) ? (allVehicles || []).find(function (v) { return v.vehicle_id === vehSel.value; }) : null)) : null;
       banner.style.display = (vehForBanner && vehForBanner.odo_estimasi_terakhir) ? '' : 'none';
     }
     if (!isJarum) {
