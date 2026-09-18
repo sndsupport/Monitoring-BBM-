@@ -24,6 +24,42 @@ function initDashboardSchema(token) {
   return { success: true, msg: 'Schema Dashboard disiapkan' };
 }
 
+// Update ringkasan bulanan secara INKREMENTAL (hot path simpan/edit/hapus).
+// Tanpa memindai ulang seluruh Penggunaan_BBM: hanya baca sheet Dashboard (kecil)
+// lalu tambah/kurangi delta. Recompute penuh tetap tersedia via recomputeMonthlySummary
+// untuk keperluan maintenance/migrasi data.
+// delta: { trx, liter, biaya, toll } boleh negatif (hapus/edit).
+function adjustMonthlySummary(cabang, periode, delta) {
+  if (!cabang || !periode) return null;
+  const ss = getDB();
+  const dash = ss.getSheetByName('Dashboard');
+  if (!dash) return null;
+
+  const dashH = sheetHeaders(dash);
+  const dashIdx = colIndex(dashH, DASH_COLS);
+  const dashRows = readRowsCols(dash, DASH_COLS.map(function(nm) { return dashIdx[nm]; }));
+  let rowIndex = -1;
+  for (let i = 0; i < dashRows.length; i++) {
+    if (String(dashRows[i][0]) === String(cabang) && String(dashRows[i][1]) === periode) { rowIndex = i + 2; break; }
+  }
+
+  const value = rowIndex > -1 ? dashRows[rowIndex - 2] : [cabang, periode, 0, 0, 0, 0, new Date()];
+  value[2] = (parseFloat(value[2]) || 0) + (delta.trx || 0);
+  value[3] = Math.round(((parseFloat(value[3]) || 0) + (delta.liter || 0)) * 100) / 100;
+  value[4] = Math.round(((parseFloat(value[4]) || 0) + (delta.biaya || 0)) * 100) / 100;
+  value[5] = Math.round(((parseFloat(value[5]) || 0) + (delta.toll || 0)) * 100) / 100;
+  value[6] = new Date();
+
+  if (rowIndex > -1) {
+    dash.getRange(rowIndex, 1, 1, DASH_COLS.length).setValues([value]);
+  } else {
+    dash.appendRow(value);
+  }
+  invalidateSheetSnapshot('Dashboard');
+  CacheService.getScriptCache().remove('sum:' + cabang + ':' + periode);
+  return { cabang: cabang, periode: periode, total_transaksi: value[2], total_liter: value[3], total_biaya_bbm: value[4], total_toll: value[5] };
+}
+
 function recomputeMonthlySummary(cabang, periode) {
   if (!cabang || !periode) return null;
   const ss = getDB();

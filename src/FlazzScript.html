@@ -611,23 +611,10 @@ function saveFlazzReconForm(e) {
     }
   };
 
-  // Lapisan kedua: verifikasi gate di server sebelum menyimpan
-  google.script.run
-    .withSuccessHandler(function(res) {
-      if (res && !res.eligible) {
-        btn.disabled = false;
-        btn.innerHTML = orig;
-        showToast('Rekonsiliasi diblokir: ' + ((res && res.reason) || 'belum ada laporan valid dengan foto KM.'), 'error');
-        return;
-      }
-      proceed();
-    })
-    .withFailureHandler(function(err) {
-      btn.disabled = false;
-      btn.innerHTML = orig;
-      showToast('Gagal memverifikasi gate: ' + err, 'error');
-    })
-    .apiCheckReconGate(cardId, bbmToken());
+  // Gate rekonsiliasi (laporan FLAZZ valid + foto KM) kini divalidasi SERVER
+  // di dalam apiSaveFlazzRecon (saveFlazzReconUnlocked) — tidak lagi pre-flight
+  // terpisah di klien (tambahan 1 RPC / 1 pemindaian penuh Penggunaan_BBM).
+  proceed();
 }
 
 function showHistoryTab(type, e) {

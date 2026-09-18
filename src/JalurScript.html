@@ -465,6 +465,7 @@ function jalurSave() {
         jalurInitForm();
         const tJalur = document.getElementById('jalur-tanggal');
         if (tJalur) tJalur.value = new Date().toISOString().slice(0, 10);
+        if (typeof refreshJalurDriverOptions === 'function') refreshJalurDriverOptions();
         if (typeof loadDashboardWarnings === 'function') loadDashboardWarnings(true);
       }
     })
@@ -559,6 +560,7 @@ function jalurSaveEdit() {
       showToast(res.msg, res.success ? 'success' : 'error');
       if (res.success) {
         bootstrap.Modal.getInstance(document.getElementById('modal-jalur-edit')).hide();
+        if (typeof refreshJalurDriverOptions === 'function') refreshJalurDriverOptions();
         jalurRefreshActive();
       }
     })
@@ -572,7 +574,10 @@ function jalurDelete(id) {
   google.script.run
     .withSuccessHandler(function(res) {
       showToast(res.msg, res.success ? 'success' : 'error');
-      if (res.success) jalurRefreshActive();
+      if (res.success) {
+        if (typeof refreshJalurDriverOptions === 'function') refreshJalurDriverOptions();
+        jalurRefreshActive();
+      }
     })
     .withFailureHandler(function(err) { showToast('Gagal menghapus: ' + err.message, 'error'); })
     .apiDeleteJalur(id, bbmToken());

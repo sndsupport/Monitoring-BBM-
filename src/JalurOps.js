@@ -10,10 +10,9 @@ function jalurSheet() {
 // Cek apakah kartu etoll sedang punya catatan DIBERIKAN (masih dipakai)
 function flazzCardHasGiveren(cardId) {
   try {
-    const ss = getDB();
-    const s = ss.getSheetByName('Flazz_Usage');
-    if (!s || s.getLastRow() <= 1 || !cardId) return false;
-    const data = s.getDataRange().getValues();
+    if (!cardId) return false;
+    const data = getSheetSnapshot('Flazz_Usage');
+    if (!data || data.length <= 1) return false;
     const h = data[0];
     const iCard = h.indexOf('card_id');
     const iStatus = h.indexOf('status');
@@ -54,11 +53,11 @@ function findJalurRow(sheet, id) {
   return null;
 }
 
-function updateJalurStatus(jalurId, newStatus, laporanId) {
+function updateJalurStatus(jalurId, newStatus, laporanId, knownRowIndex) {
   try {
     const sheet = jalurSheet();
     if (!sheet) return;
-    const found = findJalurRow(sheet, jalurId);
+    const found = knownRowIndex ? { rowIndex: knownRowIndex, idx: jalurColIdx(sheet) } : findJalurRow(sheet, jalurId);
     if (!found) return;
     const idx = found.idx;
     if (idx['status'] !== undefined) {
@@ -70,6 +69,7 @@ function updateJalurStatus(jalurId, newStatus, laporanId) {
     if (idx['updated_at'] !== undefined) {
       sheet.getRange(found.rowIndex, idx['updated_at'] + 1).setValue(new Date());
     }
+    invalidateSheetSnapshot('Jalur_Pengiriman');
   } catch (e) {
     Logger.log('updateJalurStatus error: ' + e.toString());
   }
@@ -334,11 +334,57 @@ function saveJalur(payload, token) {
       if (!r || !r.driver_id || !r.vehicle_id || !String(r.rute_tujuan || '').trim()) return;
       if (ungatedVehicles.indexOf(String(r.vehicle_id)) === -1) ungatedVehicles.push(String(r.vehicle_id));
     });
-    const blockers = [];
-    ungatedVehicles.forEach(function (vid) {
-      const check = checkIncompleteJalurForVehicle(vid, tanggal);
-      if (check.blocked && check.incompleteJalur) blockers.push(check.incompleteJalur);
-    });
+    // C1: evaluasi blocker untuk SEMUA kendaraan dengan SATU pembacaan jalur
+    // (sebelumnya: scan penuh per kendaraan -> Vx koneksi per simpan).
+    const blockers = (function() {
+      try {
+        const sheetJ = jalurSheet();
+        if (!sheetJ || sheetJ.getLastRow() <= 1) return [];
+        const jIdx = jalurColIdx(sheetJ);
+        const jWant = ['is_deleted','vehicle_id','tanggal','id','plat_nomor','status','flazz_card_id'].filter(function(k) { return jIdx[k] !== undefined; });
+        const jCols = jWant.map(function(k) { return jIdx[k]; });
+        const jData = readRowsCols(sheetJ, jCols);
+        const jOf = {};
+        jWant.forEach(function(k, pos) { jOf[k] = pos; });
+        const jDel = jOf['is_deleted'];
+        const inputTgl = String(tanggal || '').substring(0, 10);
+        const latestByVeh = {};
+        for (let i = 0; i < jData.length; i++) {
+          if (jDel !== undefined && String(jData[i][jDel]) === '1') continue;
+          const vid2 = String(jData[i][jOf['vehicle_id']] || '');
+          if (ungatedVehicles.indexOf(vid2) === -1) continue;
+          let rowTgl = jData[i][jOf['tanggal']];
+          if (rowTgl instanceof Date) {
+            const tzJ = getDB().getSpreadsheetTimeZone();
+            rowTgl = Utilities.formatDate(rowTgl, tzJ, 'yyyy-MM-dd');
+          } else {
+            rowTgl = String(rowTgl).substring(0, 10);
+          }
+          if (!inputTgl || rowTgl >= inputTgl) continue;
+          const prev = latestByVeh[vid2];
+          if (!prev || rowTgl > prev.tanggal) {
+            latestByVeh[vid2] = {
+              id: jData[i][jOf['id']],
+              tanggal: rowTgl,
+              plat_nomor: (jOf['plat_nomor'] !== undefined) ? String(jData[i][jOf['plat_nomor']] || '') : '',
+              status: (jOf['status'] !== undefined) ? String(jData[i][jOf['status']] || 'BELUM_DIISI') : 'BELUM_DIISI',
+              flazz_card_id: (jOf['flazz_card_id'] !== undefined) ? String(jData[i][jOf['flazz_card_id']] || '') : ''
+            };
+          }
+        }
+        const bh = [];
+        ungatedVehicles.forEach(function(vid) {
+          const latest = latestByVeh[vid];
+          if (!latest) return;
+          const finalStatus = latest.flazz_card_id ? 'SELESAI' : 'SUDAH_LAPORAN';
+          if (latest.status !== finalStatus) bh.push(latest);
+        });
+        return bh;
+      } catch (e) {
+        Logger.log('saveJalur block-check error: ' + e.toString());
+        return [];
+      }
+    })();
     if (blockers.length) {
       const detail = blockers.map(function (b) {
         const aksi = b.flazz_card_id ? 'rekonsiliasi saldo flazz' : 'input laporan';
@@ -352,6 +398,9 @@ function saveJalur(payload, token) {
     let saved = 0;
     let auditCabang = (userInfo && userInfo.cabang) || '';
     const warnings = [];
+    // Fase 1: bangun semua baris di memori (validasi tetap per baris)
+    const rowsToWrite = [];
+    const cardHandoffs = [];
     rows.forEach(r => {
       if (!r || !r.driver_id || !r.vehicle_id || !String(r.rute_tujuan || '').trim()) return;
       const vid = r.vehicle_id;
@@ -398,14 +447,22 @@ function saveJalur(payload, token) {
       row[idx['is_deleted']] = '';
       if (idx['status'] !== undefined) row[idx['status']] = 'BELUM_DIISI';
       if (idx['laporan_id'] !== undefined) row[idx['laporan_id']] = '';
-      sheet.appendRow(row);
-
-      // Serahkan kartu etoll ke driver
+      rowsToWrite.push(row);
       if (r.etoll_card_id) {
-        const hadUsage = autoCreateFlazzUsage(r.etoll_card_id, namaDriver, vid, 'JALUR', jalurId);
-        if (hadUsage) {
-          warnings.push('Kartu etoll "' + (r.etoll_card_name || r.etoll_card_id) + '" masih dipakai (belum dikembalikan) untuk ' + (namaDriver || r.driver_id) + '. Proses admin sebelumnya belum selesai.');
-        }
+        cardHandoffs.push({ jalurId: jalurId, etollCardId: r.etoll_card_id, etollCardName: r.etoll_card_name || '', namaDriver: namaDriver, driverId: r.driver_id, vid: vid });
+      }
+    });
+    // Fase 2: tulis semua baris dalam SATU setValues (sebelumnya: appendRow per baris)
+    if (rowsToWrite.length) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, rowsToWrite.length, rowsToWrite[0].length).setValues(rowsToWrite);
+      invalidateSheetSnapshot('Jalur_Pengiriman');
+    }
+
+    // Fase 3: serahkan kartu etoll ke driver setelah baris jalur tertulis
+    cardHandoffs.forEach(function (h) {
+      const hadUsage = autoCreateFlazzUsage(h.etollCardId, h.namaDriver, h.vid, 'JALUR', h.jalurId);
+      if (hadUsage) {
+        warnings.push('Kartu etoll "' + (h.etollCardName || h.etollCardId) + '" masih dipakai (belum dikembalikan) untuk ' + (h.namaDriver || h.driverId) + '. Proses admin sebelumnya belum selesai.');
       }
     });
     if (saved > 0) {

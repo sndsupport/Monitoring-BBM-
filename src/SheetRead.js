@@ -21,15 +21,30 @@ function readLastRows(sheet, n) {
 }
 
 // Semua baris data, hanya kolom terpilih. colIndexes: array 0-based.
+// Baca HANYA rentang kolom min..max yang diminta (bukan seluruh lebar sheet)
+// agar transfer data seminimal mungkin. Bila ada kolom yang tidak ada di sheet
+// (index -1), fallback membaca lebar penuh dengan nilai undefined di posisi tsb
+// (perilaku identik dengan implementasi lama).
 function readRowsCols(sheet, colIndexes) {
   var lastRow = sheet.getLastRow();
-  if (lastRow <= 1) return [];
-  var lastCol = sheet.getLastColumn();
+  if (lastRow <= 1 || !colIndexes || colIndexes.length === 0) return [];
+  var invalid = false;
+  for (var ii = 0; ii < colIndexes.length; ii++) {
+    if (colIndexes[ii] < 0) { invalid = true; break; }
+  }
+  var data, offset = 0;
+  if (invalid) {
+    data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+  } else {
+    var from = Math.min.apply(null, colIndexes);
+    var to = Math.max.apply(null, colIndexes);
+    data = sheet.getRange(2, from + 1, lastRow - 1, to - from + 1).getValues();
+    offset = from;
+  }
   var out = [];
-  var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
   for (var i = 0; i < data.length; i++) {
     var row = [];
-    for (var j = 0; j < colIndexes.length; j++) row.push(data[i][colIndexes[j]]);
+    for (var j = 0; j < colIndexes.length; j++) row.push(data[i][colIndexes[j] - offset]);
     out.push(row);
   }
   return out;

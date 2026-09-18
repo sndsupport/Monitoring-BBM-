@@ -8,6 +8,7 @@
   let allDrivers = [];
   let __editingTxId = null;
   let __editingSupir = '';
+  let __enteringEdit = false;
 
   var SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
   var __dashCache = null;
@@ -362,6 +363,7 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
 
   // ─── Jalur-based driver selection ──────────────────────────────────────
   window.__jalurDrivers = [];
+  window.__jalurDriversReq = 0;
 
   // Isi dropdown supir hanya dengan supir yang punya jalur BELUM_DIISI pada tanggal terpilih.
   // Meniru pola dropdown kartu pada Rekonsiliasi: item yang belum dibereskan yang tampil.
@@ -404,6 +406,7 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
 
   // Hanya memuat dropdown supir jalur untuk tanggal terpilih (tanpa reset field lain).
   function refreshJalurDriverOptions(onDone) {
+    var myReq = ++window.__jalurDriversReq;
     var tglInput = document.getElementById('tanggal');
     var tgl = tglInput ? tglInput.value : '';
     if (!tgl) { populateJalurDriverSelect([]); if (onDone) onDone(); return; }
@@ -415,11 +418,13 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     }
     google.script.run
       .withFailureHandler(function(err) {
+        if (myReq !== window.__jalurDriversReq) return;
         console.error('Gagal load jalur drivers:', err);
         populateJalurDriverSelect([]);
         if (onDone) onDone();
       })
       .withSuccessHandler(function(res) {
+        if (myReq !== window.__jalurDriversReq) return;
         if (!res || !res.success || !res.list) { populateJalurDriverSelect([]); if (onDone) onDone(); return; }
         window.__jalurDrivers = res.list;
         populateJalurDriverSelect(res.list);
@@ -672,6 +677,18 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     
     if (tab === 'form') {
       document.getElementById('page-form').style.display = 'block';
+      // Form dibuka ulang lewat menu "Input Laporan" padahal masih ada edit yang
+      // ditinggalkan (tidak Batal/Simpan): buang sisa edit agar form selalu bersih.
+      // Tanpa ini, kendaraan dari laporan lama masih terpilih sehingga banner
+      // "odometer estimasi" + data lama tampil padahal belum ada input baru.
+      if (__editingTxId && !__enteringEdit) {
+        resetDailyForm();
+        var tglNowA = document.getElementById('tanggal');
+        if (tglNowA && !tglNowA.value) {
+          var ddA = new Date();
+          tglNowA.value = ddA.getFullYear() + '-' + String(ddA.getMonth() + 1).padStart(2, '0') + '-' + String(ddA.getDate()).padStart(2, '0');
+        }
+      }
       // Muat ulang opsi supir dari jalur BELUM_DIISI setiap form dibuka,
       // agar supir dari jalur yang baru dibuat langsung tampil tanpa reload.
       if (typeof refreshJalurDriverOptions === 'function') refreshJalurDriverOptions();
@@ -1213,9 +1230,9 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
             window.__perfForce = true;
             exitEditMode();
             resetDailyForm();
-            if (typeof loadDashboard === 'function') loadDashboard();
             if (typeof loadFlazzDataWrapper === 'function') loadFlazzDataWrapper(true);
-            switchTab('dashboard');
+            // Arahkan ke History Laporan sesuai permintaan: selesai edit → lihat hasil.
+            switchTab('history');
           } else {
             showToast(res.msg || 'Gagal menyimpan perubahan.', 'error');
           }
@@ -2200,6 +2217,9 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     exitEditMode();
     resetDailyForm();
     showToast('Edit dibatalkan.', 'info');
+    // Kembali ke History Laporan agar tidak ada sisa data/state edit yang
+    // tertinggal di menu Input Laporan.
+    if (typeof switchTab === 'function') switchTab('history');
   }
 
   // Muat data transaksi lama ke form input laporan.
@@ -2226,7 +2246,11 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     }
 
     // Pilih tab form (memicu refresh dropdown supir berbasis jalur).
+    // Tandai sesi edit berjalan agar switchTab('form') tidak membuang data yang
+    // akan diisi di bawah ini (guard __editingTxId && !__enteringEdit).
+    __enteringEdit = true;
     switchTab('form');
+    __enteringEdit = false;
 
     // Supir: pastikan nama supir laporan tersedia di dropdown.
     var supirSel = document.getElementById('nama_supir');

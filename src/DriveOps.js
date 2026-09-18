@@ -1,10 +1,24 @@
 function getFolderByNameOrCreate(folderName, parentFolder = DriveApp.getRootFolder()) {
-  let folders = parentFolder.getFoldersByName(folderName);
-  if (folders.hasNext()) {
-    return folders.next();
-  } else {
-    return parentFolder.createFolder(folderName);
+  const cache = CacheService.getScriptCache();
+  const parentId = parentFolder.getId();
+  const key = 'drv:' + parentId + ':' + folderName;
+  const hit = cache.get(key);
+  if (hit) {
+    try {
+      return DriveApp.getFolderById(hit);
+    } catch (e) {
+      cache.remove(key); // folder dihapus/dipindah -> cari ulang tanpa cache
+    }
   }
+  let folders = parentFolder.getFoldersByName(folderName);
+  let result;
+  if (folders.hasNext()) {
+    result = folders.next();
+  } else {
+    result = parentFolder.createFolder(folderName);
+  }
+  try { cache.put(key, result.getId(), 3600); } catch (e) { /* kuota TTL/ukuran: abaikan */ }
+  return result;
 }
 
 function initDriveFolders(token) {

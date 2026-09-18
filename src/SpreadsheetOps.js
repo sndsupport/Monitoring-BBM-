@@ -294,7 +294,7 @@ function saveTransactionEndOfDayUnlocked(payload) {
   }
 
   sheet.appendRow(row);
-  try { recomputeMonthlySummary(trxCabang, periodKey(payload.tanggal)); } catch (e) { console.error('summary gagal: ' + e); }
+  try { adjustMonthlySummary(trxCabang, periodKey(payload.tanggal), { trx: 1, liter: parseFloat(liter) || 0, biaya: parseFloat(payload.biaya_bbm) || 0, toll: parseFloat(payload.biaya_toll) || 0 }); } catch (e) { console.error('summary gagal: ' + e); }
 
   // Jika memakai Flazz (BBM dan/atau tol), potong saldo masing-masing kartu sesuai
   // bagian yang memang dibayar kartu tersebut, lalu catat penyerahan otomatis bila perlu.
@@ -330,7 +330,7 @@ function saveTransactionEndOfDayUnlocked(payload) {
   // Tandai jalur SUDAH_LAPORAN hanya setelah baris laporan benar-benar tersimpan,
   // agar status jalur tidak berubah bila penyimpanan/Flazz gagal di tengah jalan.
   try {
-    updateJalurStatus(matchedJalur.id, 'SUDAH_LAPORAN', transaction_id);
+    updateJalurStatus(matchedJalur.id, 'SUDAH_LAPORAN', transaction_id, matchedJalur.rowIndex);
   } catch (e) {
     Logger.log('Gagal update status jalur: ' + e.toString());
   }
@@ -407,7 +407,7 @@ function autoCreateFlazzUsage(cardId, driverName, vehicleId, refType, refId, use
   ensureFlazzUsageRefColumns();
 
   // Cek apakah kartu sudah punya catatan DIBERIKAN (sedang dipakai)
-  const uData = usageSheet.getDataRange().getValues();
+  const uData = getSheetSnapshot('Flazz_Usage');
   const uHeaders = uData[0];
   const uCard = uHeaders.indexOf('card_id');
   const uStatus = uHeaders.indexOf('status');
@@ -467,6 +467,7 @@ function autoCreateFlazzUsage(cardId, driverName, vehicleId, refType, refId, use
     if (found.colIdx.UPDATED !== undefined) {
       cardSheet.getRange(found.rowIndex, found.colIdx.UPDATED + 1).setValue(now);
     }
+    invalidateSheetSnapshot('Flazz_Card');
   }
   return false;
 }
@@ -479,7 +480,7 @@ function adjustActiveUsageOpening(cardId, delta) {
   const ss = getDB();
   const usageSheet = ss.getSheetByName('Flazz_Usage');
   if (!usageSheet) return;
-  const data = usageSheet.getDataRange().getValues();
+  const data = getSheetSnapshot('Flazz_Usage');
   const headers = data[0];
   const cCard = headers.indexOf('card_id');
   const cStatus = headers.indexOf('status');
@@ -489,6 +490,7 @@ function adjustActiveUsageOpening(cardId, delta) {
     if (String(data[i][cCard]) === String(cardId) && String(data[i][cStatus]) === 'DIBERIKAN') {
       const prev = parseFloat(data[i][cOpen]) || 0;
       usageSheet.getRange(i + 1, cOpen + 1).setValue(prev + delta);
+      invalidateSheetSnapshot('Flazz_Usage');
       return;
     }
   }
@@ -994,8 +996,9 @@ function editDailyTransactionUnlocked(payload, userInfo, token) {
     const idxBarAwal = headers.indexOf('bar_awal');
     const idxBarAkhir = headers.indexOf('bar_akhir');
     const idxCabang = headers.indexOf('kode_cabang');
+    const idxLiterEdit = headers.indexOf('liter_bbm');
 
-    let rowIndex = -1, oldMetode = '', oldCard = null, oldBiaya = 0, oldToll = 0, vehicleId = '', oldCabang = '', oldTgl = '', oldMetodeToll = '', oldCardToll = null, oldNama = '';
+    let rowIndex = -1, oldMetode = '', oldCard = null, oldBiaya = 0, oldToll = 0, oldLiter = 0, vehicleId = '', oldCabang = '', oldTgl = '', oldMetodeToll = '', oldCardToll = null, oldNama = '';
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][idxTrx]) === String(payload.transaction_id)) {
         rowIndex = i + 1;
@@ -1005,6 +1008,7 @@ function editDailyTransactionUnlocked(payload, userInfo, token) {
         oldCardToll = idxCardToll > -1 ? data[i][idxCardToll] : '';
         oldBiaya = parseFloat(data[i][idxBiaya]) || 0;
         oldToll = idxToll > -1 ? (parseFloat(data[i][idxToll]) || 0) : 0;
+        oldLiter = idxLiterEdit > -1 ? (parseFloat(data[i][idxLiterEdit]) || 0) : 0;
         vehicleId = headers.indexOf('vehicle_id') > -1 ? String(data[i][headers.indexOf('vehicle_id')] || '') : '';
         oldCabang = idxCabang > -1 ? data[i][idxCabang] : '';
         oldTgl = idxTgl > -1 ? data[i][idxTgl] : '';
@@ -1194,8 +1198,11 @@ function editDailyTransactionUnlocked(payload, userInfo, token) {
     if (idxTgl > -1 && String(newTgl) !== String(oldTgl)) {
       sheet.getRange(rowIndex, idxTgl + 1).setValue(newTgl);
     }
-    try { recomputeMonthlySummary(oldCabang, periodKey(oldTgl)); } catch (e) { console.error('summary gagal: ' + e); }
-    try { recomputeMonthlySummary(newCabang, periodKey(newTgl)); } catch (e) { console.error('summary gagal: ' + e); }
+    const newLiter = (payload.liter_bbm !== undefined && payload.liter_bbm !== null)
+      ? (parseFloat(payload.liter_bbm) || 0) : oldLiter;
+    // Ringkasan bulanan: hapus kontribusi periode LAMA, tambahkan periode BARU.
+    try { adjustMonthlySummary(oldCabang, periodKey(oldTgl), { trx: -1, liter: -oldLiter, biaya: -oldBiaya, toll: -oldToll }); } catch (e) { console.error('summary gagal: ' + e); }
+    try { adjustMonthlySummary(newCabang, periodKey(newTgl), { trx: 1, liter: newLiter, biaya: parseFloat(newBiaya) || 0, toll: parseFloat(newToll) || 0 }); } catch (e) { console.error('summary gagal: ' + e); }
 
     // Sync status jalur pengiriman setelah koreksi. Bila kriteria pembeda laporan
     // (tanggal/supir) berubah, lepas tautan laporan dari jalur LAMA dulu, lalu tautkan
@@ -1212,7 +1219,7 @@ function editDailyTransactionUnlocked(payload, userInfo, token) {
         kode_cabang: newCabang
       });
       if (matchedJalur && matchedJalur.status !== 'SELESAI') {
-        updateJalurStatus(matchedJalur.id, 'SUDAH_LAPORAN', payload.transaction_id);
+        updateJalurStatus(matchedJalur.id, 'SUDAH_LAPORAN', payload.transaction_id, matchedJalur.rowIndex);
       }
     } catch (e) {
       Logger.log('Gagal sync jalur saat edit laporan: ' + e.toString());
@@ -1254,8 +1261,9 @@ function deleteDailyTransactionUnlocked(transactionId, userInfo, token) {
     const idxTgl = headers.indexOf('tanggal');
     const idxCabang = headers.indexOf('kode_cabang');
     const idxStamp = headers.indexOf('timestamp');
+    const idxLiterDel = headers.indexOf('liter_bbm');
 
-    let rowIndex = -1, isFlazz = false, cardId = null, biaya = 0, toll = 0, vehicleId = '', delCabang = '', delTgl = '';
+    let rowIndex = -1, isFlazz = false, cardId = null, biaya = 0, toll = 0, delLiter = 0, vehicleId = '', delCabang = '', delTgl = '';
     let delMetodeToll = '', delCardToll = null;
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][idxTrx]) === String(transactionId)) {
@@ -1266,6 +1274,7 @@ function deleteDailyTransactionUnlocked(transactionId, userInfo, token) {
         delCardToll = idxCardToll > -1 ? data[i][idxCardToll] : '';
         biaya = parseFloat(data[i][idxBiaya]) || 0;
         toll = idxToll > -1 ? (parseFloat(data[i][idxToll]) || 0) : 0;
+        delLiter = idxLiterDel > -1 ? (parseFloat(data[i][idxLiterDel]) || 0) : 0;
         vehicleId = idxVehicle > -1 ? String(data[i][idxVehicle] || '') : '';
         delCabang = idxCabang > -1 ? data[i][idxCabang] : '';
         delTgl = idxTgl > -1 ? data[i][idxTgl] : '';
@@ -1312,7 +1321,7 @@ function deleteDailyTransactionUnlocked(transactionId, userInfo, token) {
       try { if (typeof returnFlazzUsageForRef === 'function') returnFlazzUsageForRef('TRX', String(transactionId)); }
       catch (e) { Logger.log('returnFlazzUsageForRef gagal: ' + e.toString()); }
     });
-    try { recomputeMonthlySummary(delCabang, periodKey(delTgl)); } catch (e) { console.error('summary gagal: ' + e); }
+    try { adjustMonthlySummary(delCabang, periodKey(delTgl), { trx: -1, liter: -delLiter, biaya: -biaya, toll: -toll }); } catch (e) { console.error('summary gagal: ' + e); }
 
     // Lepas tautan laporan yang dihapus dari jalur pengiriman (laporan_id dikosongkan,
     // jalur SUDAH_LAPORAN kembali BELUM_DIISI; jalur SELESAI tetap, hanya tautan dilepas).
