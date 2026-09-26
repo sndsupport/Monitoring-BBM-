@@ -115,6 +115,19 @@ function flazzShareForCard(row, cardId) {
   return flazzBbmShare(row, cardId) + flazzTolShare(row, cardId);
 }
 
+// Total nominal BBM pada satu baris laporan (grup-1 + grup-2). Dipakai agregasi
+// dashboard bulanan agar pengeluaran kartu kedua tidak terlewat di total bawah.
+function rowBbmTotal(row) {
+  const f = cardFields(row);
+  return numOf(f.bBbm) + numOf(pickField(row, 'biaya_bbm_2', 'biayaBbm2'));
+}
+
+// Total nominal tol pada satu baris laporan (grup-1 + grup-2).
+function rowTolTotal(row) {
+  const f = cardFields(row);
+  return numOf(f.bTol) + numOf(pickField(row, 'biaya_toll_2', 'biayaTol2'));
+}
+
 // Apakah baris laporan melibatkan kartu ini (bayar BBM ataupun tol dengan Flazz),
 // di grup pembayaran mana pun.
 function isFlazzRowForCard(row, cardId) {

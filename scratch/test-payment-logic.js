@@ -196,5 +196,16 @@ eq(fDelta(OLD_S, NEW_S, 'A'), 150, 'flazzEditDelta: kartu A naik 150 (300 -> 150
 eq(fDelta(OLD_S, NEW_S, 'B'), -275, 'flazzEditDelta: kartu B turun 275 (0 -> 275)');
 eq(fDelta(NEW_S, OLD_S, 'B'), 275, 'flazzEditDelta: pembalikan menghasilkan delta positif');
 
+// ===== Total baris untuk dashboard bulanan (grup-1 + grup-2) =====
+const fBbmTotal = sandbox.rowBbmTotal;
+const fTolTotal = sandbox.rowTolTotal;
+eq(fBbmTotal({ biaya_bbm: 300 }), 300, 'rowBbmTotal: baris lama -> 300');
+eq(fBbmTotal({}), 0, 'rowBbmTotal: baris kosong -> 0');
+eq(fBbmTotal({ biaya_bbm: 300, biaya_bbm_2: 200 }), 500, 'rowBbmTotal: grup-1 + grup-2 = 500');
+eq(fBbmTotal({ biayaBbm: 300, biayaBbm2: 200 }), 500, 'rowBbmTotal: kunci pendek juga dijumlahkan');
+eq(fTolTotal({ biaya_toll: 50 }), 50, 'rowTolTotal: baris lama -> 50');
+eq(fTolTotal({ biaya_toll: 50, biaya_toll_2: 75 }), 125, 'rowTolTotal: grup-1 + grup-2 = 125');
+eq(fTolTotal({}), 0, 'rowTolTotal: baris kosong -> 0');
+
 console.log('==== HASIL: ' + passed + ' passed, ' + failed + ' failed ====');
 process.exit(failed === 0 ? 0 : 1);

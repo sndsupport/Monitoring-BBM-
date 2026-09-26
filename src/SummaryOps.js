@@ -68,8 +68,14 @@ function recomputeMonthlySummary(cabang, periode) {
   if (!sheet || !dash) return null;
 
   const h = sheetHeaders(sheet);
-  const ci = colIndex(h, ['kode_cabang','tanggal','liter_bbm','biaya_bbm','biaya_toll']);
-  const rows = readRowsCols(sheet, [ci.kode_cabang, ci.tanggal, ci.liter_bbm, ci.biaya_bbm, ci.biaya_toll]);
+  // Kolom grup-2 ikut dijumlahkan: tanpa ini pengeluaran kartu kedua tidak muncul
+  // di dashboard bulanan (total bawah menjadi salahDiam). Kolom yang belum ada
+  // (sheet belum dimigrasi) dibuang agar jalur baca tetap sempit seperti sebelumnya.
+  const wantCols = ['kode_cabang','tanggal','liter_bbm','biaya_bbm','biaya_toll',
+                    'flazz_card_id_2','biaya_bbm_2','flazz_card_id_toll_2','biaya_toll_2']
+    .filter(function (nm) { return h[nm] !== undefined; });
+  const ci = colIndex(h, wantCols);
+  const rows = readRowsCols(sheet, wantCols.map(function (nm) { return ci[nm]; }));
 
   let trx = 0, liter = 0, biaya = 0, toll = 0;
   for (const r of rows) {
@@ -77,8 +83,10 @@ function recomputeMonthlySummary(cabang, periode) {
     if (periodKey(r[1]) !== periode) continue;
     trx++;
     liter += parseFloat(r[2]) || 0;
-    biaya += parseFloat(r[3]) || 0;
-    toll += parseFloat(r[4]) || 0;
+    const rowObj = { biaya_bbm: r[3], biaya_toll: r[4] };
+    for (let pos = 5; pos < wantCols.length; pos++) rowObj[wantCols[pos]] = r[pos];
+    biaya += rowBbmTotal(rowObj);
+    toll += rowTolTotal(rowObj);
   }
 
   const dashH = sheetHeaders(dash);
