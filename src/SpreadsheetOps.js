@@ -291,18 +291,26 @@ function saveTransactionEndOfDayUnlocked(payload) {
     storeMetodeBbm, payload.flazz_card_id || '',
     km_sumber,
     effMetodeToll,
-    effCardToll,
-    payload.flazz_card_id_2 || '',
-    parseFloat(payload.biaya_bbm_2) || 0,
-    payload.flazz_card_id_toll_2 || '',
-    parseFloat(payload.biaya_toll_2) || 0
+    effCardToll
   ];
 
-  // Panjang row mengikuti header sheet yang aktual. Kolom grup-2 hanya ditulis
-  // bila sheet sudah dimigrasi (setupDatabase) — tanpa ini, appendRow meledak
-  // di spreadsheet yang belum menjalankan migrasi dan SEMUA laporan gagal disimpan.
+  // Panjang row mengikuti header sheet yang aktual. Kolom grup-2 ditulis berdasarkan
+  // nama header (ensurePenggunaBBMColumns sudah menambahkannya), bukan posisi, agar
+  // tidak terpotong/bergeser bila urutan kolom sheet berbeda dari skema.
   const headersNow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   if (row.length > headersNow.length) row.length = headersNow.length;
+  const grup2Values = {
+    flazz_card_id_2: payload.flazz_card_id_2 || '',
+    biaya_bbm_2: parseFloat(payload.biaya_bbm_2) || 0,
+    flazz_card_id_toll_2: payload.flazz_card_id_toll_2 || '',
+    biaya_toll_2: parseFloat(payload.biaya_toll_2) || 0
+  };
+  Object.keys(grup2Values).forEach(function(col) {
+    const ci = headersNow.indexOf(col);
+    if (ci === -1) return;
+    while (row.length <= ci) row.push('');
+    row[ci] = grup2Values[col];
+  });
 
   if (isDuplicateTransaction(sheet, payload, row)) {
     return { success: false, error: 'Laporan sudah pernah disimpan. Untuk menghindari data ganda, tidak disimpan ulang. Silakan cek Riwayat Transaksi.' };
@@ -2091,6 +2099,13 @@ function ensurePenggunaBBMColumns() {
     const newCol = sheet.getLastColumn() + 1;
     sheet.getRange(1, newCol).setValue('flazz_card_id_toll');
   }
+  // Kolom grup-2 (kartu kedua). Tanpa migrasi ini, sheet yang belum menjalankan
+  // setupDatabase tidak punya kolomnya dan pengeluaran kartu ke-2 tidak tersimpan.
+  ['flazz_card_id_2', 'biaya_bbm_2', 'flazz_card_id_toll_2', 'biaya_toll_2'].forEach(function(col) {
+    if (headers.indexOf(col) === -1) {
+      sheet.getRange(1, sheet.getLastColumn() + 1).setValue(col);
+    }
+  });
 }
 
 // Tambahkan kolom ref_type / ref_id di Flazz_Usage bila belum ada (migrasi aman).
