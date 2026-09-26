@@ -397,6 +397,13 @@ function isDuplicateTransaction(sheet, payload, row) {
   }
 }
 
+// Penghitung urut id Flazz_Usage. id berbasis getTime() saja bentrok bila dua
+// penyerahan terjadi dalam milidetik yang sama — otomatis pada jalur 2 kartu.
+var _flazzUsageSeq = 0;
+function nextFlazzUsageId(baseMs) {
+  return 'USE-' + baseMs + '-' + (++_flazzUsageSeq);
+}
+
 // Buat catatan penyerahan kartu (Flazz_Usage) otomatis bila kartu belum punya status DIBERIKAN.
 // Membantu pengguna yang tidak lagi mengisi halaman "Penggunaan Kartu" secara manual.
 function autoCreateFlazzUsage(cardId, driverName, vehicleId, refType, refId, usedAt) {
@@ -430,7 +437,7 @@ function autoCreateFlazzUsage(cardId, driverName, vehicleId, refType, refId, use
   // used_at disamakan dgn timestamp laporan (bila diberikan) agar laporan yang menciptakan
   // penyerahannya sendiri tetap berada dalam periode gate rekonsiliasi yang sama.
   const ts = usedAt || now;
-  const id = 'USE-' + now.getTime();
+  const id = nextFlazzUsageId(now.getTime());
   const opening = getCardBalance ? (parseFloat(getCardBalance(cardId)) || 0) : 0;
 
   const usageValues = {
