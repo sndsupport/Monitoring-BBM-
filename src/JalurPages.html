@@ -1,4 +1,4 @@
-<!-- HALAMAN JALUR PENGIRIMAN -->
+﻿<!-- HALAMAN JALUR PENGIRIMAN -->
 <div id='page-jalur-buat' style='display:none;' class='fade-in'>
   <h4 class='mb-3 text-primary fw-bold'><i class='bi bi-truck me-2'></i>Buat Jalur Pengiriman</h4>
   <div class='card shadow-sm border-0 rounded-4 mb-4'>
@@ -75,7 +75,7 @@
                 <th>Kendaraan</th>
                 <th>Driver</th>
                 <th>Rute Tujuan</th>
-                <th>Etoll</th>
+                <th>Etoll 1<br><span class='fw-normal small'>Etoll 2</span></th>
                 <th>Status</th>
                 <th>Pajak</th>
                 <th class='text-end'>Aksi</th>
@@ -137,7 +137,7 @@
                 <th>Driver 1</th>
                 <th>Driver 2</th>
                 <th>Rute Tujuan</th>
-                <th>Etoll</th>
+                <th>Etoll 1<br><span class='fw-normal small'>Etoll 2</span></th>
                 <th>Status</th>
                 <th>Pajak Tahunan</th>
                 <th>Pajak 5 Tahunan</th>
@@ -185,11 +185,19 @@
           <input type='text' id='jalur-edit-rute' class='form-control' required placeholder='ex: Gudang A - Toserba B'>
         </div>
         <div class='mb-3'>
-          <label class='form-label text-muted small fw-bold'>Kartu Etoll</label>
-          <select id='jalur-edit-etoll' class='form-select' onchange="document.getElementById('jalur-edit-etoll-id').value = this.value">
+          <label class='form-label text-muted small fw-bold'>Kartu Etoll 1</label>
+          <select id='jalur-edit-etoll' class='form-select' onchange="jalurSyncEditEtoll()">
             <option value=''>Pilih Kartu Etoll...</option>
           </select>
           <input type='hidden' id='jalur-edit-etoll-id'>
+        </div>
+        <div class='mb-3'>
+          <label class='form-label text-muted small fw-bold'>Kartu Etoll 2 (opsional)</label>
+          <select id='jalur-edit-etoll2' class='form-select' onchange="jalurSyncEditEtoll()">
+            <option value=''>Tanpa kartu kedua</option>
+          </select>
+          <input type='hidden' id='jalur-edit-etoll2-id'>
+          <div class='form-text text-muted small'>Jalur hanya ditandai selesai bila seluruh kartu sudah direkonsiliasi.</div>
         </div>
         <button type='button' class='btn btn-primary w-100 rounded-4 fw-bold' onclick='jalurSaveEdit()'><i class='bi bi-check me-1'></i>Simpan</button>
       </div>
