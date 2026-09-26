@@ -168,6 +168,17 @@ function getLastLaporanPrefill(token) {
     ensurePenggunaBBMColumns();
     const data = sheet.getDataRange().getValues();
     if (data.length <= 1) return { pref: null };
+    // Peta nama header -> index kolom, agar field grup-2 dibaca lewat nama (aman
+    // pada sheet yang belum dimigrasi: index yang tidak ada menghasilkan '' / 0).
+    const hMap = {};
+    (data[0] || []).forEach(function (x, i) {
+      const k = String(x === null || x === undefined ? '' : x).trim();
+      if (k && !(k in hMap)) hMap[k] = i;
+    });
+    function cell(rowArr, name) {
+      const i = hMap[name];
+      return (i === undefined || !rowArr) ? '' : rowArr[i];
+    }
     const role = user.role;
     const cabang = user.cabang;
     for (let i = data.length - 1; i >= 1; i--) {
@@ -188,7 +199,13 @@ function getLastLaporanPrefill(token) {
         metode_pembayaran: row[27] || 'TUNAI',
         flazz_card_id: typeof resolveCanonicalCardId === 'function' ? resolveCanonicalCardId(row[28]) : (row[28] || ''),
         metode_toll: resolveTollMethod(row[30], row[27], row[31]),
-        flazz_card_id_toll: typeof resolveCanonicalCardId === 'function' ? resolveCanonicalCardId(resolveTollCard(row[31], resolveTollMethod(row[30], row[27], row[31]), row[27], row[28])) : resolveTollCard(row[31], resolveTollMethod(row[30], row[27], row[31]), row[27], row[28])
+        flazz_card_id_toll: typeof resolveCanonicalCardId === 'function' ? resolveCanonicalCardId(resolveTollCard(row[31], resolveTollMethod(row[30], row[27], row[31]), row[27], row[28])) : resolveTollCard(row[31], resolveTollMethod(row[30], row[27], row[31]), row[27], row[28]),
+        // Grup-2 (kartu kedua). Metode tidak ikut karena diturunkan di sisi klien
+        // dari isi kartu: kartu terisi -> FLAZZ, nominal tanpa kartu -> TUNAI.
+        flazz_card_id_2: (function () { var c = cell(row, 'flazz_card_id_2'); c = String(c || ''); return c && typeof resolveCanonicalCardId === 'function' ? resolveCanonicalCardId(c) : c; })(),
+        biaya_bbm_2: parseFloat(cell(row, 'biaya_bbm_2')) || 0,
+        flazz_card_id_toll_2: (function () { var c = cell(row, 'flazz_card_id_toll_2'); c = String(c || ''); return c && typeof resolveCanonicalCardId === 'function' ? resolveCanonicalCardId(c) : c; })(),
+        biaya_toll_2: parseFloat(cell(row, 'biaya_toll_2')) || 0
       }};
     }
     return { pref: null };
