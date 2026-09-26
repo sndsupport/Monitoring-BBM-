@@ -1,4 +1,4 @@
-/**
+﻿/**
  * JalurOps.js
  * Modul backend untuk Sistem Monitoring Jalur Pengiriman
  */
@@ -34,9 +34,89 @@ function jalurColIdx(sheet) {
   return idx;
 }
 
+// Kartu etoll yang ter-assign pada satu baris Jalur_Pengiriman (tanpa duplikat).
+// row dibaca memakai peta kolom absolut; kolom yang tidak ada (sheet belum dimigrasi)
+// dianggap kosong.
+function jalurAssignedCards(row, idx) {
+  return jalurCardIds(
+    (idx['flazz_card_id'] !== undefined) ? row[idx['flazz_card_id']] : '',
+    (idx['flazz_card_id_2'] !== undefined) ? row[idx['flazz_card_id_2']] : ''
+  );
+}
+
+// Tanggal rekon terbaru per kartu (kunci canonical). Dibaca sekali per pemanggilan
+// supaya penulisan status jalur selalu melihat data rekon terkini. Rekon yang
+// di-soft-delete tidak dihitung.
+function reconMaxTglByCard() {
+  const out = {};
+  try {
+    const data = getSheetSnapshot('Flazz_Reconciliation');
+    if (!data || data.length <= 1) return out;
+    const h = data[0];
+    const cCard = h.indexOf('card_id');
+    const cDate = h.indexOf('date');
+    const cDel = h.indexOf('is_deleted');
+    if (cCard < 0 || cDate < 0) return out;
+    for (let i = 1; i < data.length; i++) {
+      if (cDel > -1 && String(data[i][cDel]) === '1') continue;
+      const dStr = String(data[i][cDate] || '').substring(0, 10);
+      const key = canonicalCardId(data[i][cCard]);
+      if (!key || !dStr) continue;
+      if (!out[key] || dStr > out[key]) out[key] = dStr;
+    }
+    return out;
+  } catch (e) {
+    Logger.log('reconMaxTglByCard error: ' + e.toString());
+    return out;
+  }
+}
+
+// SATU sumber kebenaran penulisan status jalur. Dipakai setelah rekon, setelah
+// hapus rekon, dan oleh backfillJalurStatus. Menentukan SELESAI hanya bila SEMUA
+// kartu yang ter-assign pada jalur sudah direkonsiliasi.
+function recomputeJalurStatus(jalurId, knownRowIndex) {
+  try {
+    const sheet = jalurSheet();
+    if (!sheet || sheet.getLastRow() <= 1) return null;
+    const found = knownRowIndex
+      ? { rowIndex: knownRowIndex, idx: jalurColIdx(sheet) }
+      : findJalurRow(sheet, jalurId);
+    if (!found) return null;
+    const want = ['laporan_id','tanggal','flazz_card_id','flazz_card_id_2'].filter(function (k) {
+      return found.idx[k] !== undefined;
+    });
+    if (found.idx['status'] === undefined || found.idx['laporan_id'] === undefined) return null;
+    const colOf = {};
+    want.forEach(function (k, pos) { colOf[k] = pos; });
+    const data = readRowsCols(sheet, want.map(function (k) { return found.idx[k]; }));
+    const row = data[0] || [];
+    if (colOf['laporan_id'] === undefined) return null;
+
+    const tglRaw = colOf['tanggal'] !== undefined ? row[colOf['tanggal']] : '';
+    const tgl = (tglRaw instanceof Date)
+      ? Utilities.formatDate(tglRaw, getDB().getSpreadsheetTimeZone(), 'yyyy-MM-dd')
+      : String(tglRaw || '').substring(0, 10);
+
+    const cards = jalurAssignedCards(row, colOf);
+    const newStatus = jalurFinalStatus(row[colOf['laporan_id']], cards, tgl, reconMaxTglByCard());
+    const current = sheet.getRange(found.rowIndex, found.idx['status'] + 1).getValue();
+    if (String(current) !== newStatus) {
+      sheet.getRange(found.rowIndex, found.idx['status'] + 1).setValue(newStatus);
+      if (found.idx['updated_at'] !== undefined) {
+        sheet.getRange(found.rowIndex, found.idx['updated_at'] + 1).setValue(new Date());
+      }
+      invalidateSheetSnapshot('Jalur_Pengiriman');
+    }
+    return newStatus;
+  } catch (e) {
+    Logger.log('recomputeJalurStatus error: ' + e.toString());
+    return null;
+  }
+}
+
 function findJalurRow(sheet, id) {
   const idx = jalurColIdx(sheet);
-  const want = ['id','tanggal','status','laporan_id','updated_at','vehicle_id','nama_driver','driver_id','rute_tujuan','flazz_card_id','kode_cabang','plat_nomor'].filter(function(k) {
+  const want = ['id','tanggal','status','laporan_id','updated_at','vehicle_id','nama_driver','driver_id','rute_tujuan','flazz_card_id','flazz_card_id_2','kode_cabang','plat_nomor'].filter(function(k) {
     return idx[k] !== undefined;
   });
   const cols = want.map(function(k) { return idx[k]; });
@@ -108,7 +188,7 @@ function findJalurByCriteria(criteria) {
     const sheet = jalurSheet();
     if (!sheet || sheet.getLastRow() <= 1) return null;
     const idx = jalurColIdx(sheet);
-    const want = ['is_deleted','tanggal','vehicle_id','nama_driver','kode_cabang','flazz_card_id','id','status','plat_nomor'].filter(function(k) {
+    const want = ['is_deleted','tanggal','vehicle_id','nama_driver','kode_cabang','flazz_card_id','flazz_card_id_2','id','status','plat_nomor'].filter(function(k) {
       return idx[k] !== undefined;
     });
     const cols = want.map(function(k) { return idx[k]; });
@@ -135,20 +215,31 @@ function findJalurByCriteria(criteria) {
       if (match && criteria.nama_driver && String(data[i][colOf['nama_driver']] || '') !== String(criteria.nama_driver)) match = false;
       if (match && criteria.kode_cabang && String(data[i][colOf['kode_cabang']] || '') !== String(criteria.kode_cabang)) match = false;
       if (match && criteria.flazz_card_id) {
-        const cardVal = (colOf['flazz_card_id'] !== undefined) ? String(data[i][colOf['flazz_card_id']] || '') : '';
-        if (cardVal !== String(criteria.flazz_card_id)) match = false;
+        // Kartu bisa berada di slot 1 ATAU slot 2 -> harus cocok salah satu.
+        const wantCard = canonicalCardId(criteria.flazz_card_id);
+        const v1 = (colOf['flazz_card_id'] !== undefined) ? canonicalCardId(data[i][colOf['flazz_card_id']]) : '';
+        const v2 = (colOf['flazz_card_id_2'] !== undefined) ? canonicalCardId(data[i][colOf['flazz_card_id_2']]) : '';
+        if (v1 !== wantCard && v2 !== wantCard) match = false;
       }
       if (match) {
-        best = {
+        const cand = {
           id: data[i][colOf['id']],
           status: (colOf['status'] !== undefined) ? String(data[i][colOf['status']] || 'BELUM_DIISI') : 'BELUM_DIISI',
           flazz_card_id: (colOf['flazz_card_id'] !== undefined) ? String(data[i][colOf['flazz_card_id']] || '') : '',
+          flazz_card_id_2: (colOf['flazz_card_id_2'] !== undefined) ? String(data[i][colOf['flazz_card_id_2']] || '') : '',
           tanggalJalur: rowTgl,
           kode_cabang: (colOf['kode_cabang'] !== undefined) ? String(data[i][colOf['kode_cabang']] || '') : '',
           nama_driver: (colOf['nama_driver'] !== undefined) ? String(data[i][colOf['nama_driver']] || '') : '',
           plat_nomor: (colOf['plat_nomor'] !== undefined) ? String(data[i][colOf['plat_nomor']] || '') : '',
           rowIndex: i + 2
         };
+        // Kartu dipakai di banyak hari; pilih jalur TERBARU yang memakainya, bukan
+        // baris terakhir yang kebetulan cocok (status jalur jadi ditulis ke baris itu).
+        if (!best
+            || cand.tanggalJalur > best.tanggalJalur
+            || (cand.tanggalJalur === best.tanggalJalur && cand.rowIndex > best.rowIndex)) {
+          best = cand;
+        }
       }
     }
     return best;
@@ -413,8 +504,24 @@ function saveJalur(payload, token) {
         assertOwnWarehouse(userInfo, driverBranchById(r.driver_id), 'driver utama');
         if (r.driver2_id) assertOwnWarehouse(userInfo, driverBranchById(r.driver2_id), 'driver kedua');
       }
+      // Dua slot kartu etoll. Slot 2 wajib berbeda dari slot 1 dan tetap milik
+      // cabang yang sama; keberadaan kartu divalidasi untuk KEDUA slot (sebelumnya
+      // saveJalur tidak sama sekali mengeceknya, hanya updateJalur).
+      if (r.etoll_card_id && r.etoll_card_id_2
+          && canonicalCardId(r.etoll_card_id) === canonicalCardId(r.etoll_card_id_2)) {
+        throw new Error('Kartu etoll ke-2 harus berbeda dari kartu etoll ke-1.');
+      }
+      if (r.etoll_card_id && typeof findFlazzCardBalance === 'function' && !findFlazzCardBalance(r.etoll_card_id)) {
+        throw new Error('Kartu etoll "' + (r.etoll_card_name || r.etoll_card_id) + '" tidak ditemukan.');
+      }
+      if (r.etoll_card_id_2 && typeof findFlazzCardBalance === 'function' && !findFlazzCardBalance(r.etoll_card_id_2)) {
+        throw new Error('Kartu etoll "' + (r.etoll_card_name_2 || r.etoll_card_id_2) + '" tidak ditemukan.');
+      }
       if (r.etoll_card_id) {
         assertFlazzAccess(userInfo, flazzCardBranch(r.etoll_card_id));
+      }
+      if (r.etoll_card_id_2) {
+        assertFlazzAccess(userInfo, flazzCardBranch(r.etoll_card_id_2));
       }
       // Jalur buatan SUPERADMIN di-stempel kode_cabang dari kendaraan (bukan userInfo.cabang
       // yang kosong), agar gate laporan BELUM_DIISI tetap cocok dengan cabang kendaraan.
@@ -435,6 +542,10 @@ function saveJalur(payload, token) {
         row[idx['flazz_card_id']] = r.etoll_card_id;
         if (idx['flazz_card_name'] !== undefined) row[idx['flazz_card_name']] = r.etoll_card_name || '';
       }
+      if (r.etoll_card_id_2 && idx['flazz_card_id_2'] !== undefined) {
+        row[idx['flazz_card_id_2']] = r.etoll_card_id_2;
+        if (idx['flazz_card_name_2'] !== undefined) row[idx['flazz_card_name_2']] = r.etoll_card_name_2 || '';
+      }
       row[idx['vehicle_id']] = vid;
       row[idx['plat_nomor']] = v ? v.plat_nomor : '';
       row[idx['nama_kendaraan']] = v ? v.nama : '';
@@ -448,9 +559,14 @@ function saveJalur(payload, token) {
       if (idx['status'] !== undefined) row[idx['status']] = 'BELUM_DIISI';
       if (idx['laporan_id'] !== undefined) row[idx['laporan_id']] = '';
       rowsToWrite.push(row);
-      if (r.etoll_card_id) {
-        cardHandoffs.push({ jalurId: jalurId, etollCardId: r.etoll_card_id, etollCardName: r.etoll_card_name || '', namaDriver: namaDriver, driverId: r.driver_id, vid: vid });
-      }
+      const handoffs = [
+        { cardId: r.etoll_card_id, cardName: r.etoll_card_name || '' },
+        { cardId: r.etoll_card_id_2, cardName: r.etoll_card_name_2 || '' }
+      ];
+      handoffs.forEach(function (h) {
+        if (!h.cardId) return;
+        cardHandoffs.push({ jalurId: jalurId, etollCardId: h.cardId, etollCardName: h.cardName, namaDriver: namaDriver, driverId: r.driver_id, vid: vid });
+      });
     });
     // Fase 2: tulis semua baris dalam SATU setValues (sebelumnya: appendRow per baris)
     if (rowsToWrite.length) {
@@ -488,8 +604,10 @@ function updateJalur(data, token) {
     if (updateRole !== 'SUPERADMIN') {
       assertOwnWarehouse(userInfo, (idx['kode_cabang'] !== undefined) ? String(found.row[idx['kode_cabang']] || '') : '', 'Jadwal pengiriman');
     }
-    const oldCard = (idx['flazz_card_id'] !== undefined) ? String(found.row[idx['flazz_card_id']] || '') : '';
-    const newCard = data.etoll_card_id !== undefined ? String(data.etoll_card_id || '') : oldCard;
+    const oldCards = jalurAssignedCards(found.row, idx);
+    const newCards = jalurCardIds(data.etoll_card_id, data.etoll_card_id_2);
+    const oldCard = oldCards[0] || '';
+    const newCard = newCards[0] || '';
 
     // Validasi referensi SEBELUM menulis apa pun — mencegah baris jalur berisi
     // driver_id/vehicle_id/kartu etoll yang tidak ada (nama/plat jadi kosong senyap).
@@ -504,9 +622,15 @@ function updateJalur(data, token) {
       vNew = jalurVehicleById(data.vehicle_id);
       if (!vNew) throw new Error('Kendaraan tidak ditemukan.');
     }
-    if (data.etoll_card_id && typeof findFlazzCardBalance === 'function' && !findFlazzCardBalance(data.etoll_card_id)) {
-      throw new Error('Kartu etoll tidak ditemukan.');
+    if (data.etoll_card_id && data.etoll_card_id_2
+        && canonicalCardId(data.etoll_card_id) === canonicalCardId(data.etoll_card_id_2)) {
+      throw new Error('Kartu etoll ke-2 harus berbeda dari kartu etoll ke-1.');
     }
+    newCards.forEach(function (cid) {
+      if (typeof findFlazzCardBalance === 'function' && !findFlazzCardBalance(cid)) {
+        throw new Error('Kartu etoll "' + cid + '" tidak ditemukan.');
+      }
+    });
 
     // Scoping referensi-baru (mirror saveJalur): PIC hanya boleh memindahkan jalur
     // miliknya ke kendaraan/supir/kartu etoll cabang sendiri; SUPERADMIN bebas.
@@ -515,9 +639,12 @@ function updateJalur(data, token) {
       if (data.driver2_id !== undefined && data.driver2_id) assertOwnWarehouse(userInfo, driverBranchById(data.driver2_id), 'driver kedua');
       if (data.vehicle_id !== undefined) assertOwnWarehouse(userInfo, (vNew && vNew.cabang) ? vNew.cabang : vehicleBranchById(data.vehicle_id), 'kendaraan');
       if (data.etoll_card_id) assertFlazzAccess(userInfo, flazzCardBranch(data.etoll_card_id));
+      if (data.etoll_card_id_2) assertFlazzAccess(userInfo, flazzCardBranch(data.etoll_card_id_2));
       // Cascade penyerahan kartu (returnFlazzUsage/autoCreateFlazzUsage) mengubah status
       // kartu; untuk PIC kartu lama yang dikembalikan juga wajib cabangnya sendiri.
-      if (oldCard && oldCard !== newCard) assertFlazzAccess(userInfo, flazzCardBranch(oldCard));
+      oldCards.forEach(function (c) {
+        if (newCards.indexOf(c) === -1) assertFlazzAccess(userInfo, flazzCardBranch(c));
+      });
     }
 
     // Balance gate: bila kendaraan diganti, kendaraan BARU juga harus lolos gate
@@ -555,22 +682,30 @@ function updateJalur(data, token) {
       sheet.getRange(found.rowIndex, idx['flazz_card_id'] + 1).setValue(data.etoll_card_id || '');
       if (idx['flazz_card_name'] !== undefined) sheet.getRange(found.rowIndex, idx['flazz_card_name'] + 1).setValue(data.etoll_card_name || '');
     }
-    // Sinkronkan penyerahan kartu: kembalikan kartu lama, serahkan kartu baru.
-    if (oldCard !== newCard) {
-      if (oldCard) returnFlazzUsage(oldCard);
-      if (newCard) {
-        const namaDriver = data.driver_id !== undefined ? jalurDriverNameById(data.driver_id) : String(found.row[idx['nama_driver']] || '');
-        const vid = data.vehicle_id !== undefined ? data.vehicle_id : String(found.row[idx['vehicle_id']] || '');
-        autoCreateFlazzUsage(newCard, namaDriver, vid, 'JALUR', String(data.id));
-      }
+    if (data.etoll_card_id_2 !== undefined && idx['flazz_card_id_2'] !== undefined) {
+      sheet.getRange(found.rowIndex, idx['flazz_card_id_2'] + 1).setValue(data.etoll_card_id_2 || '');
+      if (idx['flazz_card_name_2'] !== undefined) sheet.getRange(found.rowIndex, idx['flazz_card_name_2'] + 1).setValue(data.etoll_card_name_2 || '');
     }
+    // Sinkronkan penyerahan kartu PER SLOT: kartu lama dikembalikan HANYA bila tidak
+    // lagi dipakai di slot mana pun, kartu baru diserahkan bila belum ada. Dengan
+    // perbandingan "!=" per slot, kartu yang pindah dari slot 1 ke slot 2 akan
+    // dikembalikan padahal masih dipegang driver.
+    const namaDriverNow = data.driver_id !== undefined ? jalurDriverNameById(data.driver_id) : String(found.row[idx['nama_driver']] || '');
+    const vidNow = data.vehicle_id !== undefined ? data.vehicle_id : String(found.row[idx['vehicle_id']] || '');
+    oldCards.forEach(function (c) {
+      if (newCards.indexOf(c) === -1) returnFlazzUsage(c);
+    });
+    newCards.forEach(function (c) {
+      if (oldCards.indexOf(c) === -1) autoCreateFlazzUsage(c, namaDriverNow, vidNow, 'JALUR', String(data.id));
+    });
     sheet.getRange(found.rowIndex, idx['updated_at'] + 1).setValue(new Date());
     logAudit(userInfo, 'EDIT', 'jalur', data.id, null, {
       tanggal: (data.tanggal !== undefined) ? data.tanggal : found.row[idx['tanggal']],
       driver_id: (data.driver_id !== undefined) ? data.driver_id : found.row[idx['driver_id']],
       vehicle_id: (data.vehicle_id !== undefined) ? data.vehicle_id : found.row[idx['vehicle_id']],
       rute_tujuan: (data.rute_tujuan !== undefined) ? String(data.rute_tujuan).trim() : found.row[idx['rute_tujuan']],
-      flazz_card_id: newCard
+      flazz_card_id: newCard,
+      flazz_card_id_2: newCards[1] || ''
     });
     return { success: true, msg: 'Jadwal berhasil diperbarui.' };
   } catch (e) {
@@ -590,11 +725,13 @@ function deleteJalur(id, token) {
     if (deleteRole !== 'SUPERADMIN') {
       assertOwnWarehouse(userInfo, (idx['kode_cabang'] !== undefined) ? String(found.row[idx['kode_cabang']] || '') : '', 'Jadwal pengiriman');
     }
-    const cardId = (idx['flazz_card_id'] !== undefined) ? String(found.row[idx['flazz_card_id']] || '') : '';
-    // Kembalikan kartu etoll yang diserahkan agar tidak menggantung.
-    // Cascade mengubah status kartu; untuk PIC kartu wajib cabangnya sendiri.
-    if (cardId && deleteRole !== 'SUPERADMIN') assertFlazzAccess(userInfo, flazzCardBranch(cardId));
-    if (cardId) returnFlazzUsage(cardId);
+    const cards = jalurAssignedCards(found.row, idx);
+    // Kembalikan SEMUA kartu etoll yang diserahkan agar tidak menggantung. Cascade
+    // mengubah status kartu; untuk PIC tiap kartu wajib cabangnya sendiri.
+    if (deleteRole !== 'SUPERADMIN') {
+      cards.forEach(function (c) { assertFlazzAccess(userInfo, flazzCardBranch(c)); });
+    }
+    cards.forEach(function (c) { returnFlazzUsage(c); });
     // Hard delete: hapus baris secara fisik dari sheet
     sheet.deleteRow(found.rowIndex);
     logAudit(userInfo, 'DELETE', 'jalur', id, {
@@ -602,7 +739,7 @@ function deleteJalur(id, token) {
       driver_id: found.row[idx['driver_id']],
       vehicle_id: found.row[idx['vehicle_id']],
       rute_tujuan: found.row[idx['rute_tujuan']],
-      flazz_card_id: cardId
+      flazz_card_id: cards.join(', ')
     }, null);
     return { success: true, msg: 'Jadwal berhasil dihapus.' };
   } catch (e) {
@@ -669,6 +806,8 @@ function getJalurByTanggal(tanggal, token, opts) {
         kode_cabang: row[idx['kode_cabang']],
         flazz_card_id: (idx['flazz_card_id'] !== undefined) ? row[idx['flazz_card_id']] : '',
         flazz_card_name: (idx['flazz_card_name'] !== undefined) ? row[idx['flazz_card_name']] : '',
+        flazz_card_id_2: (idx['flazz_card_id_2'] !== undefined) ? row[idx['flazz_card_id_2']] : '',
+        flazz_card_name_2: (idx['flazz_card_name_2'] !== undefined) ? row[idx['flazz_card_name_2']] : '',
         status: (idx['status'] !== undefined) ? (row[idx['status']] || 'BELUM_DIISI') : 'BELUM_DIISI',
         laporan_id: (idx['laporan_id'] !== undefined) ? (row[idx['laporan_id']] || '') : '',
         created_by: row[idx['created_by']],
@@ -722,7 +861,6 @@ function backfillJalurStatus(token) {
     const ss = getDB();
     const jalurSheetRef = ss.getSheetByName('Jalur_Pengiriman');
     const trxSheet = ss.getSheetByName('Penggunaan_BBM');
-    const reconSheet = ss.getSheetByName('Flazz_Reconciliation');
     if (!jalurSheetRef || jalurSheetRef.getLastRow() <= 1) return { success: true, msg: 'Tidak ada jalur untuk di-backfill.' };
 
     const jData = jalurSheetRef.getDataRange().getValues();
@@ -746,45 +884,35 @@ function backfillJalurStatus(token) {
       }
     }
 
-    // Pre-index tanggal recon terbaru per kartu
-    const reconMaxTgl = {};
-    if (reconSheet && reconSheet.getLastRow() > 1) {
-      const rData = reconSheet.getDataRange().getValues();
-      const rH = rData[0];
-      const rCard = rH.indexOf('card_id');
-      const rDate = rH.indexOf('date');
-      for (let i = 1; i < rData.length; i++) {
-        const dStr = String(rData[i][rDate] || '').substring(0, 10);
-        const cId = String(rData[i][rCard] || '');
-        if (!reconMaxTgl[cId] || dStr > reconMaxTgl[cId]) reconMaxTgl[cId] = dStr;
-      }
-    }
+    // Satu pembacaan rekon untuk seluruh baris jalur.
+    const reconMap = reconMaxTglByCard();
 
     for (let i = 1; i < jData.length; i++) {
       const tgl = String(jData[i][jIdx['tanggal']] || '').substring(0, 10);
       const vid = String(jData[i][jIdx['vehicle_id']] || '');
       const drv = String(jData[i][jIdx['nama_driver']] || '');
-      const cardId = (jIdx['flazz_card_id'] !== undefined) ? String(jData[i][jIdx['flazz_card_id']] || '') : '';
-      const current = (jIdx['status'] !== undefined) ? String(jData[i][jIdx['status']] || '') : '';
-      if (current === 'SELESAI') continue;
+      const rowIdx = i + 1;
 
       const laporanId = laporanMap[tgl + '|' + vid + '|' + drv] || '';
-      let newStatus = 'BELUM_DIISI';
-      if (laporanId) {
-        if (cardId && reconMaxTgl[cardId] && reconMaxTgl[cardId] >= tgl) newStatus = 'SELESAI';
-        else newStatus = 'SUDAH_LAPORAN';
+      if (hasLaporanId && laporanId && String(jData[i][jIdx['laporan_id']] || '') !== laporanId) {
+        jalurSheetRef.getRange(rowIdx, jIdx['laporan_id'] + 1).setValue(laporanId);
       }
 
-      const rowIdx = i + 1;
+      // Definisi status yang SAMA dengan recomputeJalurStatus — termasuk jalur
+      // berstatus SELESAI yang sebenarnya belum semua kartunya direkon (status bisa turun lagi).
+      const newStatus = jalurFinalStatus(
+        laporanId,
+        jalurAssignedCards(jData[i], jIdx),
+        tgl,
+        reconMap
+      );
       if (hasStatus && String(jData[i][jIdx['status']] || '') !== newStatus) {
         jalurSheetRef.getRange(rowIdx, jIdx['status'] + 1).setValue(newStatus);
         updated++;
       }
-      if (hasLaporanId && laporanId && String(jData[i][jIdx['laporan_id']] || '') !== laporanId) {
-        jalurSheetRef.getRange(rowIdx, jIdx['laporan_id'] + 1).setValue(laporanId);
-      }
     }
 
+    invalidateSheetSnapshot('Jalur_Pengiriman');
     return { success: true, msg: updated + ' jalur berhasil di-backfill statusnya.' };
   } catch (e) {
     return { success: false, msg: 'Backfill gagal: ' + e.toString() };
@@ -844,7 +972,9 @@ function getJalurDriversForDate(tanggal, userInfo, opts) {
         plat_nomor: (idx['plat_nomor'] !== undefined) ? String(data[i][idx['plat_nomor']] || '') : '',
         nama_kendaraan: (idx['nama_kendaraan'] !== undefined) ? String(data[i][idx['nama_kendaraan']] || '') : '',
         flazz_card_id: (idx['flazz_card_id'] !== undefined) ? String(data[i][idx['flazz_card_id']] || '') : '',
-        flazz_card_name: (idx['flazz_card_name'] !== undefined) ? String(data[i][idx['flazz_card_name']] || '') : ''
+        flazz_card_name: (idx['flazz_card_name'] !== undefined) ? String(data[i][idx['flazz_card_name']] || '') : '',
+        flazz_card_id_2: (idx['flazz_card_id_2'] !== undefined) ? String(data[i][idx['flazz_card_id_2']] || '') : '',
+        flazz_card_name_2: (idx['flazz_card_name_2'] !== undefined) ? String(data[i][idx['flazz_card_name_2']] || '') : ''
       });
     }
     return { success: true, list: list };
