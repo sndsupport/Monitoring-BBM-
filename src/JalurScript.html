@@ -437,7 +437,6 @@ function jalurShowSummary() {
             '<td>' + esc(it.nama_driver2 || '-') + '</td>' +
             '<td>' + esc(it.rute_tujuan) + '</td>' +
             '<td>' + jalurEtollCell(it) + '</td>' +
-            '<td>' + jalurStatusBadge(it.status) + '</td>' +
             '<td>' + jalurPajakBadge(it.status_pajak, it.sisa_hari_pajak, 'Pajak') + '</td>' +
             '<td>' + jalurPajakBadge(it.status_pajak_5, it.sisa_hari_pajak_5, 'Pajak 5 Tahun') + '</td>' +
             '<td>' + (it.jenis_kendaraan === 'Mobil' ? jalurPajakBadge(it.status_kir, it.sisa_hari_kir, 'KIR') : '<span class="badge bg-light text-muted fw-normal border">N/A</span>') + '</td>' +
@@ -744,5 +743,46 @@ function jalurTakeScreenshotNow(shot) {
     container.appendChild(canvas);
     new bootstrap.Modal(document.getElementById('modal-jalur-shot')).show();
   }).catch(function(e) { showToast('Gagal screenshot: ' + e, 'error'); });
+}
+
+// Print isi yang sama dengan screenshot (#jalur-shot) lewat iframe tersembunyi,
+// agar navbar/filter tidak ikut tercetak. Stylesheet halaman disalin supaya
+// tampilan tabel & badge sama dengan di layar.
+function jalurPrint() {
+  const shot = document.getElementById('jalur-shot');
+  if (!shot || shot.style.display === 'none') { showToast('Tampilkan dulu jadwal pada tanggal yang dipilih', 'error'); return; }
+  const old = document.getElementById('jalur-print-frame');
+  if (old) old.remove();
+  const frame = document.createElement('iframe');
+  frame.id = 'jalur-print-frame';
+  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+  document.body.appendChild(frame);
+  const styles = Array.prototype.map.call(
+    document.querySelectorAll('link[rel="stylesheet"], style'),
+    function(el) { return el.outerHTML; }
+  ).join('\n');
+  const doc = frame.contentWindow.document;
+  doc.open();
+  doc.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Jalur Pengiriman</title>' + styles +
+    '<style>@page{size:A4 landscape;margin:10mm}' +
+    'body{background:#fff!important;padding:0;margin:0}' +
+    '*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}' +
+    '.shadow,.shadow-sm{box-shadow:none!important}' +
+    '.table-responsive{overflow:visible!important}' +
+    'table{width:100%!important;min-width:0!important}' +
+    'tr{page-break-inside:avoid}</style>' +
+    '</head><body>' + shot.outerHTML + '</body></html>');
+  doc.close();
+  const doPrint = function() {
+    try {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+    } catch (e) {
+      showToast('Gagal membuka print: ' + e, 'error');
+    }
+  };
+  // Beri waktu stylesheet/font termuat sebelum dialog print muncul.
+  if (doc.readyState === 'complete') setTimeout(doPrint, 400);
+  else frame.onload = function() { setTimeout(doPrint, 200); };
 }
 </script>

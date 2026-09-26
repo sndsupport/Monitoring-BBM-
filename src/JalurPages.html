@@ -75,7 +75,7 @@
                 <th>Kendaraan</th>
                 <th>Driver</th>
                 <th>Rute Tujuan</th>
-                <th>Etoll 1<br><span class='fw-normal small'>Etoll 2</span></th>
+                <th>Etoll</th>
                 <th>Status</th>
                 <th>Pajak</th>
                 <th class='text-end'>Aksi</th>
@@ -95,19 +95,20 @@
   <div class='card shadow-sm border-0 rounded-4 mb-4'>
     <div class='card-body'>
       <div class='row g-2 align-items-end'>
-        <div class='col-12 col-md-4' id='jalur-summary-cabang-wrap' style='display:none;'>
+        <div class='col-12 col-md-3' id='jalur-summary-cabang-wrap' style='display:none;'>
           <label class='form-label fw-bold text-muted small text-uppercase'>Pilih Warehouse</label>
           <select id='jalur-summary-filter-cabang' class='form-select' onchange='jalurShowSummary()'>
             <option value=''>Semua Warehouse</option>
           </select>
         </div>
-        <div class='col-12 col-md-4'>
+        <div class='col-12 col-md-3'>
           <label class='form-label fw-bold text-muted small text-uppercase'>Filter Tanggal</label>
           <input type='date' id='jalur-filter-tanggal' class='form-control'>
         </div>
-        <div class='col-12 col-md-4 d-flex flex-wrap gap-2'>
+        <div class='col-12 col-md-6 d-flex flex-wrap gap-2'>
           <button class='btn btn-primary rounded-4 fw-bold' onclick='jalurShowSummary()'><i class='bi bi-search me-1'></i>Tampilkan</button>
           <button class='btn btn-outline-primary rounded-4 fw-bold' onclick='jalurTakeScreenshot()'><i class='bi bi-camera me-1'></i>Screenshot</button>
+          <button class='btn btn-outline-primary rounded-4 fw-bold' onclick='jalurPrint()'><i class='bi bi-printer me-1'></i>Print</button>
         </div>
       </div>
     </div>
@@ -137,8 +138,7 @@
                 <th>Driver 1</th>
                 <th>Driver 2</th>
                 <th>Rute Tujuan</th>
-                <th>Etoll 1<br><span class='fw-normal small'>Etoll 2</span></th>
-                <th>Status</th>
+                <th>Etoll</th>
                 <th>Pajak Tahunan</th>
                 <th>Pajak 5 Tahunan</th>
                 <th>KIR</th>
