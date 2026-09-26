@@ -860,6 +860,8 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     var tStrip = document.getElementById('flazz_card_id_toll_strip');
     if (tStrip) tStrip.textContent = '-';
     if (typeof toggleTolFlazzCardSelection === 'function') toggleTolFlazzCardSelection();
+    // Blok kartu ke-2 berada di kartu Transaksi, jadi ikut dikosongkan oleh Reset.
+    if (typeof resetGrupKartu2 === 'function') resetGrupKartu2();
 
     calcLiter();
     if (typeof syncBensinTersirat === 'function') syncBensinTersirat();
