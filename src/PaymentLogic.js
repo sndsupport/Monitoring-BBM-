@@ -28,22 +28,86 @@ function cardFields(row) {
   };
 }
 
-// Bagian BBM (dalam Rupiah) sebuah baris laporan yang dibayar dengan kartu cardId.
-function flazzBbmShare(row, cardId) {
-  if (!row || cardId == null) return 0;
-  const f = cardFields(row);
-  if (String(f.mBbm) !== 'FLAZZ') return 0;
-  if (canonicalCardId(f.cBbm) !== canonicalCardId(cardId)) return 0;
-  return parseFloat(f.bBbm) || 0;
+// Ambil nilai pertama yang terdefinisi dari kunci panjang (nama kolom sheet)
+// atau kunci pendek (state object milik SpreadsheetOps/FlazzOps).
+function pickField(row, longKey, shortKey) {
+  if (!row) return '';
+  if (row[longKey] !== undefined && row[longKey] !== null) return row[longKey];
+  if (shortKey && row[shortKey] !== undefined && row[shortKey] !== null) return row[shortKey];
+  return '';
 }
 
-// Bagian tol (dalam Rupiah) sebuah baris laporan yang dibayar dengan kartu cardId.
+// Konversi longgar: nilai sheet bisa berupa string, angka, atau kosong.
+function numOf(v) { return parseFloat(v) || 0; }
+function strOf(v) { return String(v === undefined || v === null ? '' : v).trim(); }
+
+// Bangun grup-2 dari kolom *_2. Metode DITURUNKAN (bukan kolom terpisah):
+// kartu terisi -> FLAZZ, nominal > 0 tanpa kartu -> TUNAI.
+// Return null bila keempat kolom kosong/0 sehingga baris lama (yang tidak punya
+// kolom grup-2 sama sekali) tidak ikut tersentuh.
+function group2FromRow(row) {
+  if (!row) return null;
+  const cBbm = strOf(pickField(row, 'flazz_card_id_2', 'cardBbm2'));
+  const cTol = strOf(pickField(row, 'flazz_card_id_toll_2', 'cardTol2'));
+  const bBbm = numOf(pickField(row, 'biaya_bbm_2', 'biayaBbm2'));
+  const bTol = numOf(pickField(row, 'biaya_toll_2', 'biayaTol2'));
+  const hasBbm = cBbm !== '' || bBbm > 0;
+  const hasTol = cTol !== '' || bTol > 0;
+  if (!hasBbm && !hasTol) return null;
+  return {
+    mBbm: hasBbm ? (cBbm !== '' ? 'FLAZZ' : 'TUNAI') : '',
+    cBbm: cBbm,
+    bBbm: bBbm,
+    mTol: hasTol ? (cTol !== '' ? 'FLAZZ' : 'TUNAI') : '',
+    cTol: cTol,
+    bTol: bTol
+  };
+}
+
+// Daftar grup pembayaran yang ada pada satu baris laporan.
+// Grup-1 selalu ada (back-compat) dan hanya itu yang ada untuk baris lama;
+// grup-2 hanya muncul bila terisi. Grup-1 tetap memakai resolveTollMethod /
+// resolveTollCard agar semantik kompatibilitas lama tidak berubah.
+function cardGroups(row) {
+  const f = cardFields(row);
+  const tollMethod = resolveTollMethod(f.mTol, f.mBbm, f.cTol);
+  const groups = [{
+    mBbm: f.mBbm,
+    cBbm: f.cBbm,
+    bBbm: numOf(f.bBbm),
+    mTol: tollMethod,
+    cTol: resolveTollCard(f.cTol, tollMethod, f.mBbm, f.cBbm),
+    bTol: numOf(f.bTol)
+  }];
+  const g2 = group2FromRow(row);
+  if (g2) groups.push(g2);
+  return groups;
+}
+
+// Bagian BBM (dalam Rupiah) sebuah baris laporan yang dibayar dengan kartu cardId,
+// dijumlahkan dari SEMUA grup sehingga satu baris dapat membebani dua kartu.
+function flazzBbmShare(row, cardId) {
+  if (!row || cardId == null) return 0;
+  let total = 0;
+  cardGroups(row).forEach(function (g) {
+    if (String(g.mBbm) !== 'FLAZZ') return;
+    if (canonicalCardId(g.cBbm) !== canonicalCardId(cardId)) return;
+    total += numOf(g.bBbm);
+  });
+  return total;
+}
+
+// Bagian tol (dalam Rupiah) sebuah baris laporan yang dibayar dengan kartu cardId,
+// dijumlahkan dari SEMUA grup.
 function flazzTolShare(row, cardId) {
   if (!row || cardId == null) return 0;
-  const f = cardFields(row);
-  if (String(f.mTol) !== 'FLAZZ') return 0;
-  if (canonicalCardId(f.cTol) !== canonicalCardId(cardId)) return 0;
-  return parseFloat(f.bTol) || 0;
+  let total = 0;
+  cardGroups(row).forEach(function (g) {
+    if (String(g.mTol) !== 'FLAZZ') return;
+    if (canonicalCardId(g.cTol) !== canonicalCardId(cardId)) return;
+    total += numOf(g.bTol);
+  });
+  return total;
 }
 
 // Total pengeluaran pada sebuah kartu untuk satu baris (BBM + tol yang memang kartunya).
@@ -51,40 +115,37 @@ function flazzShareForCard(row, cardId) {
   return flazzBbmShare(row, cardId) + flazzTolShare(row, cardId);
 }
 
-// Apakah baris laporan melibatkan kartu ini (bayar BBM ataupun tol dengan Flazz).
+// Apakah baris laporan melibatkan kartu ini (bayar BBM ataupun tol dengan Flazz),
+// di grup pembayaran mana pun.
 function isFlazzRowForCard(row, cardId) {
   if (!row || cardId == null) return false;
-  const f = cardFields(row);
-  const bbm = String(f.mBbm) === 'FLAZZ' && canonicalCardId(f.cBbm) === canonicalCardId(cardId);
-  const tol = String(f.mTol) === 'FLAZZ' && canonicalCardId(f.cTol) === canonicalCardId(cardId);
-  return bbm || tol;
+  return cardGroups(row).some(function (g) {
+    const bbm = String(g.mBbm) === 'FLAZZ' && canonicalCardId(g.cBbm) === canonicalCardId(cardId);
+    const tol = String(g.mTol) === 'FLAZZ' && canonicalCardId(g.cTol) === canonicalCardId(cardId);
+    return bbm || tol;
+  });
 }
 
-// Daftar kartu unik yang terpakai saat menyimpan satu transaksi (BBM dan/atau tol ber-Flazz).
-function distinctFlazzCards(metodeBbm, cardBbm, metodeTol, cardTol) {
+// Daftar kartu unik yang terpakai saat menyimpan satu transaksi — dari semua grup
+// (BBM dan/atau tol ber-Flazz, grup-1 maupun grup-2).
+// Dipakai dari objek baris sheet maupun objek state (kunci pendek).
+function distinctFlazzCardsOf(state) {
   const out = [];
   function push(card) {
-    const c = String(card || '').trim();
+    const c = strOf(card);
     if (c && out.indexOf(c) === -1) out.push(c);
   }
-  if (String(metodeBbm) === 'FLAZZ') push(cardBbm);
-  if (String(metodeTol) === 'FLAZZ') push(cardTol);
+  cardGroups(state).forEach(function (g) {
+    if (String(g.mBbm) === 'FLAZZ') push(g.cBbm);
+    if (String(g.mTol) === 'FLAZZ') push(g.cTol);
+  });
   return out;
 }
 
-// Total muatan sebuah kartu pada suatu keadaan pembayaran (BBM + tol yang jadi tanggungan kartu).
-// state: { metodeBbm, cardBbm, biayaBbm, metodeTol, cardTol, biayaTol }
+// Total muatan sebuah kartu pada suatu keadaan pembayaran (BBM + tol dari semua grup).
+// Alias ke flazzShareForCard supaya pemanggil lama tidak rusak.
 function flazzCardCharge(state, cardId) {
-  if (!state || cardId == null) return 0;
-  const f = cardFields(state);
-  let total = 0;
-  if (String(f.mBbm) === 'FLAZZ' && canonicalCardId(f.cBbm) === canonicalCardId(cardId)) {
-    total += parseFloat(f.bBbm) || 0;
-  }
-  if (String(f.mTol) === 'FLAZZ' && canonicalCardId(f.cTol) === canonicalCardId(cardId)) {
-    total += parseFloat(f.bTol) || 0;
-  }
-  return total;
+  return flazzShareForCard(state, cardId);
 }
 
 // Selisih uang yang dikembalikan (+) atau dipotong (-) dari sebuah kartu saat koreksi/edit.

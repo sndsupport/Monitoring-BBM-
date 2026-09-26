@@ -31,7 +31,7 @@ const fBbm = sandbox.flazzBbmShare;
 const fTol = sandbox.flazzTolShare;
 const fShare = sandbox.flazzShareForCard;
 const fRow = sandbox.isFlazzRowForCard;
-const fCards = sandbox.distinctFlazzCards;
+const fCardsOf = sandbox.distinctFlazzCardsOf;
 const fCharge = sandbox.flazzCardCharge;
 const fDelta = sandbox.flazzEditDelta;
 const fTolMethod = sandbox.resolveTollMethod;
@@ -62,11 +62,11 @@ ok(fRow({ metode_pembayaran: 'FLAZZ', flazz_card_id: 'A', metode_toll: 'TUNAI', 
 ok(!fRow({ metode_pembayaran: 'TUNAI', flazz_card_id: '', metode_toll: 'TUNAI', flazz_card_id_toll: '' }, 'A'), 'isFlazzRowForCard: seluruhnya tunai -> false');
 
 // Daftar kartu unik yang terpakai
-eq(fCards('FLAZZ', 'A', 'FLAZZ', 'A'), ['A'], 'distinctFlazzCards: kartu sama -> 1 entri');
-eq(fCards('FLAZZ', 'A', 'FLAZZ', 'C'), ['A', 'C'], 'distinctFlazzCards: BBM A + tol C -> [A,C]');
-eq(fCards('FLAZZ', 'A', 'TUNAI', ''), ['A'], 'distinctFlazzCards: hanya BBM flazz -> [A]');
-eq(fCards('TUNAI', '', 'FLAZZ', 'C'), ['C'], 'distinctFlazzCards: hanya tol flazz -> [C]');
-eq(fCards('TUNAI', '', 'TUNAI', ''), [], 'distinctFlazzCards: tanpa flazz -> []');
+eq(fCardsOf({ metodeBbm: 'FLAZZ', cardBbm: 'A', metodeTol: 'FLAZZ', cardTol: 'A' }), ['A'], 'distinctFlazzCardsOf: kartu sama -> 1 entri');
+eq(fCardsOf({ metodeBbm: 'FLAZZ', cardBbm: 'A', metodeTol: 'FLAZZ', cardTol: 'C' }), ['A', 'C'], 'distinctFlazzCardsOf: BBM A + tol C -> [A,C]');
+eq(fCardsOf({ metodeBbm: 'FLAZZ', cardBbm: 'A', metodeTol: 'TUNAI', cardTol: '' }), ['A'], 'distinctFlazzCardsOf: hanya BBM flazz -> [A]');
+eq(fCardsOf({ metodeBbm: 'TUNAI', cardBbm: '', metodeTol: 'FLAZZ', cardTol: 'C' }), ['C'], 'distinctFlazzCardsOf: hanya tol flazz -> [C]');
+eq(fCardsOf({ metodeBbm: 'TUNAI', cardBbm: '', metodeTol: 'TUNAI', cardTol: '' }), [], 'distinctFlazzCardsOf: tanpa flazz -> []');
 
 // Edit: BBM pindah kartu A->B, tol tetap di A
 const oldS = { metodeBbm: 'FLAZZ', cardBbm: 'A', biayaBbm: 100, metodeTol: 'FLAZZ', cardTol: 'A', biayaTol: 50 };
@@ -125,5 +125,76 @@ eq(fMethod(undefined, 'FLAZZ'), 'FLAZZ', 'parseEditMethod: undefined -> pertahan
 eq(fMethod(null, 'FLAZZ'), 'FLAZZ', 'parseEditMethod: null -> pertahankan lama');
 eq(fMethod('TUNAI', 'FLAZZ'), 'TUNAI', 'parseEditMethod: ganti ke TUNAI');
 eq(fMethod(' FLAZZ ', 'TUNAI'), 'FLAZZ', 'parseEditMethod: trim whitespace');
+// ===== Grup-2 (kartu kedua) =====
+const fGroups = sandbox.cardGroups;
+const fG2 = sandbox.group2FromRow;
+
+// --- Back-compat: baris lama tidak punya kolom grup-2 sama sekali ---
+eq(fG2({}), null, 'group2FromRow: baris lama (tanpa kolom grup-2) -> null');
+eq(fG2({ metode_pembayaran: 'FLAZZ', flazz_card_id: 'A', biaya_bbm: 100 }), null, 'group2FromRow: baris dengan grup-1 saja -> null');
+eq(fG2({ biaya_bbm_2: 0, biaya_toll_2: 0, flazz_card_id_2: '', flazz_card_id_toll_2: '' }), null, 'group2FromRow: grup-2 semua kosong/0 -> null');
+eq(fGroups({ metode_pembayaran: 'FLAZZ', flazz_card_id: 'A', biaya_bbm: 100 }).length, 1, 'cardGroups: baris lama -> hanya 1 grup');
+
+// --- Turunan metode grup-2 (D1) ---
+eq(fG2({ biaya_bbm_2: 500, flazz_card_id_2: 'B' }), { mBbm: 'FLAZZ', cBbm: 'B', bBbm: 500, mTol: '', cTol: '', bTol: 0 }, 'group2FromRow: kartu + nominal -> FLAZZ');
+eq(fG2({ biaya_bbm_2: 500, flazz_card_id_2: '' }), { mBbm: 'TUNAI', cBbm: '', bBbm: 500, mTol: '', cTol: '', bTol: 0 }, 'group2FromRow: nominal tanpa kartu -> TUNAI');
+eq(fG2({ flazz_card_id_toll_2: 'C' }), { mBbm: '', cBbm: '', bBbm: 0, mTol: 'FLAZZ', cTol: 'C', bTol: 0 }, 'group2FromRow: hanya kartu tol tanpa nominal -> tetap FLAZZ');
+eq(fG2({ biaya_toll_2: 700 }), { mBbm: '', cBbm: '', bBbm: 0, mTol: 'TUNAI', cTol: '', bTol: 700 }, 'group2FromRow: tol tunai -> TUNAI tanpa kartu');
+
+// --- Kunci pendek (state object) juga dibaca ---
+eq(fG2({ cardBbm2: 'B', biayaBbm2: 250 }), { mBbm: 'FLAZZ', cBbm: 'B', bBbm: 250, mTol: '', cTol: '', bTol: 0 }, 'group2FromRow: kunci pendek cardBbm2/biayaBbm2');
+
+// --- Back-compat nilai: baris lama -> hasil identik dengan sebelum perubahan ---
+eq(fBbm({ metode_pembayaran: 'FLAZZ', flazz_card_id: 'A', biaya_bbm: 100 }, 'A'), 100, 'back-compat: flazzBbmShare baris lama tetap 100');
+eq(fTol({ metode_toll: 'FLAZZ', flazz_card_id_toll: 'C', biaya_toll: 50 }, 'C'), 50, 'back-compat: flazzTolShare baris lama tetap 50');
+eq(fRow({ metode_pembayaran: 'FLAZZ', flazz_card_id: 'A', metode_toll: 'TUNAI', flazz_card_id_toll: '' }, 'A'), true, 'back-compat: isFlazzRowForCard baris lama tetap true');
+eq(fCharge({ metodeBbm: 'FLAZZ', cardBbm: 'A', biayaBbm: 100, metodeTol: 'TUNAI', cardTol: '', biayaTol: 0 }, 'A'), 100, 'back-compat: flazzCardCharge baris lama tetap 100');
+
+// --- Share per kartu pada 2 kelompok ---
+const DUAL = { metode_pembayaran: 'FLAZZ', flazz_card_id: 'A', biaya_bbm: 300,
+               metode_toll: 'FLAZZ', flazz_card_id_toll: 'A', biaya_toll: 50,
+               biaya_bbm_2: 200, flazz_card_id_2: 'B',
+               biaya_toll_2: 75, flazz_card_id_toll_2: 'B' };
+eq(fBbm(DUAL, 'A'), 300, 'dual: kartu A hanya dapat BBM grup-1');
+eq(fBbm(DUAL, 'B'), 200, 'dual: kartu B hanya dapat BBM grup-2');
+eq(fTol(DUAL, 'A'), 50, 'dual: kartu A hanya dapat tol grup-1');
+eq(fTol(DUAL, 'B'), 75, 'dual: kartu B hanya dapat tol grup-2');
+eq(fShare(DUAL, 'A'), 350, 'dual: total kartu A = 300 + 50');
+eq(fShare(DUAL, 'B'), 275, 'dual: total kartu B = 200 + 75');
+eq(fGroups(DUAL).length, 2, 'dual: cardGroups -> 2 grup');
+
+// --- Tol terbagi ke 2 kartu (kasus inti pengguna) ---
+const TOL_SPLIT = { metode_pembayaran: 'FLAZZ', flazz_card_id: 'A', biaya_bbm: 100,
+                     metode_toll: 'FLAZZ', flazz_card_id_toll: 'A', biaya_toll: 40,
+                     biaya_toll_2: 60, flazz_card_id_toll_2: 'B' };
+eq(fTol(TOL_SPLIT, 'A'), 40, 'tol terbagi: kartu A dapat 40');
+eq(fTol(TOL_SPLIT, 'B'), 60, 'tol terbagi: kartu B dapat 60');
+ok(fRow(TOL_SPLIT, 'A'), 'tol terbagi: baris termasuk kartu A');
+ok(fRow(TOL_SPLIT, 'B'), 'tol terbagi: baris juga termasuk kartu B');
+ok(!fRow(TOL_SPLIT, 'C'), 'tol terbagi: kartu lain tetap false');
+
+// --- Grup-2 tunai tidak boleh membebani kartu mana pun ---
+const G2_TUNAI = { metode_pembayaran: 'FLAZZ', flazz_card_id: 'A', biaya_bbm: 100, biaya_toll_2: 90 };
+eq(fShare(G2_TUNAI, 'A'), 100, 'grup-2 TUNAI tidak membebani kartu A');
+eq(fShare(G2_TUNAI, 'C'), 0, 'grup-2 TUNAI tidak fallen ke kartu lain');
+ok(fRow(G2_TUNAI, 'A'), 'baris tetap terkait kartu A lewat BBM grup-1');
+ok(!fRow(G2_TUNAI, 'C'), 'grup-2 TUNAI tidak membuat baris terkait kartu C');
+eq(fCardsOf(G2_TUNAI), ['A'], 'grup-2 TUNAI tidak menambah daftar kartu');
+
+// --- Id kartu tanpa '-' tetap cocok pada grup-2 ---
+eq(fBbm({ biaya_bbm_2: 100, flazz_card_id_2: 'FLZ-123' }, 'FLZ123'), 100, 'grup-2: id kartu tanpa tanda hubung tetap cocok');
+
+// --- distinctFlazzCardsOf ---
+eq(fCardsOf({ metode_pembayaran: 'FLAZZ', flazz_card_id: 'A', biaya_bbm: 100, biaya_bbm_2: 50, flazz_card_id_2: 'B' }), ['A', 'B'], 'distinctFlazzCardsOf: grup-2 ikut terdaftar');
+eq(fCardsOf({ metode_pembayaran: 'TUNAI', flazz_card_id: '', biaya_toll_2: 90 }), [], 'distinctFlazzCardsOf: grup-2 TUNAI tidak terdaftar');
+
+// --- flazzEditDelta memindahkan beban antar grup ---
+const OLD_S = { metodeBbm: 'FLAZZ', cardBbm: 'A', biayaBbm: 300, metodeTol: 'TUNAI', cardTol: '', biayaTol: 0 };
+const NEW_S = { metodeBbm: 'FLAZZ', cardBbm: 'A', biayaBbm: 100, metodeTol: 'FLAZZ', cardTol: 'A', biayaTol: 50,
+                cardBbm2: 'B', biayaBbm2: 200, cardTol2: 'B', biayaTol2: 75 };
+eq(fDelta(OLD_S, NEW_S, 'A'), 150, 'flazzEditDelta: kartu A naik 150 (300 -> 150)');
+eq(fDelta(OLD_S, NEW_S, 'B'), -275, 'flazzEditDelta: kartu B turun 275 (0 -> 275)');
+eq(fDelta(NEW_S, OLD_S, 'B'), 275, 'flazzEditDelta: pembalikan menghasilkan delta positif');
+
 console.log('==== HASIL: ' + passed + ' passed, ' + failed + ' failed ====');
 process.exit(failed === 0 ? 0 : 1);
