@@ -3513,7 +3513,9 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
 
   function showConfirmModal(opts, onConfirm) {
     opts = opts || {};
-    __confirmCallback = (typeof onConfirm === 'function') ? onConfirm : null;
+    var cb = (typeof onConfirm === 'function') ? onConfirm : null;
+    __confirmCallback = cb;
+    if (cb) __confirmResolve = null;
     var modalEl = document.getElementById('modal-confirm');
     if (!modalEl) { showToast('Modal konfirmasi tidak ditemukan.', 'error'); return; }
     modalEl.__confirmResult = 'pending';
@@ -3533,17 +3535,23 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
       modalEl.addEventListener('hidden.bs.modal', function() {
         var confirmed = modalEl.__confirmResult === 'ok';
         modalEl.__confirmResult = 'pending';
-        var cb = __confirmCallback;
+        var cb2 = __confirmCallback;
         var rs = __confirmResolve;
         __confirmCallback = null;
         __confirmResolve = null;
         if (typeof rs === 'function') rs(confirmed);
-        else if (confirmed && typeof cb === 'function') cb();
+        else if (confirmed && typeof cb2 === 'function') cb2();
       });
       modalEl.dataset.hiddenHandler = '1';
     }
-    if (!__confirmModal) __confirmModal = new bootstrap.Modal(modalEl);
-    __confirmModal.show();
+    try {
+      if (!__confirmModal) __confirmModal = new bootstrap.Modal(modalEl);
+      __confirmModal.show();
+    } catch (err) {
+      __confirmModal = null;
+      showToast('Modal konfirmasi gagal: ' + ((err && err.message) || err), 'error');
+      if (window.confirm(opts.message || 'Lanjutkan?')) { if (cb) cb(); }
+    }
   }
 
   function confirmModalAsync(opts) {
@@ -3552,6 +3560,18 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
       showConfirmModal(opts);
     });
   }
+
+  // Error tak tertangani (mis. ReferenceError pada onclick) sebelumnya hanya
+  // terlihat di console browser sehingga aksi terasa "tidak berfungsi" tanpa
+  // pesan apa pun. Sekarang ditampilkan sebagai toast.
+  window.addEventListener('error', function (e) {
+    try {
+      if (!e || !e.message) return;
+      if (window.__bbmErrorShown === e.message) return;
+      window.__bbmErrorShown = e.message;
+      if (typeof showToast === 'function') showToast('Galat: ' + e.message, 'error');
+    } catch (x) { /* abaikan */ }
+  });
 
   function populateCabangPengguna() {
     let sel = document.getElementById('m_cabang_pengguna');

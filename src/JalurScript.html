@@ -48,8 +48,7 @@ function jalurPopulateDriverDatalist() {
   var dl = document.getElementById('jalur-supir-datalist');
   if (!dl) return;
   var drivers = (window.masterData && window.masterData.supir) || [];
-  var cabangEl = document.getElementById('input-cabang');
-  var cabang = cabangEl ? cabangEl.value : '';
+  var cabang = jalurActiveCabang();
   dl.innerHTML = '';
   drivers.forEach(function (d) {
     if (cabang && d.cabang !== cabang) return;
@@ -63,8 +62,7 @@ function jalurPopulateDriverDatalist() {
 
 function jalurFindDriverByName(name) {
   var drivers = (window.masterData && window.masterData.supir) || [];
-  var cabangEl = document.getElementById('input-cabang');
-  var cabang = cabangEl ? cabangEl.value : '';
+  var cabang = jalurActiveCabang();
   return drivers.find(function (d) { 
     if (cabang && d.cabang !== cabang) return false;
     return d.nama === name; 
@@ -211,8 +209,7 @@ function jalurDriverNameById(id) {
 function jalurRenderVehicleOptions(selectEl, selected) {
   if (!selectEl) return;
   const vehicles = (window.masterData && window.masterData.kendaraan) || [];
-  var cabangEl = document.getElementById('input-cabang');
-  var cabang = cabangEl ? cabangEl.value : '';
+  var cabang = jalurActiveCabang();
   let html = '<option value="">Pilih Kendaraan...</option>';
   vehicles.forEach(function(v) {
     if (cabang && v.cabang !== cabang) return;
@@ -301,7 +298,16 @@ function populateJalurBuatCabang() {
 }
 
 function onJalurBuatCabangChange() {
+  jalurPopulateDriverDatalist();
   document.querySelectorAll('#jalur-rows .jalur-row').forEach(function(r) {
+    var vehSel = r.querySelector('.jalur-row-vehicle');
+    if (vehSel) jalurRenderVehicleOptions(vehSel, vehSel.value);
+    ['.jalur-row-driver', '.jalur-row-driver2'].forEach(function(sel) {
+      var dIn = r.querySelector(sel);
+      if (!dIn) return;
+      var name = (dIn.value || '').trim();
+      if (name && !jalurFindDriverByName(name)) dIn.value = '';
+    });
     var sel = r.querySelector('.jalur-row-etoll');
     if (!sel) return;
     var driver = r.querySelector('.jalur-row-driver');
