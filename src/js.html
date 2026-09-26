@@ -300,35 +300,23 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
           }
         }
 
-        let selectFlazz = document.getElementById('flazz_card_id');
-        if (selectFlazz && data.flazzCards) {
-          selectFlazz.innerHTML = '<option value="">Pilih Kartu...</option>';
-          data.flazzCards.forEach(f => {
-             // Hanya kartu yang status SEDANG_DIGUNAKAN (Atau biarkan admin pilih yang mana saja tapi disarankan SEDANG_DIGUNAKAN, 
-             // Untuk mempermudah, kita filter status SEDANG_DIGUNAKAN atau biarkan semua muncul jika role admin. Kita tampilkan semua aktif saja)
-             if(f.status !== 'NONAKTIF') {
-                let opt = document.createElement('option');
-                opt.value = f.id;
-                let driverName = f.driver_id ? ` [${f.driver_id}]` : '';
-                opt.text = f.card_number + ' - ' + f.card_type + driverName;
-                selectFlazz.appendChild(opt);
-             }
-          });
-        }
-
-        let selectFlazzTol = document.getElementById('flazz_card_id_toll');
-        if (selectFlazzTol && data.flazzCards) {
-          selectFlazzTol.innerHTML = '<option value="">Pilih Kartu...</option>';
+        // Empat dropdown (BBM & tol, kartu ke-1 & ke-2) memakai daftar kartu yang
+        // sama. Slot-2 punya label default berbeda: "tanpa kartu" berarti tunai.
+        ['flazz_card_id', 'flazz_card_id_toll', 'flazz_card_id_2', 'flazz_card_id_toll_2'].forEach(function(sid) {
+          let sel = document.getElementById(sid);
+          if (!sel || !data.flazzCards) return;
+          let blankLabel = (sid.indexOf('_2') > -1) ? 'Tanpa kartu (tunai)' : 'Pilih Kartu...';
+          sel.innerHTML = '<option value="">' + blankLabel + '</option>';
           data.flazzCards.forEach(f => {
              if(f.status !== 'NONAKTIF') {
                 let opt = document.createElement('option');
                 opt.value = f.id;
                 let driverName = f.driver_id ? ` [${f.driver_id}]` : '';
                 opt.text = f.card_number + ' - ' + f.card_type + driverName;
-                selectFlazzTol.appendChild(opt);
+                sel.appendChild(opt);
              }
           });
-        }
+        });
 
         let filterCabang = document.getElementById('filter-cabang');
         if (filterCabang && data.cabangList) {
@@ -489,6 +477,19 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
       if (tolStrip && match.flazz_card_name) tolStrip.textContent = match.flazz_card_name;
       document.querySelectorAll('input[name="metode_toll"]').forEach(function(r) { r.checked = (r.value === 'FLAZZ'); });
       toggleTolFlazzCardSelection();
+    }
+    // Jalur bisa punya dua kartu. Kartu kedua hanya menyiapkan slot grup-2 (BBM lalu
+    // tol) dan TIDAK menyalakan radio metode grup-1, supaya tidak menimpa pilihan
+    // pengguna. Nominal tetap diisi manual oleh PIC.
+    var card2 = String(match.flazz_card_id_2 || '').trim();
+    if (card2) {
+      var selCard2 = document.getElementById('flazz_card_id_2');
+      var selCardTol2 = document.getElementById('flazz_card_id_toll_2');
+      if (selCard2 && selCardTol2 && !selCard2.value) {
+        selCard2.value = card2;
+        if (!selCardTol2.value) selCardTol2.value = card2;
+        if (typeof toggleGrupKartu2 === 'function') toggleGrupKartu2(true);
+      }
     }
     updateLiveSummary();
   }
@@ -792,7 +793,10 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     if (!isi) return;
     var bb = document.getElementById('biaya_bbm') ? (parseFloat(document.getElementById('biaya_bbm').value) || 0) : 0;
     var tt = document.getElementById('biaya_toll') ? (parseFloat(document.getElementById('biaya_toll').value) || 0) : 0;
-    isi.value = (bb > 0 || tt > 0) ? 'Ya' : 'Tidak';
+    // Grup-2 ikut dihitung: laporan yang hanya memakai kartu ke-2 tetap "Isi bensin".
+    var b2 = document.getElementById('biaya_bbm_2') ? (parseFloat(document.getElementById('biaya_bbm_2').value) || 0) : 0;
+    var t2 = document.getElementById('biaya_toll_2') ? (parseFloat(document.getElementById('biaya_toll_2').value) || 0) : 0;
+    isi.value = (bb > 0 || tt > 0 || b2 > 0 || t2 > 0) ? 'Ya' : 'Tidak';
   }
 
   function toggleFlazzCardSelection() {
@@ -882,6 +886,8 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     if (fStrip) { fStrip.style.display = 'inline'; fStrip.textContent = '-'; }
     var tStrip = document.getElementById('flazz_card_id_toll_strip');
     if (tStrip) { tStrip.style.display = 'inline'; tStrip.textContent = '-'; }
+
+    if (typeof resetGrupKartu2 === 'function') resetGrupKartu2();
 
     var isiBensinReset = document.getElementById('isi_bensin');
     if (isiBensinReset) isiBensinReset.value = 'Tidak';
@@ -1008,9 +1014,21 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
         // karena tol bersifat spesifik-trip; kalau jalur superir punya kartu tol,
         // akan terisi otomatis saat supir dipilih (onLaporanDriverChange).
         if (typeof toggleTolFlazzCardSelection === 'function') toggleTolFlazzCardSelection();
+        // Grup-2 ikut di-prefill seperti biaya BBM: driver yang sama biasanya
+        // memakai nominal & kartu serupa pada trip berikutnya.
+        if (typeof fillGrupKartu2 === 'function') {
+          fillGrupKartu2({
+            biaya_bbm_2: p.biaya_bbm_2,
+            biaya_toll_2: p.biaya_toll_2,
+            flazz_card_id_2: p.flazz_card_id_2,
+            flazz_card_id_toll_2: p.flazz_card_id_toll_2
+          });
+        }
         var isiPrefill = document.getElementById('isi_bensin');
         if (isiPrefill) {
-          var biayaPrefill = p.biaya_bbm > 0 || p.biaya_toll > 0;
+          // Grup-2 ikut dihitung agar laporan yang hanya memakai kartu ke-2
+          // tidak ditandai "tidak isi bensin".
+          var biayaPrefill = p.biaya_bbm > 0 || p.biaya_toll > 0 || p.biaya_bbm_2 > 0 || p.biaya_toll_2 > 0;
           isiPrefill.value = biayaPrefill ? 'Ya' : 'Tidak';
           var bbmSecPrefill = document.getElementById('bbm-section');
           if (bbmSecPrefill) bbmSecPrefill.style.display = 'block';
@@ -1148,7 +1166,120 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
         return false;
       }
     }
+    // Grup-2: cek per kartu, DITAMBAHKAN dengan pengeluaran grup-1 bila kartu yang
+    // sama dipakai di kedua slot (server menjumlahkan juga, lihat addFlazzCheck).
+    if (typeof readGrupKartu2 === 'function') {
+      var g2 = readGrupKartu2();
+      if (g2.aktif) {
+        var extra = {};
+        if (g2.flazz_card_id_2 && g2.biaya_bbm_2 > 0) {
+          extra[g2.flazz_card_id_2] = (extra[g2.flazz_card_id_2] || 0) + g2.biaya_bbm_2;
+          if (cardIdBbm === g2.flazz_card_id_2 && metodeBbm === 'FLAZZ') {
+            extra[g2.flazz_card_id_2] += biayaBbm;
+          }
+        }
+        if (g2.flazz_card_id_toll_2 && g2.biaya_toll_2 > 0) {
+          extra[g2.flazz_card_id_toll_2] = (extra[g2.flazz_card_id_toll_2] || 0) + g2.biaya_toll_2;
+          if (cardIdTol === g2.flazz_card_id_toll_2 && metodeTol === 'FLAZZ') {
+            extra[g2.flazz_card_id_toll_2] += biayaTol;
+          }
+        }
+        for (var eid in extra) {
+          var eBal = findCardBalance(eid);
+          if (eBal >= 0 && eBal < extra[eid]) {
+            showToast('Saldo kartu Flazz (' + findCardName(eid) + ') tidak mencukupi untuk pengeluaran kartu ke-2. Saldo: Rp ' + eBal.toLocaleString('id-ID') + ', Pengeluaran: Rp ' + extra[eid].toLocaleString('id-ID') + '. Silakan top up Flazz.', 'error', 6000);
+            return false;
+          }
+        }
+      }
+    }
     return true;
+  }
+
+  // ─── Kelompok pengeluaran kartu ke-2 ──────────────────────────────────
+  // Tanpa metode terpisah: kartu terisi -> FLAZZ, nominal tanpa kartu -> TUNAI.
+  // Group aktif bila salah satu nominal grup-2 > 0 atau salah satu kartu dipilih.
+  function grupKartu2Aktif() {
+    var b2 = document.getElementById('biaya_bbm_2');
+    var t2 = document.getElementById('biaya_toll_2');
+    var c2 = document.getElementById('flazz_card_id_2');
+    var ct2 = document.getElementById('flazz_card_id_toll_2');
+    return (b2 && parseFloat(b2.value) > 0) || (t2 && parseFloat(t2.value) > 0) ||
+           (c2 && c2.value !== '') || (ct2 && ct2.value !== '');
+  }
+
+  function toggleGrupKartu2(force) {
+    var wrap = document.getElementById('grup-kartu2-wrap');
+    var btn = document.getElementById('grup-kartu2-tombol-wrap');
+    if (!wrap) return;
+    var on = (force === true) ? true : ((force === false) ? false : wrap.style.display === 'none');
+    wrap.style.display = on ? '' : 'none';
+    if (btn) btn.style.display = on ? 'none' : '';
+    if (!on) {
+      ['biaya_bbm_2', 'biaya_toll_2', 'flazz_card_id_2', 'flazz_card_id_toll_2'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+    }
+    if (typeof updateLiveSummary === 'function') updateLiveSummary();
+  }
+
+  // Baca 4 field grup-2. Nonaktif = string kosong agar server tidak salah baca
+  // sisa input tak sengaja sebagai pengeluaran.
+  function readGrupKartu2() {
+    var active = grupKartu2Aktif();
+    var b2 = document.getElementById('biaya_bbm_2');
+    var t2 = document.getElementById('biaya_toll_2');
+    var c2 = document.getElementById('flazz_card_id_2');
+    var ct2 = document.getElementById('flazz_card_id_toll_2');
+    if (!active) return { aktif: false, biaya_bbm_2: 0, biaya_toll_2: 0, flazz_card_id_2: '', flazz_card_id_toll_2: '' };
+    return {
+      aktif: true,
+      biaya_bbm_2: parseFloat(b2 && b2.value) || 0,
+      biaya_toll_2: parseFloat(t2 && t2.value) || 0,
+      flazz_card_id_2: (c2 && c2.value) || '',
+      flazz_card_id_toll_2: (ct2 && ct2.value) || ''
+    };
+  }
+
+  function onGrupKartu2Input() {
+    // Buka blok otomatis begitu user mulai mengetik nominal di grup-2.
+    var wrap = document.getElementById('grup-kartu2-wrap');
+    if (wrap && wrap.style.display === 'none' && grupKartu2Aktif()) toggleGrupKartu2(true);
+    if (typeof updateLiveSummary === 'function') updateLiveSummary();
+  }
+
+  function resetGrupKartu2() {
+    ['biaya_bbm_2', 'biaya_toll_2', 'flazz_card_id_2', 'flazz_card_id_toll_2'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    var wrap = document.getElementById('grup-kartu2-wrap');
+    var btn = document.getElementById('grup-kartu2-tombol-wrap');
+    if (wrap) wrap.style.display = 'none';
+    if (btn) btn.style.display = '';
+  }
+
+  // Isi ulang blok grup-2 dari data (prefill laporan terakhir / mode edit).
+  // Sengaja dipanggil setelah select grup-2 sudah terisi opsinya.
+  function fillGrupKartu2(data) {
+    resetGrupKartu2();
+    if (!data) return;
+    var b2 = parseFloat(data.biaya_bbm_2) || 0;
+    var t2 = parseFloat(data.biaya_toll_2) || 0;
+    var c2 = data.flazz_card_id_2 || '';
+    var ct2 = data.flazz_card_id_toll_2 || '';
+    if (b2 <= 0 && t2 <= 0 && !c2 && !ct2) return;
+    toggleGrupKartu2(true);
+    var elB = document.getElementById('biaya_bbm_2');
+    var elT = document.getElementById('biaya_toll_2');
+    var elC = document.getElementById('flazz_card_id_2');
+    var elCT = document.getElementById('flazz_card_id_toll_2');
+    if (elB) elB.value = b2 || '';
+    if (elT) elT.value = t2 || '';
+    if (elC) elC.value = c2;
+    if (elCT) elCT.value = ct2;
+    if (typeof updateLiveSummary === 'function') updateLiveSummary();
   }
 
   function openReviewModal() {
@@ -1206,6 +1337,7 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
        return;
     }
     if (!isSupirNameValid()) { showToast('Nama supir tidak valid, pilih dari daftar', 'error'); window.__bbmSubmitting = false; return; }
+    var g2 = readGrupKartu2();
 
     let btn = document.getElementById('btn-process');
     let originalText = btn.innerHTML;
@@ -1249,7 +1381,11 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
         metode_pembayaran: metode_pembayaran,
         flazz_card_id: (metode_pembayaran === 'FLAZZ') ? flazz_card_id : '',
         metode_toll: metode_toll,
-        flazz_card_id_toll: (metode_toll === 'FLAZZ') ? flazz_card_id_toll : ''
+        flazz_card_id_toll: (metode_toll === 'FLAZZ') ? flazz_card_id_toll : '',
+        biaya_bbm_2: g2.biaya_bbm_2,
+        biaya_toll_2: g2.biaya_toll_2,
+        flazz_card_id_2: g2.flazz_card_id_2,
+        flazz_card_id_toll_2: g2.flazz_card_id_toll_2
       };
       if (odoAwal) {
         var odoAwalC = await compressPhoto(odoAwal);
@@ -1345,6 +1481,7 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
        return;
     }
     if (!isSupirNameValid()) { showToast('Nama supir tidak valid, pilih dari daftar', 'error'); window.__bbmSubmitting = false; return; }
+    var g2 = readGrupKartu2();
 
     let btn = document.getElementById('btn-process');
     let originalText = btn.innerHTML;
@@ -1444,6 +1581,10 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
         flazz_card_id: flazz_card_id,
         metode_toll: metode_toll,
         flazz_card_id_toll: flazz_card_id_toll,
+        biaya_bbm_2: g2.biaya_bbm_2,
+        biaya_toll_2: g2.biaya_toll_2,
+        flazz_card_id_2: g2.flazz_card_id_2,
+        flazz_card_id_toll_2: g2.flazz_card_id_toll_2,
         foto_odo_awal: odoAwalC ? odoAwalC.dataUrl : null,
         foto_odo_awal_name: odoAwalC ? odoAwalC.name : (odoAwal ? odoAwal.name : null),
         foto_odo_akhir: odoAkhirC ? odoAkhirC.dataUrl : null,
@@ -2430,6 +2571,33 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
       }
     }
 
+    // Dropdown kartu grup-2 pada modal edit ikut diisi dari master data.
+    var cards2 = (window.masterData && window.masterData.flazzCards) ? window.masterData.flazzCards : [];
+    ['ed_flazz_card_id_2', 'ed_flazz_card_id_toll_2'].forEach(function (selId) {
+      var sel = document.getElementById(selId);
+      if (!sel) return;
+      sel.innerHTML = '<option value="">Tanpa kartu (tunai)</option>';
+      cards2.forEach(function (c) {
+        if (c.status === 'NONAKTIF') return;
+        var o = document.createElement('option');
+        o.value = c.id;
+        var drv = c.driver_id ? ' [' + c.driver_id + ']' : '';
+        o.text = c.card_number + ' - ' + c.card_type + drv;
+        sel.appendChild(o);
+      });
+    });
+
+    // Kelompok kartu ke-2: buka blok hanya bila laporan lama punya isi grup-2,
+    // agar form edit untuk transaksi satu-kartu tetap sama seperti saat input.
+    if (typeof fillGrupKartu2 === 'function') {
+      fillGrupKartu2({
+        biaya_bbm_2: row.biaya_bbm_2,
+        biaya_toll_2: row.biaya_toll_2,
+        flazz_card_id_2: row.flazz_card_id_2,
+        flazz_card_id_toll_2: row.flazz_card_id_toll_2
+      });
+    }
+
     // Foto: preview foto lama; input foto tidak lagi wajib saat edit.
     var fAwalEl = document.getElementById('foto_odo_awal');
     var fAkhirEl = document.getElementById('foto_odo_akhir');
@@ -2497,7 +2665,12 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
       metode_pembayaran: ((parseFloat(document.getElementById('ed_biaya').value) || 0) > 0 || document.getElementById('ed_metode').value === 'FLAZZ') ? document.getElementById('ed_metode').value : '',
       flazz_card_id: document.getElementById('ed_metode').value === 'FLAZZ' ? document.getElementById('ed_flazz_card_id').value : '',
       metode_toll: document.getElementById('ed_metode_toll') ? document.getElementById('ed_metode_toll').value : 'TUNAI',
-      flazz_card_id_toll: (document.getElementById('ed_metode_toll') && document.getElementById('ed_metode_toll').value === 'FLAZZ') ? (document.getElementById('ed_flazz_card_id_toll') ? document.getElementById('ed_flazz_card_id_toll').value : '') : ''
+      flazz_card_id_toll: (document.getElementById('ed_metode_toll') && document.getElementById('ed_metode_toll').value === 'FLAZZ') ? (document.getElementById('ed_flazz_card_id_toll') ? document.getElementById('ed_flazz_card_id_toll').value : '') : '',
+      // Grup-2 dikirim apa adanya; metode diturunkan server (kartu terisi -> FLAZZ).
+      biaya_bbm_2: parseFloat((document.getElementById('ed_biaya_bbm_2') || {}).value) || 0,
+      biaya_toll_2: parseFloat((document.getElementById('ed_biaya_toll_2') || {}).value) || 0,
+      flazz_card_id_2: (document.getElementById('ed_flazz_card_id_2') || {}).value || '',
+      flazz_card_id_toll_2: (document.getElementById('ed_flazz_card_id_toll_2') || {}).value || ''
     };
     let fAwal = document.getElementById('ed_foto_odo_awal');
     if (fAwal && fAwal.files && fAwal.files[0]) {
@@ -2799,7 +2972,8 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     var sel = document.getElementById(selectId);
     if (!sel) return;
     var cards = (window.masterData && window.masterData.flazzCards) || [];
-    sel.innerHTML = '<option value="">Pilih Kartu...</option>';
+    var blankLabel = (String(selectId).indexOf('_2') > -1) ? 'Tanpa kartu (tunai)' : 'Pilih Kartu...';
+    sel.innerHTML = '<option value="">' + blankLabel + '</option>';
     cards.forEach(function(f) {
       if (f.status === 'NONAKTIF') return;
       if (cabang && String(f.branch_id) !== String(cabang)) return;
@@ -2840,6 +3014,9 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     if (fcTol) fcTol.value = '';
     populateFlazzCardSelect('flazz_card_id', cabang);
     populateFlazzCardSelect('flazz_card_id_toll', cabang);
+    populateFlazzCardSelect('flazz_card_id_2', cabang);
+    populateFlazzCardSelect('flazz_card_id_toll_2', cabang);
+    resetGrupKartu2();
     var tStripReset = document.getElementById('flazz_card_id_toll_strip');
     if (tStripReset) tStripReset.textContent = '-';
     if (typeof toggleFlazzCardSelection === 'function') toggleFlazzCardSelection();
@@ -3580,7 +3757,34 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
       document.getElementById('sum_bayar_tol').innerText = '-';
     }
 
-    var total = biayaBbm + biayaTol;
+    // Grup-2 (kartu ke-2): tidak tampil bila belum dipakai, agar baris ringkasan
+    // tetap ringkas untuk transaksi satu kartu seperti sebelumnya.
+    var g2 = (typeof readGrupKartu2 === 'function')
+             ? readGrupKartu2()
+             : { aktif: false, biaya_bbm_2: 0, biaya_toll_2: 0, flazz_card_id_2: '', flazz_card_id_toll_2: '' };
+    var elG2 = document.getElementById('sum_bayar_kartu2');
+    var elG2Wrap = document.getElementById('sum_bayar_kartu2_wrap');
+    if (elG2) {
+      if (g2.aktif) {
+        var parts = [];
+        var c2b = document.getElementById('flazz_card_id_2');
+        var c2t = document.getElementById('flazz_card_id_toll_2');
+        if (g2.biaya_bbm_2 > 0) {
+          parts.push('BBM ' + (c2b && c2b.value ? c2b.options[c2b.selectedIndex].text : 'Tunai') +
+                     ' Rp ' + g2.biaya_bbm_2.toLocaleString('id-ID'));
+        }
+        if (g2.biaya_toll_2 > 0) {
+          parts.push('Tol ' + (c2t && c2t.value ? c2t.options[c2t.selectedIndex].text : 'Tunai') +
+                     ' Rp ' + g2.biaya_toll_2.toLocaleString('id-ID'));
+        }
+        if (elG2Wrap) elG2Wrap.style.display = '';
+        elG2.innerText = parts.length ? parts.join(' | ') : 'dipilih tanpa nominal';
+      } else {
+        if (elG2Wrap) elG2Wrap.style.display = 'none';
+      }
+    }
+
+    var total = biayaBbm + biayaTol + (g2.aktif ? (g2.biaya_bbm_2 + g2.biaya_toll_2) : 0);
     document.getElementById('sum_total').innerText = 'Rp ' + total.toLocaleString('id-ID');
   }
 </script>
