@@ -910,6 +910,7 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     var vAkR = document.getElementById('bar_akhir_slider_val');
     if (vAwR) vAwR.textContent = '0%';
     if (vAkR) vAkR.textContent = '0%';
+    if (typeof updateFuelGauge === 'function') { updateFuelGauge('awal', 0); updateFuelGauge('akhir', 0); }
 
     var tglReset = document.getElementById('tanggal');
     if (tglReset) {
@@ -2917,6 +2918,15 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
       if (kmK) kmK.value = '';
     }
 
+    // Gaya meteran jarum mengikuti jenis kendaraan (motor: busur pendek di bawah
+    // speedometer; selainnya: setengah lingkaran mobil).
+    var vehJenis = '';
+    if (vehSel && vehSel.value) {
+      var vj = (allVehicles || []).find(function (v) { return v.vehicle_id === vehSel.value; });
+      vehJenis = vj ? String(vj.jenis || '') : '';
+    }
+    window.__fuelGaugeType = (vehJenis.toLowerCase() === 'motor') ? 'motor' : 'mobil';
+
     // Untuk indikator jarum: field angka disembunyikan, diganti slider level 0-100%.
     ['awal', 'akhir'].forEach(function (side) {
       var barField = document.getElementById('bar_' + side);
@@ -2929,6 +2939,7 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
         if (slider) slider.value = '0';
         var valElSide = document.getElementById('bar_' + side + '_slider_val');
         if (valElSide) valElSide.textContent = '0%';
+        updateFuelGauge(side, 0);
         if (barField) {
           barField.style.display = '';
           if (barField && barField.parentNode) barField.parentNode.style.display = '';
@@ -2963,6 +2974,95 @@ let btnPengguna = masterTabs.querySelector('button[data-tab="pengguna"]');
     if (slider) slider.value = v;
     if (valEl) valEl.textContent = v + '%';
     if (barField) barField.value = v;
+    updateFuelGauge(side, v);
+  }
+
+  // Meteran bensin (busur E-F + jarum) yang mengikuti slider jarum. Hanya tampilan:
+  // nilai tetap disimpan dari slider ke field bar_* (0-100).
+  // Geometri: pusat (60,60), jari-jari 46; 0% = kiri (E), 100% = kanan (F).
+  function buildFuelGauge(el) {
+    var cx = 60, cy = 60, r = 46;
+    function pt(pct, rad) {
+      var a = Math.PI * (1 - pct / 100);
+      return [(cx + rad * Math.cos(a)).toFixed(1), (cy - rad * Math.sin(a)).toFixed(1)];
+    }
+    var arc = 'M ' + (cx - r) + ' ' + cy + ' A ' + r + ' ' + r + ' 0 0 1 ' + (cx + r) + ' ' + cy;
+    var redEnd = pt(12.5, r);
+    var ticks = '';
+    [0, 25, 50, 75, 100].forEach(function (p) {
+      var a = pt(p, r - 8), b = pt(p, r + 1);
+      ticks += '<line x1="' + a[0] + '" y1="' + a[1] + '" x2="' + b[0] + '" y2="' + b[1] + '" stroke="#6c757d" stroke-width="' + (p % 50 === 0 ? 2 : 1.2) + '"/>';
+    });
+    el.innerHTML =
+      '<svg viewBox="0 0 120 72" width="100%" style="max-width:170px;display:block;margin:0 auto;">' +
+        '<path d="' + arc + '" fill="none" stroke="#e9ecef" stroke-width="8" stroke-linecap="round"/>' +
+        '<path d="M ' + (cx - r) + ' ' + cy + ' A ' + r + ' ' + r + ' 0 0 1 ' + redEnd[0] + ' ' + redEnd[1] + '" fill="none" stroke="#f5c2c7" stroke-width="8"/>' +
+        '<path class="fg-level" d="' + arc + '" pathLength="100" fill="none" stroke="#198754" stroke-width="8" stroke-linecap="round" stroke-dasharray="0 100" style="transition:stroke-dasharray .2s,stroke .2s"/>' +
+        ticks +
+        '<text x="' + (cx - r) + '" y="' + (cy + 11) + '" text-anchor="middle" font-size="9" font-weight="700" fill="#dc3545">E</text>' +
+        '<text x="' + cx + '" y="' + (cy - r + 18) + '" text-anchor="middle" font-size="8" fill="#6c757d">½</text>' +
+        '<text x="' + (cx + r) + '" y="' + (cy + 11) + '" text-anchor="middle" font-size="9" font-weight="700" fill="#198754">F</text>' +
+        '<line class="fg-needle" x1="' + cx + '" y1="' + cy + '" x2="' + (cx - r + 10) + '" y2="' + cy + '" stroke="#dc3545" stroke-width="2.5" stroke-linecap="round" ' +
+          'style="transform-origin:' + cx + 'px ' + cy + 'px;transform-box:view-box;transition:transform .2s"/>' +
+        '<circle cx="' + cx + '" cy="' + cy + '" r="4.5" fill="#343a40"/>' +
+      '</svg>';
+  }
+
+  // Meteran motor: meniru panel motor (mis. Yamaha) — busur pendek 90° di bawah
+  // speedometer, poros jarum di bawah, tanda merah dekat E, ikon pompa di tengah.
+  // Geometri: poros (60,80), jari-jari 44; 0% = 135° (kiri-atas, E), 100% = 45° (F).
+  function buildFuelGaugeMotor(el) {
+    var cx = 60, cy = 80, r = 44;
+    function pt(pct, rad) {
+      var a = Math.PI * (135 - pct * 0.9) / 180;
+      return [(cx + rad * Math.cos(a)).toFixed(1), (cy - rad * Math.sin(a)).toFixed(1)];
+    }
+    var p0 = pt(0, r), p100 = pt(100, r);
+    var arc = 'M ' + p0[0] + ' ' + p0[1] + ' A ' + r + ' ' + r + ' 0 0 1 ' + p100[0] + ' ' + p100[1];
+    var ticks = '';
+    [0, 12.5, 25, 37.5, 50, 62.5, 75, 87.5, 100].forEach(function (p) {
+      var major = (p % 50 === 0);
+      var a = pt(p, r - (major ? 11 : 7)), b = pt(p, r);
+      ticks += '<line x1="' + a[0] + '" y1="' + a[1] + '" x2="' + b[0] + '" y2="' + b[1] + '" stroke="' + (p <= 25 ? '#ff4d4d' : '#f8f9fa') + '" stroke-width="' + (major ? 2.2 : 1.4) + '"/>';
+    });
+    var eTxt = pt(-9, r - 4), fTxt = pt(109, r - 4);
+    // Ikon pompa bensin sederhana di bawah tanda tengah.
+    var pump = '<g transform="translate(55 57)" fill="none" stroke="#f8f9fa" stroke-width="1.2">' +
+               '<rect x="0" y="0" width="7" height="10" rx="1"/><line x1="1.5" y1="3" x2="5.5" y2="3"/>' +
+               '<path d="M7 3 h2 v5 a1 1 0 0 0 2 0 v-6 l-2 -2"/></g>';
+    el.innerHTML =
+      '<svg viewBox="8 22 104 68" width="100%" style="max-width:170px;display:block;margin:0 auto;">' +
+        '<rect x="8" y="22" width="104" height="68" rx="10" fill="#212529"/>' +
+        '<path d="' + arc + '" fill="none" stroke="#495057" stroke-width="3"/>' +
+        '<path class="fg-level" d="' + arc + '" pathLength="100" fill="none" stroke="#198754" stroke-width="3" stroke-dasharray="0 100" style="transition:stroke-dasharray .2s,stroke .2s"/>' +
+        ticks + pump +
+        '<text x="' + eTxt[0] + '" y="' + (parseFloat(eTxt[1]) + 3) + '" text-anchor="middle" font-size="9" font-weight="700" fill="#ff4d4d">E</text>' +
+        '<text x="' + fTxt[0] + '" y="' + (parseFloat(fTxt[1]) + 3) + '" text-anchor="middle" font-size="9" font-weight="700" fill="#f8f9fa">F</text>' +
+        '<line class="fg-needle" x1="' + cx + '" y1="' + cy + '" x2="' + pt(0, r - 3)[0] + '" y2="' + pt(0, r - 3)[1] + '" stroke="#ff6a00" stroke-width="3" stroke-linecap="round" ' +
+          'style="transform-origin:' + cx + 'px ' + cy + 'px;transform-box:view-box;transition:transform .2s"/>' +
+        '<circle cx="' + cx + '" cy="' + cy + '" r="5" fill="#343a40" stroke="#6c757d" stroke-width="1"/>' +
+      '</svg>';
+  }
+
+  function updateFuelGauge(side, val) {
+    var el = document.getElementById('fuel-gauge-' + side);
+    if (!el) return;
+    var type = window.__fuelGaugeType === 'motor' ? 'motor' : 'mobil';
+    if (el.getAttribute('data-type') !== type) {
+      if (type === 'motor') buildFuelGaugeMotor(el); else buildFuelGauge(el);
+      el.setAttribute('data-type', type);
+    }
+    var v = Math.max(0, Math.min(100, parseFloat(val) || 0));
+    var needle = el.querySelector('.fg-needle');
+    var level = el.querySelector('.fg-level');
+    // Sapuan jarum: mobil 180°, motor 90°.
+    if (needle) needle.style.transform = 'rotate(' + (v * (type === 'motor' ? 0.9 : 1.8)) + 'deg)';
+    if (level) {
+      level.setAttribute('stroke-dasharray', v + ' 100');
+      // Ujung busur yang membulat tetap tergambar sebagai titik saat 0%; sembunyikan.
+      level.setAttribute('stroke-opacity', v > 0 ? '1' : '0');
+      level.setAttribute('stroke', v < 25 ? '#dc3545' : (v < 50 ? '#fd7e14' : '#198754'));
+    }
   }
 
   function isSupirNameValid() {
